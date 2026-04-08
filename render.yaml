@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: pyrology-wip
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120
+    envVars:
+      - key: CACHE_TTL
+        value: "60"
+      - key: SESSION_COOKIE
+        value: ""
+        # If the tracker API requires auth later, paste your
+        # .AspNetCore.Session cookie value here.
