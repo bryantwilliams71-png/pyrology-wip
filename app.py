@@ -3,24 +3,25 @@
 Pyrology WIP Production Dashboard — Cloud Version
 --------------------------------------------------
 Hosts the production status board as a public web app.
-No local Chrome or cookies needed.
 
-Auth: If the tracker API requires a session cookie,
-set the SESSION_COOKIE environment variable (see README).
+Data can arrive two ways:
+  1. Server-pull: set SESSION_COOKIE env var and the server fetches automatically.
+  2. Browser-push: POST raw dithtracker JSON to /api/push-wip from any logged-in
+     browser tab — the server caches it and serves it to the dashboard.
 """
 
 import os, sys, time, logging, threading, socket
 from datetime import datetime
 
 import requests
-from flask import Flask, jsonify, Response
+from flask import Flask, jsonify, Response, request
 from flask_cors import CORS
 
 # ── Config ─────────────────────────────────────────────────────────────────────
 API_URL    = os.getenv('WIP_API_URL',
              'https://dithtracker-reporting.azurewebsites.net/Api/Reports/Wip?pageSize=500')
 PORT       = int(os.getenv('PORT', 8080))
-CACHE_TTL  = int(os.getenv('CACHE_TTL', 60))   # seconds between refreshes
+CACHE_TTL  = int(os.getenv('CACHE_TTL', 60))   # seconds between server-side refreshes
 
 # Optional: paste your .AspNetCore.* session cookie value here or as env var
 SESSION_COOKIE = os.getenv('SESSION_COOKIE', '')
@@ -46,7 +47,38 @@ logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s  %(message)s', datefmt='%H:%M:%S')
 log = logging.getLogger(__name__)
 
-# ── Fetch ──────────────────────────────────────────────────────────────────────
+# ── Transform raw API rows → internal format ───────────────────────────────────
+def transform_rows(raw):
+    items = []
+    for row in raw:
+        status = row.get('status', '')
+        stage  = STATUS_MAP.get(status)
+        if not stage:
+            continue
+        due_raw = row.get('dueDate') or row.get('shipDate') or ''
+        first = (row.get('firstName') or '').strip()
+        last  = (row.get('lastName')  or '').strip()
+        items.append({
+            'job':      str(row.get('dithPieceNo', '')),
+            'name':     row.get('itemDescription', ''),
+            'customer': f'{first} {last}'.strip(),
+            'edition':  str(row.get('editionNo', '')),
+            'due':      due_raw[:10] if due_raw else '',
+            'stage':    stage,
+            'status':   status,
+            'monument': bool(row.get('monument', False)),
+            'price':    float(row.get('price') or 0),
+            'hWaxPull': float(row.get('waxPullBidHours') or 0),
+            'hWax':     float(row.get('waxBidHours') or 0),
+            'hSprue':   float(row.get('sprueBidHours') or 0),
+            'hMetal':   float(row.get('metalBidHours') or 0),
+            'hPolish':  float(row.get('polishBidHours') or 0),
+            'hPatina':  float(row.get('patinaBidHours') or 0),
+            'hBasing':  float(row.get('basingBidHours') or 0),
+        })
+    return items
+
+# ── Server-side fetch (only used when SESSION_COOKIE is set) ───────────────────
 def fetch():
     log.info('Fetching from Tracker API...')
     try:
@@ -57,50 +89,20 @@ def fetch():
         }
         cookies = {}
         if SESSION_COOKIE:
-            # Inject the session cookie if provided
             cookies['.AspNetCore.Session'] = SESSION_COOKIE
 
         r = requests.get(API_URL, headers=headers, cookies=cookies, timeout=20)
         r.raise_for_status()
         body = r.json()
         raw  = body.get('items', body) if isinstance(body, dict) else body
-
-        items = []
-        for row in raw:
-            status = row.get('status', '')
-            stage  = STATUS_MAP.get(status)
-            if not stage:
-                continue
-            due_raw = row.get('dueDate') or row.get('shipDate') or ''
-            first = (row.get('firstName') or '').strip()
-            last  = (row.get('lastName')  or '').strip()
-            items.append({
-                'job':      str(row.get('dithPieceNo', '')),
-                'name':     row.get('itemDescription', ''),
-                'customer': f'{first} {last}'.strip(),
-                'edition':  str(row.get('editionNo', '')),
-                'due':      due_raw[:10] if due_raw else '',
-                'stage':    stage,
-                'status':   status,
-                'monument': bool(row.get('monument', False)),
-                'price':    float(row.get('price') or 0),
-                'hWaxPull': float(row.get('waxPullBidHours') or 0),
-                'hWax':     float(row.get('waxBidHours') or 0),
-                'hSprue':   float(row.get('sprueBidHours') or 0),
-                'hMetal':   float(row.get('metalBidHours') or 0),
-                'hPolish':  float(row.get('polishBidHours') or 0),
-                'hPatina':  float(row.get('patinaBidHours') or 0),
-                'hBasing':  float(row.get('basingBidHours') or 0),
-            })
-
+        items = transform_rows(raw)
         log.info(f'Loaded {len(items)} items.')
         return items, None
-
     except Exception as e:
         log.error(f'Fetch failed: {e}')
         return None, str(e)
 
-# ── Background refresh ─────────────────────────────────────────────────────────
+# ── Background refresh (only runs if SESSION_COOKIE is configured) ─────────────
 def refresh_loop():
     while True:
         items, err = fetch()
@@ -398,25 +400,56 @@ def api_wip():
             'error':   _cache['error'],
         })
 
+@app.route('/api/push-wip', methods=['POST'])
+def push_wip():
+    """
+    Accept raw dithtracker JSON pushed from a logged-in browser.
+    The browser tab on dithtracker-reporting.azurewebsites.net fetches
+    /Api/Reports/Wip (same-origin, session cookie included automatically)
+    and POSTs the result here so the dashboard stays live without needing
+    a server-side session cookie.
+    """
+    try:
+        body = request.get_json(force=True)
+        if body is None:
+            return jsonify({'error': 'No JSON body'}), 400
+
+        raw = body.get('items', body) if isinstance(body, dict) else body
+        items = transform_rows(raw)
+
+        with _lock:
+            _cache['items']   = items
+            _cache['error']   = None
+            _cache['updated'] = datetime.utcnow().isoformat() + 'Z'
+
+        log.info(f'Browser push received: {len(items)} items.')
+        return jsonify({'ok': True, 'items': len(items)})
+
+    except Exception as e:
+        log.error(f'Push failed: {e}')
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/health')
 def health():
     with _lock:
         return jsonify({'ok': True, 'items': len(_cache['items']), 'updated': _cache['updated']})
 
 # ── Startup ────────────────────────────────────────────────────────────────────
-log.info('Running initial data fetch...')
-items, err = fetch()
-with _lock:
-    if items is not None:
-        _cache['items']   = items
-        _cache['updated'] = datetime.utcnow().isoformat() + 'Z'
-        log.info(f'✓  {len(items)} items loaded.')
-    else:
-        _cache['error'] = err
-        log.warning(f'⚠  Initial fetch failed: {err}')
-
-t = threading.Thread(target=refresh_loop, daemon=True)
-t.start()
+if SESSION_COOKIE:
+    log.info('SESSION_COOKIE set — running initial server-side fetch...')
+    items, err = fetch()
+    with _lock:
+        if items is not None:
+            _cache['items']   = items
+            _cache['updated'] = datetime.utcnow().isoformat() + 'Z'
+            log.info(f'✓  {len(items)} items loaded.')
+        else:
+            _cache['error'] = err
+            log.warning(f'⚠  Initial fetch failed: {err}')
+    t = threading.Thread(target=refresh_loop, daemon=True)
+    t.start()
+else:
+    log.info('No SESSION_COOKIE — waiting for browser push to /api/push-wip')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT, debug=False, use_reloader=False)
