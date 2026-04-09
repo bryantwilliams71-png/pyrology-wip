@@ -2,15 +2,12 @@
 """
 Pyrology WIP Production Dashboard — Cloud Version
 --------------------------------------------------
-Hosts the production status board as a public web app.
-
-Data can arrive two ways:
-  1. Server-pull: set SESSION_COOKIE env var and the server fetches automatically.
-  2. Browser-push: POST raw dithtracker JSON to /api/push-wip from any logged-in
-     browser tab — the server caches it and serves it to the dashboard.
+Data arrives two ways:
+  1. Server-pull: set SESSION_COOKIE env var.
+  2. Browser-push: POST raw dithtracker JSON to /api/push-wip.
 """
 
-import os, sys, time, logging, threading, socket
+import os, time, logging, threading
 from datetime import datetime
 
 import requests
@@ -21,9 +18,7 @@ from flask_cors import CORS
 API_URL    = os.getenv('WIP_API_URL',
              'https://dithtracker-reporting.azurewebsites.net/Api/Reports/Wip?pageSize=500')
 PORT       = int(os.getenv('PORT', 8080))
-CACHE_TTL  = int(os.getenv('CACHE_TTL', 60))   # seconds between server-side refreshes
-
-# Optional: paste your .AspNetCore.* session cookie value here or as env var
+CACHE_TTL  = int(os.getenv('CACHE_TTL', 60))
 SESSION_COOKIE = os.getenv('SESSION_COOKIE', '')
 
 # ── Status → Stage mapping ─────────────────────────────────────────────────────
@@ -59,26 +54,28 @@ def transform_rows(raw):
         first = (row.get('firstName') or '').strip()
         last  = (row.get('lastName')  or '').strip()
         items.append({
-            'job':      str(row.get('dithPieceNo', '')),
-            'name':     row.get('itemDescription', ''),
-            'customer': f'{first} {last}'.strip(),
-            'edition':  str(row.get('editionNo', '')),
-            'due':      due_raw[:10] if due_raw else '',
-            'stage':    stage,
-            'status':   status,
-            'monument': bool(row.get('monument', False)),
-            'price':    float(row.get('price') or 0),
-            'hWaxPull': float(row.get('waxPullBidHours') or 0),
-            'hWax':     float(row.get('waxBidHours') or 0),
-            'hSprue':   float(row.get('sprueBidHours') or 0),
-            'hMetal':   float(row.get('metalBidHours') or 0),
-            'hPolish':  float(row.get('polishBidHours') or 0),
-            'hPatina':  float(row.get('patinaBidHours') or 0),
-            'hBasing':  float(row.get('basingBidHours') or 0),
+            'job':           str(row.get('dithPieceNo', '')),
+            'name':          row.get('itemDescription', ''),
+            'customer':      f'{first} {last}'.strip(),
+            'edition':       str(row.get('editionNo', '')),
+            'due':           due_raw[:10] if due_raw else '',
+            'stage':         stage,
+            'status':        status,
+            'monument':      bool(row.get('monument', False)),
+            'price':         float(row.get('price') or 0),
+            'hWaxPull':      float(row.get('waxPullBidHours') or 0),
+            'hWax':          float(row.get('waxBidHours') or 0),
+            'hSprue':        float(row.get('sprueBidHours') or 0),
+            'hMetal':        float(row.get('metalBidHours') or 0),
+            'hPolish':       float(row.get('polishBidHours') or 0),
+            'hPatina':       float(row.get('patinaBidHours') or 0),
+            'hBasing':       float(row.get('basingBidHours') or 0),
+            'hMetalWorked':  float(row.get('metalHoursWorked') or 0),
+            'hPolishWorked': float(row.get('polishHoursWorked') or 0),
         })
     return items
 
-# ── Server-side fetch (only used when SESSION_COOKIE is set) ───────────────────
+# ── Server-side fetch ──────────────────────────────────────────────────────────
 def fetch():
     log.info('Fetching from Tracker API...')
     try:
@@ -90,7 +87,6 @@ def fetch():
         cookies = {}
         if SESSION_COOKIE:
             cookies['.AspNetCore.Session'] = SESSION_COOKIE
-
         r = requests.get(API_URL, headers=headers, cookies=cookies, timeout=20)
         r.raise_for_status()
         body = r.json()
@@ -102,7 +98,6 @@ def fetch():
         log.error(f'Fetch failed: {e}')
         return None, str(e)
 
-# ── Background refresh (only runs if SESSION_COOKIE is configured) ─────────────
 def refresh_loop():
     while True:
         items, err = fetch()
@@ -171,11 +166,24 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
 #wdtable{flex:1;overflow-y:auto;padding:10px 18px}
 table.wdt{width:100%;border-collapse:collapse;font-size:.82em}
 table.wdt th{color:#888;font-weight:600;text-align:left;padding:6px 8px;border-bottom:1px solid #2a2d3a;position:sticky;top:0;background:#1a1d27;font-size:.85em;text-transform:uppercase;letter-spacing:.5px}
-table.wdt td{padding:7px 8px;border-bottom:1px solid #1e2230;vertical-align:top}
+table.wdt td{padding:7px 8px;border-bottom:1px solid #1e2230;vertical-align:middle}
 table.wdt tr:hover td{background:#1e2130}
 .tdmon{background:#7b5ea7;color:#fff;font-size:.7em;padding:1px 4px;border-radius:3px;margin-left:4px}
 .tdover{color:#ff6b6b;font-weight:600}.tdwarn{color:#ffaa44}.tdok{color:#5a9e5a}
 .tdval{color:#4db8b8;font-weight:600}.tdhrs{color:#ffd580;font-size:.85em}
+.metal-section-hdr{display:flex;align-items:center;gap:10px;padding:10px 0 6px;margin-top:4px}
+.metal-section-hdr h3{font-size:.9em;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+.metal-section-hdr .metal-badge{font-size:.72em;padding:2px 8px;border-radius:10px;font-weight:600}
+.metal-section-stats{display:flex;gap:16px;margin-bottom:8px;padding:0 2px}
+.metal-section-stats span{font-size:.75em;color:#aaa}
+.metal-section-stats strong{color:#fff}
+.prog-wrap{display:flex;flex-direction:column;gap:4px;min-width:160px}
+.prog-row{display:flex;align-items:center;gap:7px}
+.prog-label{font-size:.7em;color:#888;width:52px;flex-shrink:0}
+.prog-bar-bg{flex:1;height:7px;background:#2a2d3a;border-radius:4px;overflow:hidden}
+.prog-bar-fill{height:100%;border-radius:4px;transition:width .4s}
+.prog-pct{font-size:.75em;font-weight:700;width:34px;text-align:right;flex-shrink:0}
+.prog-val{font-size:.7em;color:#aaa;margin-top:1px;text-align:right}
 </style>
 </head>
 <body>
@@ -213,12 +221,7 @@ table.wdt tr:hover td{background:#1e2130}
         <button id="wdback">← Back to All</button>
       </div>
     </div>
-    <div id="wdtable">
-      <table class="wdt">
-        <thead><tr><th>Piece #</th><th>Description</th><th>Client</th><th>Edition</th><th>Due Date</th><th>Value</th><th>Hrs Bid</th></tr></thead>
-        <tbody id="wdtbody"></tbody>
-      </table>
-    </div>
+    <div id="wdtable"></div>
   </div>
 </div>
 
@@ -252,6 +255,34 @@ function dueLabel(d){
   if(diff<0)return{t:'OVERDUE '+Math.abs(diff)+'D',c:'over'};
   if(diff<=7)return{t:'DUE '+d,c:'warn'};
   return{t:d,c:'ok'};
+}
+
+/* ── progress bar helper ── */
+function metalPct(item){
+  const bid=(item.hMetal||0)+(item.hPolish||0);
+  const done=(item.hMetalWorked||0)+(item.hPolishWorked||0);
+  return bid>0?Math.min(100,Math.round(done/bid*100)):0;
+}
+function pctBars(item){
+  const pct=metalPct(item);
+  const rem=100-pct;
+  const doneVal=item.price*(pct/100);
+  const remVal=item.price*((100-pct)/100);
+  const doneColor=pct>=80?'#5a9e5a':pct>=40?'#e8a838':'#8b9dc3';
+  return `<div class="prog-wrap">
+    <div class="prog-row">
+      <span class="prog-label" style="color:${doneColor}">Done</span>
+      <div class="prog-bar-bg"><div class="prog-bar-fill" style="width:${pct}%;background:${doneColor}"></div></div>
+      <span class="prog-pct" style="color:${doneColor}">${pct}%</span>
+    </div>
+    <div class="prog-val" style="color:${doneColor};padding-left:59px">${fmt(doneVal)} completed</div>
+    <div class="prog-row" style="margin-top:2px">
+      <span class="prog-label" style="color:#e8a838">Remain</span>
+      <div class="prog-bar-bg"><div class="prog-bar-fill" style="width:${rem}%;background:#e8a838"></div></div>
+      <span class="prog-pct" style="color:#e8a838">${rem}%</span>
+    </div>
+    <div class="prog-val" style="color:#e8a838;padding-left:59px">${fmt(remVal)} remaining</div>
+  </div>`;
 }
 
 function renderBoard(){
@@ -301,6 +332,13 @@ function renderBoard(){
   }).join('');
 }
 
+function sortItems(items){
+  if(_drillSort==='due')items.sort((a,b)=>{if(!a.due&&!b.due)return 0;if(!a.due)return 1;if(!b.due)return-1;return a.due.localeCompare(b.due);});
+  else if(_drillSort==='val')items.sort((a,b)=>(b.price||0)-(a.price||0));
+  else items.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  return items;
+}
+
 function openDrill(stageKey,stageName,stageColor){
   _drillStage=stageKey;_drillSort='due';
   document.querySelectorAll('.wdbtn').forEach(b=>b.classList.remove('active'));
@@ -318,13 +356,115 @@ document.getElementById('wdsortdue').onclick=function(){_drillSort='due';documen
 document.getElementById('wdsortval').onclick=function(){_drillSort='val';document.querySelectorAll('.wdbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderDrill();};
 document.getElementById('wdsortname').onclick=function(){_drillSort='name';document.querySelectorAll('.wdbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderDrill();};
 
+/* ── Metal Work special drill-down ── */
+function renderDrillMetal(q){
+  let all=_items.filter(i=>i.stage==='metal');
+  if(q)all=all.filter(i=>(i.name+' '+i.customer+' '+i.job).toLowerCase().includes(q));
+
+  const small=sortItems(all.filter(i=>!i.monument));
+  const mon=sortItems(all.filter(i=>i.monument));
+
+  const totalVal=all.reduce((a,i)=>a+(i.price||0),0);
+  const totalHrs=all.reduce((a,i)=>a+(i.hMetal||0)+(i.hPolish||0),0);
+  const over=all.filter(i=>{const d=daysDiff(i.due);return d!==null&&d<0;}).length;
+
+  document.getElementById('wdstats').innerHTML=
+    `<span>Items: <strong>${all.length}</strong></span>`+
+    `<span>Value: <strong style="color:#4db8b8">${fmt(totalVal)}</strong></span>`+
+    (totalHrs>0?`<span>Hrs Bid: <strong style="color:#ffd580">${fmtH(totalHrs)}</strong></span>`:'')+
+    `<span>Overdue: <strong style="color:#ff6b6b">${over}</strong></span>`+
+    `<span>Small: <strong>${small.length}</strong></span>`+
+    `<span>Monument: <strong style="color:#7b5ea7">${mon.length}</strong></span>`;
+
+  function smallTable(items){
+    if(!items.length)return'<p style="color:#555;font-size:.8em;padding:8px 0">No items.</p>';
+    return`<table class="wdt"><thead><tr><th>Piece #</th><th>Description</th><th>Client</th><th>Edition</th><th>Due Date</th><th>Value</th><th>Hrs Bid</th></tr></thead><tbody>`+
+    items.map(item=>{
+      const dl=dueLabel(item.due);
+      const h=(item.hMetal||0)+(item.hPolish||0);
+      return`<tr>
+        <td style="color:#888">#${item.job}</td>
+        <td><strong>${item.name||'—'}</strong><br><small style="color:#666">${item.status||''}</small></td>
+        <td>${item.customer||'—'}</td>
+        <td style="color:#888">${item.edition?'Ed.'+item.edition:''}</td>
+        <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">—</span>'}</td>
+        <td class="tdval">${fmt(item.price)}</td>
+        <td class="tdhrs">${h>0?h.toFixed(2)+' hrs':''}</td>
+      </tr>`;
+    }).join('')+'</tbody></table>';
+  }
+
+  function monTable(items){
+    if(!items.length)return'<p style="color:#555;font-size:.8em;padding:8px 0">No items.</p>';
+    // summary totals for monument section
+    const monVal=items.reduce((a,i)=>a+(i.price||0),0);
+    const monDoneVal=items.reduce((a,i)=>a+(i.price||0)*(metalPct(i)/100),0);
+    const monRemVal=monVal-monDoneVal;
+    const avgPct=items.length?Math.round(items.reduce((a,i)=>a+metalPct(i),0)/items.length):0;
+    const summaryBar=`<div style="background:#12151f;border:1px solid #2a2d3a;border-radius:6px;padding:10px 14px;margin-bottom:10px;display:flex;gap:28px;align-items:center;flex-wrap:wrap">
+      <div>
+        <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.5px">Avg Completion</div>
+        <div style="font-size:1.4em;font-weight:700;color:#8b9dc3;margin-top:2px">${avgPct}%</div>
+        <div style="width:120px;height:8px;background:#2a2d3a;border-radius:4px;margin-top:4px;overflow:hidden">
+          <div style="width:${avgPct}%;height:100%;background:#8b9dc3;border-radius:4px"></div>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:.65em;color:#5a9e5a;text-transform:uppercase;letter-spacing:.5px">Value Completed</div>
+        <div style="font-size:1.1em;font-weight:700;color:#5a9e5a;margin-top:2px">${fmt(monDoneVal)}</div>
+      </div>
+      <div>
+        <div style="font-size:.65em;color:#e8a838;text-transform:uppercase;letter-spacing:.5px">Value Remaining</div>
+        <div style="font-size:1.1em;font-weight:700;color:#e8a838;margin-top:2px">${fmt(monRemVal)}</div>
+      </div>
+      <div style="flex:1;min-width:160px">
+        <div style="font-size:.65em;color:#888;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">Total Value Progress</div>
+        <div style="height:12px;background:#2a2d3a;border-radius:6px;overflow:hidden">
+          <div style="width:${Math.round(monDoneVal/Math.max(monVal,1)*100)}%;height:100%;background:linear-gradient(90deg,#5a9e5a,#4db8b8);border-radius:6px"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:3px">
+          <span style="font-size:.65em;color:#5a9e5a">${fmt(monDoneVal)} done</span>
+          <span style="font-size:.65em;color:#e8a838">${fmt(monRemVal)} left</span>
+        </div>
+      </div>
+    </div>`;
+    return summaryBar+
+    `<table class="wdt"><thead><tr><th>Piece #</th><th>Description</th><th>Client</th><th>Edition</th><th>Due Date</th><th>Value</th><th>Hrs Bid</th><th>Progress</th></tr></thead><tbody>`+
+    items.map(item=>{
+      const dl=dueLabel(item.due);
+      const h=(item.hMetal||0)+(item.hPolish||0);
+      return`<tr>
+        <td style="color:#888">#${item.job}</td>
+        <td><strong>${item.name||'—'}</strong><span class="tdmon">MON</span><br><small style="color:#666">${item.status||''}</small></td>
+        <td>${item.customer||'—'}</td>
+        <td style="color:#888">${item.edition?'Ed.'+item.edition:''}</td>
+        <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">—</span>'}</td>
+        <td class="tdval">${fmt(item.price)}</td>
+        <td class="tdhrs">${h>0?h.toFixed(2)+' hrs':''}</td>
+        <td>${pctBars(item)}</td>
+      </tr>`;
+    }).join('')+'</tbody></table>';
+  }
+
+  document.getElementById('wdtable').innerHTML=
+    `<div class="metal-section-hdr"><h3 style="color:#8b9dc3">Small Metal</h3><span class="metal-badge" style="background:#8b9dc322;color:#8b9dc3">${small.length} items · ${fmt(small.reduce((a,i)=>a+(i.price||0),0))}</span></div>`+
+    smallTable(small)+
+    `<div class="metal-section-hdr" style="margin-top:18px"><h3 style="color:#7b5ea7">Monument Metal</h3><span class="metal-badge" style="background:#7b5ea722;color:#7b5ea7">${mon.length} items · ${fmt(mon.reduce((a,i)=>a+(i.price||0),0))}</span></div>`+
+    monTable(mon);
+}
+
 function renderDrill(){
   const q=(document.getElementById('wdsearch').value||'').toLowerCase();
+
+  if(_drillStage==='metal'){
+    renderDrillMetal(q);
+    return;
+  }
+
   let items=_items.filter(i=>i.stage===_drillStage);
   if(q)items=items.filter(i=>(i.name+' '+i.customer+' '+i.job).toLowerCase().includes(q));
-  if(_drillSort==='due')items.sort((a,b)=>{if(!a.due&&!b.due)return 0;if(!a.due)return 1;if(!b.due)return-1;return a.due.localeCompare(b.due);});
-  else if(_drillSort==='val')items.sort((a,b)=>(b.price||0)-(a.price||0));
-  else items.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  sortItems(items);
+
   const val=items.reduce((a,i)=>a+(i.price||0),0);
   const hrs=STAGE_HRS[_drillStage]?items.reduce((a,i)=>a+STAGE_HRS[_drillStage](i),0):0;
   const over=items.filter(i=>{const d=daysDiff(i.due);return d!==null&&d<0;}).length;
@@ -334,19 +474,21 @@ function renderDrill(){
     (hrs>0?`<span>Hrs Bid: <strong style="color:#ffd580">${fmtH(hrs)}</strong></span>`:'')+
     `<span>Overdue: <strong style="color:#ff6b6b">${over}</strong></span>`+
     `<span>Monuments: <strong style="color:#7b5ea7">${items.filter(i=>i.monument).length}</strong></span>`;
-  document.getElementById('wdtbody').innerHTML=items.map(item=>{
-    const dl=dueLabel(item.due);
-    const h=STAGE_HRS[_drillStage]?STAGE_HRS[_drillStage](item):0;
-    return`<tr>
-      <td style="color:#888">#${item.job}</td>
-      <td><strong>${item.name||'—'}</strong>${item.monument?'<span class="tdmon">MON</span>':''}<br><small style="color:#666">${item.status||''}</small></td>
-      <td>${item.customer||'—'}</td>
-      <td style="color:#888">${item.edition?'Ed.'+item.edition:''}</td>
-      <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">—</span>'}</td>
-      <td class="tdval">${fmt(item.price)}</td>
-      <td class="tdhrs">${h>0?h.toFixed(2)+' hrs':''}</td>
-    </tr>`;
-  }).join('');
+  document.getElementById('wdtable').innerHTML=
+    `<table class="wdt"><thead><tr><th>Piece #</th><th>Description</th><th>Client</th><th>Edition</th><th>Due Date</th><th>Value</th><th>Hrs Bid</th></tr></thead><tbody>`+
+    items.map(item=>{
+      const dl=dueLabel(item.due);
+      const h=STAGE_HRS[_drillStage]?STAGE_HRS[_drillStage](item):0;
+      return`<tr>
+        <td style="color:#888">#${item.job}</td>
+        <td><strong>${item.name||'—'}</strong>${item.monument?'<span class="tdmon">MON</span>':''}<br><small style="color:#666">${item.status||''}</small></td>
+        <td>${item.customer||'—'}</td>
+        <td style="color:#888">${item.edition?'Ed.'+item.edition:''}</td>
+        <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">—</span>'}</td>
+        <td class="tdval">${fmt(item.price)}</td>
+        <td class="tdhrs">${h>0?h.toFixed(2)+' hrs':''}</td>
+      </tr>`;
+    }).join('')+'</tbody></table>';
 }
 
 function updateClock(){
@@ -402,29 +544,18 @@ def api_wip():
 
 @app.route('/api/push-wip', methods=['POST'])
 def push_wip():
-    """
-    Accept raw dithtracker JSON pushed from a logged-in browser.
-    The browser tab on dithtracker-reporting.azurewebsites.net fetches
-    /Api/Reports/Wip (same-origin, session cookie included automatically)
-    and POSTs the result here so the dashboard stays live without needing
-    a server-side session cookie.
-    """
     try:
         body = request.get_json(force=True)
         if body is None:
             return jsonify({'error': 'No JSON body'}), 400
-
         raw = body.get('items', body) if isinstance(body, dict) else body
         items = transform_rows(raw)
-
         with _lock:
             _cache['items']   = items
             _cache['error']   = None
             _cache['updated'] = datetime.utcnow().isoformat() + 'Z'
-
         log.info(f'Browser push received: {len(items)} items.')
         return jsonify({'ok': True, 'items': len(items)})
-
     except Exception as e:
         log.error(f'Push failed: {e}')
         return jsonify({'error': str(e)}), 500
