@@ -8,7 +8,7 @@ Data arrives two ways:
 """
 
 import os, time, logging, threading, json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import requests
 from flask import Flask, jsonify, Response, request
@@ -22,6 +22,7 @@ CACHE_TTL  = int(os.getenv('CACHE_TTL', 60))
 SESSION_COOKIE = os.getenv('SESSION_COOKIE', '')
 OVERRIDES_FILE       = '/tmp/metal_overrides.json'
 STAGE_OVERRIDES_FILE = '/tmp/stage_overrides.json'
+KPI_FILE             = '/tmp/kpi_data.json'
 
 # ── Status → Stage mapping ─────────────────────────────────────────────────────
 STATUS_MAP = {
@@ -41,6 +42,7 @@ STATUS_MAP = {
 _cache           = {'items': [], 'updated': None, 'error': None}
 _metal_overrides = {}
 _stage_overrides = {}
+_kpi_data        = {'week_start': '', 'entries': [], 'history': []}
 _lock            = threading.Lock()
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s  %(message)s', datefmt='%H:%M:%S')
@@ -82,8 +84,51 @@ def _save_stage_overrides():
     except Exception as e:
         log.warning(f'Could not save stage overrides: {e}')
 
+def _current_week_start():
+    today = datetime.utcnow().date()
+    monday = today - timedelta(days=today.weekday())
+    return monday.isoformat()
+
+def _load_kpi():
+    global _kpi_data
+    try:
+        with open(KPI_FILE) as f:
+            _kpi_data = json.load(f)
+        log.info(f'Loaded KPI data: {len(_kpi_data.get("entries", []))} entries this week.')
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        log.warning(f'Could not load KPI data: {e}')
+
+def _save_kpi():
+    try:
+        with open(KPI_FILE, 'w') as f:
+            json.dump(_kpi_data, f)
+    except Exception as e:
+        log.warning(f'Could not save KPI data: {e}')
+
+def _record_kpi_entry(job, item, value, dept, note):
+    """Thread-safe KPI entry recorder. Must be called with _lock NOT held."""
+    with _lock:
+        if not _kpi_data.get('week_start'):
+            _kpi_data['week_start'] = _current_week_start()
+        if 'entries' not in _kpi_data:
+            _kpi_data['entries'] = []
+        _kpi_data['entries'].append({
+            'job':          job,
+            'name':         item.get('name', ''),
+            'customer':     item.get('customer', ''),
+            'value':        round(float(value), 2),
+            'dept':         dept,
+            'note':         note,
+            'completed_at': datetime.utcnow().isoformat() + 'Z',
+        })
+    _save_kpi()
+    log.info(f'KPI entry: job={job} dept={dept} value={value:.2f} note={note}')
+
 _load_overrides()
 _load_stage_overrides()
+_load_kpi()
 
 # ── Transform raw API rows → internal format ───────────────────────────────────
 def transform_rows(raw):
@@ -192,7 +237,7 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
 .wcdue.warn{background:#3d2e10;color:#ffaa44}
 .wcdue.ok{background:#0f2d1f;color:#5a9e5a}
 .wcprice{font-size:.85em;color:#4db8b8;font-weight:600}
-.wcmon{background:#7b5ea7;color:#fff;font-size:.7em;padding:1px 4px;border-radius:3px;margin-left:3px}
+.wcmon{background:#7b5ea7;color:#fff;font-size:.vem;padding:1px 4px;border-radius:3px;margin-left:3px}
 .wmore{text-align:center;font-size:.65em;color:#555;padding:4px}
 #wlive{font-size:.65em;color:#5a9e5a;text-align:right;margin-left:auto}
 #werr{background:#3d1515;color:#ff6b6b;padding:8px 14px;font-size:.8em;display:none}
@@ -249,7 +294,10 @@ table.wdt tr:hover td{background:#1e2130}
     <div style="font-size:1.6em">🏭</div>
     <h1>PRODUCTION STATUS BOARD<span>Work In Progress — Click any department to drill down</span></h1>
   </div>
-  <div id="wclock">--:--:--<small>Loading...</small></div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <a href="/kpi" style="display:inline-flex;align-items:center;gap:5px;background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;text-decoration:none;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;letter-spacing:.5px">📊 KPI</a>
+    <div id="wclock">--:--:--<small>Loading...</small></div>
+  </div>
 </div>
 <div id="werr"></div>
 <div id="wstats">
@@ -273,8 +321,6 @@ table.wdt tr:hover td{background:#1e2130}
       <div id="wdtools">
         <input id="wdsearch" placeholder="Search pieces..." type="text"/>
         <button class="wdbtn active" id="wdsortdue">Sort: Due Date</button>
-        <button class="wdbtn" id="wdsorttier" style="display:none">Sort: Tier</button>
-        <button class="wdbtn" id="wdsorttier" style="display:none">Sort: Tier</button>
         <button class="wdbtn" id="wdsorttier" style="display:none">Sort: Tier</button>
         <button class="wdbtn" id="wdsortval">Sort: Value ↓</button>
         <button class="wdbtn" id="wdsortname">Sort: Name</button>
@@ -313,7 +359,7 @@ function daysDiff(d){if(!d)return null;return Math.floor((new Date(d)-new Date()
 function dueLabel(d){
   const diff=daysDiff(d);if(diff===null)return null;
   if(diff<0)return{t:'OVERDUE '+Math.abs(diff)+'D',c:'over'};
-  if(diff<77)return{t:'DUE '+d,c:'warn'};
+  if(diff<=7)return{t:'DUE '+d,c:'warn'};
   return{t:d,c:'ok'};
 }
 
@@ -448,89 +494,78 @@ function renderBoard(){
 
   const grid=document.getElementById('wgrid');
   grid.innerHTML=STAGES.map(s=>{
-    const sd=sm[s.k];
-    const MAX=50, shown=sd.items.slice(0,MAX), extra=sd.items.length-MAX;
-    return `<div class="wcol" onclick="openDrill('${s.k}','${s.l}','${s.c}')">
-      <div class="wchdr" style="background:${s.c}22;border-bottom:3px solid ${s.c}">
-        <div class="wclabel" style="color:${s.c}">${s.l}</div>
-        ${s.sub?`<div class="wcsub">${s.sub}</div>`:''}
-        <div class="wccount">${sd.items.length} ITEMS</div>
-        <div class="wcval">${fmt(sd.val)}</div>
-        ${sd.hrs>0?`<div class="wchrs">⏱ ${fmtH(sd.hrs)}</div>`:''}
+    const st=sm[s.k];
+    const color=s.c;
+    const cards=st.items.slice(0,10).map(item=>{
+      const dl=dueLabel(item.due);
+      return `<div class="wcard" style="border-left-color:${color}">
+        <div class="wcitle">${item.name||'✓'}</div>
+        <div class="wcilent">${item.customer||' '}</div>
+        <div class="w\meta">
+          ${dl?`<span class="wcdue ${dl.c}">${dl.t}</span>`:''}
+          ${item.price?<span class="wcprice">${fmt(item.price)}</span>':''}
+          ${item.monument?'<span class="wcmon">MON</span>':''}
+        </div>
+      </div>`;
+    }).join('');
+    const more=st.items.length>10?`<div class="wmore">+${st.items.length-10} more...</div>`:'';
+    const hrsTxt=st.hrs>0?`<div class="wchrs">${st.hrs.toFixed(1)} hrs bid</div>`:' ';
+    return `<div class="wcol" onclick="openDrill('${s.k}')">
+      <div class="wchdr" style="background:${color}22">
+        <div class="wblabel" style="color:${color}">${s.l}</div>
+        ${s.sub?<div class="wcsub">${s.sub}</div>':''}
+        <div class="wccount">${st.items.length}</div>
+        <div class="wcval">${fmt(st.val)}</div>
+        ${hrsTxt}
       </div>
-      <div class="wcbody">
-        ${shown.map(item=>{
-          const dl=dueLabel(item.due);
-          return `<div class="wcard" style="border-left-color:${s.c}">
-            <div class="wctitle">#${item.job} ${item.name}${item.monument?'<span class="wcmon">MON</span>':''}</div>
-            <div class="wclient">${item.customer||''}</div>
-            <div class="wcmeta">
-              ${item.edition?`<span style="color:#666;font-size:.85em">Ed.${item.edition}</span>`:''}
-              ${dl?`<span class="wcdue ${dl.c}">${dl.t}</span>`:''}
-              ${item.price?`<span class="wcprice">${fmt(item.price)}</span>`:''}
-            </div>
-          </div>`;
-        }).join('')}
-        ${extra>0?`<div class="wmore">+${extra} more — click to see all</div>`:''}
-      </div>
+      <div class="wcbody">${cards}${more}</div>
     </div>`;
   }).join('');
 }
 
-const TIER_STAGES=['waxpull','waxchase','metal','patina'];
 function sortItems(items){
   if(_drillSort==='tier'){
     items.sort((a,b)=>{
-      const ta=a.tier!=null?a.tier:99;
+      const ta=a.tier!=null?a.tier99;
       const tb=b.tier!=null?b.tier:99;
       if(ta!==tb)return ta-tb;
+      const da=a.due?(new Date(a.due)):new Date(9999,0);
+      const db=b.due?(new Date(b.due)):new Date(9999,0);
+      return da-db;
+    });
+  } else if(_drillSort==='due'){
+    items.sort((a,b)=>{
       if(!a.due&&!b.due)return 0;
       if(!a.due)return 1;
-      if(!b.due)return-1;
-      return b.due.localeCompare(a.due);
+      if(!b.due)return -1;
+      return new Date(a.due)-new Date(b.due);
     });
-  } else if(_drillSort==='due')items.sort((a,b)=>{if(!a.due&&!b.due)return 0;if(!a.due)return 1;if(!b.due)return-1;return a.due.localeCompare(b.due);});
-  else if(_drillSort==='val')items.sort((a,b)=>(b.price||0)-(a.price||0));
-  else items.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-  return items;
+  } else if(_drillSort==='val'){
+    items.sort((a,b)=>(b.price||0)-(a.price||0));
+  } else if(_drillSort==='name'){
+    items.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  }
 }
 
-function openDrill(stageKey,stageName,stageColor){
-  _drillStage=stageKey;
-  const hasTier=TIER_STAGES.includes(stageKey);
-  document.getElementById('wdsorttier').style.display=hasTier?'':'none';
-  _drillSort=hasTier?'tier':'due';
-  document.querySelectorAll('.wdbtn').forEach(b=>b.classList.remove('active'));
-  document.getElementById(hasTier?'wdsorttier':'wdsortdue').classList.add('active');
-  document.getElementById('wdtitle').textContent=stageName.toUpperCase();
-  document.getElementById('wdtitle').style.color=stageColor;
+function openDrill(stage){
+  _drillStage=stage;
+  _drillSort=stage==='metal'?'tier':'due';
+  const stageObj=STAGES.find(s=>s.k===stage);
+  document.getElementById('wdtitle').textContent=stageObj?.l || stage;
+  document.getElementById('wdsortdue').classList.toggle('active',stage!=='metal');
+  document.getElementById('wdsorttier').style.display=stage==='metal'?'':'none';
+  document.getElementById('wdsorttier').classList.toggle('active',stage==='metal');
+  document.getElementById('wdsortval').classList.remove('active');
+  document.getElementById('wdsortname').classList.remove('active');
   document.getElementById('wdsearch').value='';
-  renderDrill();
   document.getElementById('wdrillbg').style.display='flex';
-}
-function closeDrill(){document.getElementById('wdrillbg').style.display='none';_drillStage=null;}
-document.getElementById('wdback').onclick=closeDrill;
-document.getElementById('wdsearch').oninput=renderDrill;
-document.getElementById('wdsortdue').onclick=function(){_drillSort='due';document.querySelectorAll('.wdbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderDrill();};
-document.getElementById('wdsorttier').onclick=function(){_drillSort='tier';document.querySelectorAll('.wdbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderDrill();};
-document.getElementById('wdsortval').onclick=function(){_drillSort='val';document.querySelectorAll('.wdbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderDrill();};
-document.getElementById('wdsortname').onclick=function(){_drillSort='name';document.querySelectorAll('.wdbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderDrill();};
-
-/* ── Metal Work special drill-down ── */
-function renderDrillMetal(q){
-  let all=_items.filter(i=>i.stage==='metal');
-  if(q)all=all.filter(i=>(i.name+' '+i.customer+' '+i.job).toLowerCase().includes(q));
-
-  const small=sortItems(all.filter(i=>!i.monument));
-  const mon=sortItems(all.filter(i=>i.monument));
-
-  const totalVal=all.reduce((a,i)=>a+(i.price||0),0);
-  const totalHrs=all.reduce((a,i)=>a+(i.hMetal||0)+(i.hPolish||0),0);
-  const over=all.filter(i=>{const d=daysDiff(i.due);return d!==null&&d<0;}).length;
-
-  document.getElementById('wdstats').innerHTML=
-    `<span>Items: <strong>${all.length}</strong></span>`+
-    `<span>Value: <strong style="color:#4db8b8">${fmt(totalVal)}</strong></span>`+
+  renderDrill();
+}document.getElementById('wdsortdue').onclick=function(){_drillSort='due';this.classList.add('active');document.getElementById('wdsorttier').classList.remove('active');document.getElementById('wdsortval').classList.remove('active');document.getElementById('wdsortname').classList.remove('active');renderDrill();};
+document.getElementById('wdsorttier').onclick=function(){_drillSort='tier';this.classList.add('active');document.getElementById('wdsortdue').classList.remove('active');document.getElementById('wdsortval').classList.remove('active');document.getElementById('wdsortname').classList.remove('active');renderDrill();};
+document.getElementById('wdsortval').onclick=function(){_drillSort='val';this.classList.add('active');document.getElementById('wdsortdue').classList.remove('active');document.getElementById('wdsorttier').classList.remove('active');document.getElementById('wdsortname').classList.remove('active');renderDrill();};
+document.getElementById('wdsortname').onclick=function(){_drillSort='name';this.classList.add('active');document.getElementById('wdsortdue').classList.remove('active');document.getElementById('wdsorttier').classList.remove('active');document.getElementById('wdsortval').classList.remove('active');renderDrill();};
+document.getElementById('wdback').onclick=function(){_drillStage=null;document.getElementById('wdrillbg').style.display='none';};
+document.getElementById('wdsearch').oninput=function(){renderDrill();};an>`+
     (totalHrs>0?`<span>Hrs Bid: <strong style="color:#ffd580">${fmtH(totalHrs)}</strong></span>`:'')+
     `<span>Overdue: <strong style="color:#ff6b6b">${over}</strong></span>`+
     `<span>Small: <strong>${small.length}</strong></span>`+
@@ -709,6 +744,187 @@ setInterval(loadData,60000);
 </body>
 </html>"""
 
+# ── KPI Page HTML ──────────────────────────────────────────────────────────────
+KPI_HTML = r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KPI Tracker — Pyrology</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;min-height:100%;background:#0f1117;color:#e8e8e8;font-family:'Segoe UI',Arial,sans-serif}
+#ktop{display:flex;align-items:center;justify-content:space-between;padding:8px 18px;background:#1a1d27;border-bottom:1px solid #2a2d3a}
+#ktop h1{font-size:1.3em;font-weight:700;letter-spacing:1px;color:#fff}
+#ktop h1 span{font-size:.6em;font-weight:400;color:#888;display:block;letter-spacing:.5px}
+.nav-link{display:inline-flex;align-items:center;gap:5px;background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;text-decoration:none;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;letter-spacing:.5px}
+#kbody{padding:16px 18px;max-width:1400px;margin:0 auto}
+.week-banner{background:#1a1d27;border:1px solid #2a2d3a;border-radius:8px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.week-banner h2{font-size:1.1em;font-weight:700;color:#4db8b8}
+.week-banner .week-sub{font-size:.78em;color:#888;margin-top:3px}
+.btn-close-week{background:#e8a838;border:none;color:#000;padding:8px 20px;border-radius:6px;cursor:pointer;font-size:.9em;font-weight:700;letter-spacing:.5px;transition:background .15s}
+.btn-close-week:hover{background:#f0b848}
+.dept-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:22px}
+.dept-card{background:#1a1d27;border:1px solid #2a2d3a;border-radius:8px;padding:14px 16px}
+.dept-card .dc-label{font-size:.7em;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#888;margin-bottom:6px}
+.dept-card .dc-value{font-size:1.7em;font-weight:700;color:#4db8b8;line-height:1}
+.dept-card .dc-count{font-size:.75em;color:#666;margin-top:4px}
+.section-title{font-size:.85em;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #2a2d3a}
+table.ktbl{width:100%;border-collapse:collapse;font-size:.82em;margin-bottom:24px}
+table.ktbl th{color:#888;font-weight:600;text-align:left;padding:6px 10px;border-bottom:1px solid #2a2d3a;font-size:.85em;text-transform:uppercase;letter-spacing:.5px}
+table.ktbl td{padding:7px 10px;border-bottom:1px solid #1e2230;vertical-align:middle}
+table.ktbl tr:hover td{background:#1e2130}
+.ktval{color:#4db8b8;font-weight:600}
+.ktdept{display:inline-block;font-size:.72em;font-weight:700;padding:2px 7px;border-radius:3px;text-transform:uppercase;letter-spacing:.4px}
+.kd-waxpull{background:#1a2a1a;color:#5a9e5a;border:1px solid #3a6a3a}
+.kd-waxchase{background:#2a1a2a;color:#c97ae8;border:1px solid #6a3a8a}
+.kd-shell{background:#1a1a2a;color:#7aa8e8;border:1px solid #3a5a8a}
+.kd-small_metal{background:#2a2a1a;color:#d4924a;border:1px solid #8a5a2a}
+.kd-monument_metal{background:#3a1a4a;color:#c9a0f0;border:1px solid #7a4aaa}
+.kd-patina{background:#1a2a2a;color:#4db8b8;border:1px solid #2a7a8a}
+.kd-base{background:#2a1a1a;color:#e87a7a;border:1px solid #8a3a3a}
+.kd-ready{background:#1a2a1a;color:#5a9e5a;border:1px solid #3a6a3a}
+.history-week{background:#14161f;border:1px solid #2a2d3a;border-radius:8px;padding:14px 18px;margin-bottom:14px}
+.history-week .hw-title{font-size:.92em;font-weight:700;color:#aaa;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.history-week .hw-total{font-size:1em;color:#4db8b8;font-weight:700}
+.hw-depts{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px}
+.hw-dept{font-size:.75em;color:#888}<br>.hw-dept strong{color:#e8e8e8}
+</style>
+</head>
+<body>
+<div id="ktop">
+  <div style="display:flex;align-items:center;gap:10px">
+    <div style="font-size:1.6em">📊</div>
+    <h1>KPI TRACKER<span>Weekly Production Value — Per Department</span></h1>
+  </div>
+  <a href="/" class="nav-link">🏭 Dashboard</a>
+</div>
+<div id="kbody">
+  <div class="week-banner">
+    <div>
+      <div class="week-banner h2" id="kweek-label" style="font-size:1.1em;font-weight:700;color:#4db8b8">Loading...</div>
+      <div class="week-sub" id="kweek-sub"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <div style="font-size:.82em;color:#888">Total this week: <span id="ktotal-week" style="color:#4db8b8;font-weight:700;font-size:1.2em">—</span></div>
+      <button class="btn-close-week" onclick="closeWeek()">🔒 Close Week</button>
+    </div>
+  </div>
+
+  <div class="dept-grid" id="kdept-grid"></div>
+
+  <div class="section-title">Completions This Week</div>
+  <table class="ktbl" id="kentries-tbl">
+    <thead><tr><th>Piece #</th><th>Description</th><th>Client</th><th>Department</th><th>Value</th><th>Note</th><th>Completed</th></tr></thead>
+    <tbody id="kentries-body"></tbody>
+  </table>
+
+  <div id="khistory"></div>
+</div>
+<script>
+const DEPT_LABELS = {
+  waxpull:'Wax Pull', waxchase:'Wax Chase', shell:'Shell Room',
+  small_metal:'Small Metal', monument_metal:'Monument Metal',
+  patina:'Patina', base:'Base', ready:'Ready'
+};
+const DEPT_ORDER = ['waxpull','waxchase','shell','small_metal','monument_metal','patina','base','ready'];
+
+function fmt(v){if(!v)return'$0';return'$'+Number(v).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});}
+
+function fmtDate(iso){
+  if(!iso)return'—';
+  const d=new Date(iso);
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+'  '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+}
+
+function weekRange(startIso){
+  if(!startIso)return'';
+  const s=new Date(startIso+'T00:00:00');
+  const e=new Date(s); e.setDate(e.getDate()+6);
+  const opts={month:'short',day:'numeric'};
+  return s.toLocaleDateString('en-US',opts)+' – '+e.toLocaleDateString('en-US',{...opts,year:'numeric'});
+}
+
+function renderKPI(data){
+  const entries = data.entries || [];
+  const weekStart = data.week_start || '';
+
+  document.getElementById('kweek-label').textContent = 'Week of ' + weekRange(weekStart);
+  document.getElementById('kweek-sub').textContent = weekStart ? 'Mon ' + weekStart + ' through Sun' : '';
+
+  // dept totals
+  const deptTotals = {};
+  const deptCounts = {};
+  DEPT_ORDER.forEach(d=>{deptTotals[d]=0; deptCounts[d]=0;});
+  entries.forEach(e=>{
+    if(deptTotals[e.dept]!==undefined){deptTotals[e.dept]+=e.value; deptCounts[e.dept]++;}
+  });
+  const weekTotal = DEPT_ORDER.reduce((a,d)=>a+deptTotals[d],0);
+  document.getElementById('ktotal-week').textContent = fmt(weekTotal);
+
+  // dept cards
+  document.getElementById('kdept-grid').innerHTML = DEPT_ORDER.map(d=>`
+    <div class="dept-card">
+      <div class="dc-label">${DEPT_LABELS[d]||d}</div>
+      <div class="dc-value">${fmt(deptTotals[d])}</div>
+      <div class="dc-count">${deptCounts[d]} completion${deptCounts[d]!==1?'s':''}</div>
+    </div>`).join('');
+
+  // entries table (newest first)
+  const sorted=[...entries].sort((a,b)=>b.completed_at.localeCompare(a.completed_at));
+  document.getElementById('kentries-body').innerHTML = sorted.length
+    ? sorted.map(e=>`<tr>
+        <td style="color:#888">#${e.job}</td>
+        <td><strong>${e.name||'—'}</strong></td>
+        <td>${e.customer||'—'}</td>
+        <td><span class="ktdept kd-${e.dept}">${DEPT_LABELS[e.dept]||e.dept}</span></td>
+        <td class="ktval">${fmt(e.value)}</td>
+        <td style="color:#888;font-size:.85em">${e.note||''}</td>
+        <td style="color:#666;font-size:.85em">${fmtDate(e.completed_at)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="7" style="color:#555;text-align:center;padding:18px">No completions recorded this week yet.</td></tr>';
+
+  // history
+  const history = (data.history || []).slice().reverse();
+  const histEl = document.getElementById('khistory');
+  if(!history.length){ histEl.innerHTML=''; return; }
+  histEl.innerHTML='<div class="section-title" style="margin-top:6px">Previous Weeks</div>'+
+    history.map(w=>{
+      const wEntries=w.entries||[];
+      const wTotal=wEntries.reduce((a,e)=>a+e.value,0);
+      const wDepts={};
+      DEPT_ORDER.forEach(d=>{wDepts[d]=0;});
+      wEntries.forEach(e=>{if(wDepts[e.dept]!==undefined)wDepts[e.dept]+=e.value;});
+      const activeDepts=DEPT_ORDER.filter(d=>wDepts[d]>0);
+      return`<div class="history-week">
+        <div class="hw-title">
+          <span>Week of ${weekRange(w.week_start)}</span>
+          <span class="hw-total">${fmt(wTotal)} · ${wEntries.length} items</span>
+        </div>
+        <div class="hw-depts">${activeDepts.map(d=>`<div class="hw-dept"><strong>${DEPT_LABELS[d]}:</strong> ${fmt(wDepts[d])}</div>`).join('')}</div>
+      </div>`;
+    }).join('');
+}
+
+function closeWeek(){
+  if(!confirm('Close this week and start a new KPI period?'))return;
+  fetch('/api/kpi/close-week',{method:'POST'})
+    .then(r=>r.json())
+    .then(d=>{if(d.ok){alert('Week closed! KPI reset for new week.');loadKPI();}else{alert('Error: '+(d.error||'unknown'));}})
+    .catch(()=>alert('Server error'));
+}
+
+function loadKPI(){
+  fetch('/api/kpi').then(r=>r.json()).then(renderKPI).catch(()=>{
+    document.getElementById('kweek-label').textContent='Cannot reach server';
+  });
+}
+loadKPI();
+setInterval(loadKPI,30000);
+</script>
+</body>
+</html>"""
+
 # ── Flask app ──────────────────────────────────────────────────────────────────
 app = Flask(__name__)
 CORS(app, origins='*')
@@ -739,9 +955,22 @@ def metal_override():
             return jsonify({'error': 'missing job'}), 400
         pct = max(0, min(100, pct))
         with _lock:
+            pct_old = _metal_overrides.get(job, 0)
             _metal_overrides[job] = pct
+            item = next((i for i in _cache['items'] if i['job'] == job), None)
         _save_overrides()
         log.info(f'Metal override set: job={job} pct={pct}%')
+        # KPI tracking
+        if item and pct > pct_old:
+            price = item.get('price') or 0
+            if item.get('monument'):
+                # Monument metal: any % increase contributes delta value
+                delta_val = price * (pct - pct_old) / 100
+                _record_kpi_entry(job, item, delta_val, 'monument_metal',
+                                  f'{pct_old}%→{pct}% progress')
+            elif pct == 100 and pct_old < 100:
+                # Small metal: only full completion counts
+                _record_kpi_entry(job, item, price, 'small_metal', '100% complete')
         return jsonify({'ok': True, 'job': job, 'pct': pct})
     except Exception as e:
         log.error(f'Override failed: {e}')
@@ -757,9 +986,16 @@ def stage_override():
             return jsonify({'error': 'missing job'}), 400
         pct = max(0, min(100, pct))
         with _lock:
+            pct_old = _stage_overrides.get(job, 0)
             _stage_overrides[job] = pct
+            item = next((i for i in _cache['items'] if i['job'] == job), None)
         _save_stage_overrides()
         log.info(f'Stage override set: job={job} pct={pct}%')
+        # KPI tracking: only record when hitting 100% from below 100%
+        if item and pct == 100 and pct_old < 100:
+            price = item.get('price') or 0
+            dept  = item.get('stage', 'unknown')
+            _record_kpi_entry(job, item, price, dept, '100% complete')
         return jsonify({'ok': True, 'job': job, 'pct': pct})
     except Exception as e:
         log.error(f'Stage override failed: {e}')
@@ -787,6 +1023,37 @@ def push_wip():
 def health():
     with _lock:
         return jsonify({'ok': True, 'items': len(_cache['items']), 'updated': _cache['updated']})
+
+@app.route('/kpi')
+def kpi_page():
+    return Response(KPI_HTML, mimetype='text/html')
+
+@app.route('/api/kpi')
+def api_kpi():
+    with _lock:
+        return jsonify(_kpi_data)
+
+@app.route('/api/kpi/close-week', methods=['POST'])
+def kpi_close_week():
+    try:
+        with _lock:
+            current = {
+                'week_start': _kpi_data.get('week_start', ''),
+                'closed_at':  datetime.utcnow().isoformat() + 'Z',
+                'entries':    list(_kpi_data.get('entries', [])),
+            }
+            if 'history' not in _kpi_data:
+                _kpi_data['history'] = []
+            _kpi_data['history'].append(current)
+            _kpi_data['week_start'] = _current_week_start()
+            _kpi_data['entries'] = []
+        _save_kpi()
+        log.info(f'Week closed: {current["week_start"]} → {len(current["entries"])} entries archived.')
+        return jsonify({'ok': True, 'archived_entries': len(current['entries']),
+                        'new_week_start': _kpi_data['week_start']})
+    except Exception as e:
+        log.error(f'Close week failed: {e}')
+        return jsonify({'error': str(e)}), 500
 
 # ── Startup ────────────────────────────────────────────────────────────────────
 if SESSION_COOKIE:
