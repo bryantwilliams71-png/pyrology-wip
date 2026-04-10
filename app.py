@@ -286,7 +286,7 @@ const STAGES=[
   {k:'base',    l:'Base',           c:'#4db8b8'},
   {k:'ready',   l:'✓ Ready',        c:'#5a9e5a'},
 ];
-const STACE_HRS={
+const STAGE_HRS={
   waxpull: i=>i.hWaxPull||0,
   waxchase:i=>(i.hWax||0)+(i.hSprue||0),
   metal:   i=>(i.hMetal||0)+(i.hPolish||0),
