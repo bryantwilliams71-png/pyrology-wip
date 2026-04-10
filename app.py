@@ -237,7 +237,7 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
 .wcdue.warn{background:#3d2e10;color:#ffaa44}
 .wcdue.ok{background:#0f2d1f;color:#5a9e5a}
 .wcprice{font-size:.85em;color:#4db8b8;font-weight:600}
-.wcmon{background:#7b5ea7;color:#fff;font-size:.vem;padding:1px 4px;border-radius:3px;margin-left:3px}
+.wcmon{background:#7b5ea7;color:#fff;font-size:.7em;padding:1px 4px;border-radius:3px;margin-left:3px}
 .wmore{text-align:center;font-size:.65em;color:#555;padding:4px}
 #wlive{font-size:.65em;color:#5a9e5a;text-align:right;margin-left:auto}
 #werr{background:#3d1515;color:#ff6b6b;padding:8px 14px;font-size:.8em;display:none}
@@ -494,78 +494,89 @@ function renderBoard(){
 
   const grid=document.getElementById('wgrid');
   grid.innerHTML=STAGES.map(s=>{
-    const st=sm[s.k];
-    const color=s.c;
-    const cards=st.items.slice(0,10).map(item=>{
-      const dl=dueLabel(item.due);
-      return `<div class="wcard" style="border-left-color:${color}">
-        <div class="wcitle">${item.name||'✓'}</div>
-        <div class="wcilent">${item.customer||' '}</div>
-        <div class="w\meta">
-          ${dl?`<span class="wcdue ${dl.c}">${dl.t}</span>`:''}
-          ${item.price?<span class="wcprice">${fmt(item.price)}</span>':''}
-          ${item.monument?'<span class="wcmon">MON</span>':''}
-        </div>
-      </div>`;
-    }).join('');
-    const more=st.items.length>10?`<div class="wmore">+${st.items.length-10} more...</div>`:'';
-    const hrsTxt=st.hrs>0?`<div class="wchrs">${st.hrs.toFixed(1)} hrs bid</div>`:' ';
-    return `<div class="wcol" onclick="openDrill('${s.k}')">
-      <div class="wchdr" style="background:${color}22">
-        <div class="wblabel" style="color:${color}">${s.l}</div>
-        ${s.sub?<div class="wcsub">${s.sub}</div>':''}
-        <div class="wccount">${st.items.length}</div>
-        <div class="wcval">${fmt(st.val)}</div>
-        ${hrsTxt}
+    const sd=sm[s.k];
+    const MAX=50, shown=sd.items.slice(0,MAX), extra=sd.items.length-MAX;
+    return `<div class="wcol" onclick="openDrill('${s.k}','${s.l}','${s.c}')">
+      <div class="wchdr" style="background:${s.c}22;border-bottom:3px solid ${s.c}">
+        <div class="wclabel" style="color:${s.c}">${s.l}</div>
+        ${s.sub?`<div class="wcsub">${s.sub}</div>`:''}
+        <div class="wccount">${sd.items.length} ITEMS</div>
+        <div class="wcval">${fmt(sd.val)}</div>
+        ${sd.hrs>0?`<div class="wchrs">⏱ ${fmtH(sd.hrs)}</div>`:''}
       </div>
-      <div class="wcbody">${cards}${more}</div>
+      <div class="wcbody">
+        ${shown.map(item=>{
+          const dl=dueLabel(item.due);
+          return `<div class="wcard" style="border-left-color:${s.c}">
+            <div class="wctitle">#${item.job} ${item.name}${item.monument?'<span class="wcmon">MON</span>':''}</div>
+            <div class="wclient">${item.customer||''}</div>
+            <div class="wcmeta">
+              ${item.edition?`<span style="color:#666;font-size:.85em">Ed.${item.edition}</span>`:''}
+              ${dl?`<span class="wcdue ${dl.c}">${dl.t}</span>`:''}
+              ${item.price?`<span class="wcprice">${fmt(item.price)}</span>`:''}
+            </div>
+          </div>`;
+        }).join('')}
+        ${extra>0?`<div class="wmore">+${extra} more — click to see all</div>`:''}
+      </div>
     </div>`;
   }).join('');
 }
 
+const TIER_STAGES=['waxpull','waxchase','metal','patina'];
 function sortItems(items){
   if(_drillSort==='tier'){
     items.sort((a,b)=>{
-      const ta=a.tier!=null?a.tier99;
+      const ta=a.tier!=null?a.tier:99;
       const tb=b.tier!=null?b.tier:99;
       if(ta!==tb)return ta-tb;
-      const da=a.due?(new Date(a.due)):new Date(9999,0);
-      const db=b.due?(new Date(b.due)):new Date(9999,0);
-      return da-db;
-    });
-  } else if(_drillSort==='due'){
-    items.sort((a,b)=>{
       if(!a.due&&!b.due)return 0;
       if(!a.due)return 1;
-      if(!b.due)return -1;
-      return new Date(a.due)-new Date(b.due);
+      if(!b.due)return-1;
+      return b.due.localeCompare(a.due);
     });
-  } else if(_drillSort==='val'){
-    items.sort((a,b)=>(b.price||0)-(a.price||0));
-  } else if(_drillSort==='name'){
-    items.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-  }
+  } else if(_drillSort==='due')items.sort((a,b)=>{if(!a.due&&!b.due)return 0;if(!a.due)return 1;if(!b.due)return-1;return a.due.localeCompare(b.due);});
+  else if(_drillSort==='val')items.sort((a,b)=>(b.price||0)-(a.price||0));
+  else items.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  return items;
 }
 
-function openDrill(stage){
-  _drillStage=stage;
-  _drillSort=stage==='metal'?'tier':'due';
-  const stageObj=STAGES.find(s=>s.k===stage);
-  document.getElementById('wdtitle').textContent=stageObj?.l || stage;
-  document.getElementById('wdsortdue').classList.toggle('active',stage!=='metal');
-  document.getElementById('wdsorttier').style.display=stage==='metal'?'':'none';
-  document.getElementById('wdsorttier').classList.toggle('active',stage==='metal');
-  document.getElementById('wdsortval').classList.remove('active');
-  document.getElementById('wdsortname').classList.remove('active');
+function openDrill(stageKey,stageName,stageColor){
+  _drillStage=stageKey;
+  const hasTier=TIER_STAGES.includes(stageKey);
+  document.getElementById('wdsorttier').style.display=hasTier?'':'none';
+  _drillSort=hasTier?'tier':'due';
+  document.querySelectorAll('.wdbtn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(hasTier?'wdsorttier':'wdsortdue').classList.add('active');
+  document.getElementById('wdtitle').textContent=stageName.toUpperCase();
+  document.getElementById('wdtitle').style.color=stageColor;
   document.getElementById('wdsearch').value='';
-  document.getElementById('wdrillbg').style.display='flex';
   renderDrill();
-}document.getElementById('wdsortdue').onclick=function(){_drillSort='due';this.classList.add('active');document.getElementById('wdsorttier').classList.remove('active');document.getElementById('wdsortval').classList.remove('active');document.getElementById('wdsortname').classList.remove('active');renderDrill();};
-document.getElementById('wdsorttier').onclick=function(){_drillSort='tier';this.classList.add('active');document.getElementById('wdsortdue').classList.remove('active');document.getElementById('wdsortval').classList.remove('active');document.getElementById('wdsortname').classList.remove('active');renderDrill();};
-document.getElementById('wdsortval').onclick=function(){_drillSort='val';this.classList.add('active');document.getElementById('wdsortdue').classList.remove('active');document.getElementById('wdsorttier').classList.remove('active');document.getElementById('wdsortname').classList.remove('active');renderDrill();};
-document.getElementById('wdsortname').onclick=function(){_drillSort='name';this.classList.add('active');document.getElementById('wdsortdue').classList.remove('active');document.getElementById('wdsorttier').classList.remove('active');document.getElementById('wdsortval').classList.remove('active');renderDrill();};
-document.getElementById('wdback').onclick=function(){_drillStage=null;document.getElementById('wdrillbg').style.display='none';};
-document.getElementById('wdsearch').oninput=function(){renderDrill();};an>`+
+  document.getElementById('wdrillbg').style.display='flex';
+}
+function closeDrill(){document.getElementById('wdrillbg').style.display='none';_drillStage=null;}
+document.getElementById('wdback').onclick=closeDrill;
+document.getElementById('wdsearch').oninput=renderDrill;
+document.getElementById('wdsortdue').onclick=function(){_drillSort='due';document.querySelectorAll('.wdbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderDrill();};
+document.getElementById('wdsorttier').onclick=function(){_drillSort='tier';document.querySelectorAll('.wdbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderDrill();};
+document.getElementById('wdsortval').onclick=function(){_drillSort='val';document.querySelectorAll('.wdbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderDrill();};
+document.getElementById('wdsortname').onclick=function(){_drillSort='name';document.querySelectorAll('.wdbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderDrill();};
+
+/* ── Metal Work special drill-down ── */
+function renderDrillMetal(q){
+  let all=_items.filter(i=>i.stage==='metal');
+  if(q)all=all.filter(i=>(i.name+' '+i.customer+' '+i.job).toLowerCase().includes(q));
+
+  const small=sortItems(all.filter(i=>!i.monument));
+  const mon=sortItems(all.filter(i=>i.monument));
+
+  const totalVal=all.reduce((a,i)=>a+(i.price||0),0);
+  const totalHrs=all.reduce((a,i)=>a+(i.hMetal||0)+(i.hPolish||0),0);
+  const over=all.filter(i=>{const d=daysDiff(i.due);return d!==null&&d<0;}).length;
+
+  document.getElementById('wdstats').innerHTML=
+    `<span>Items: <strong>${all.length}</strong></span>`+
+    `<span>Value: <strong style="color:#4db8b8">${fmt(totalVal)}</strong></span>`+
     (totalHrs>0?`<span>Hrs Bid: <strong style="color:#ffd580">${fmtH(totalHrs)}</strong></span>`:'')+
     `<span>Overdue: <strong style="color:#ff6b6b">${over}</strong></span>`+
     `<span>Small: <strong>${small.length}</strong></span>`+
