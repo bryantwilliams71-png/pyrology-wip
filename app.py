@@ -800,7 +800,15 @@ table.ktbl tr:hover td{background:#1e2130}
 .history-week .hw-title{font-size:.92em;font-weight:700;color:#aaa;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
 .history-week .hw-total{font-size:1em;color:#4db8b8;font-weight:700}
 .hw-depts{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px}
-.hw-dept{font-size:.75em;color:#888}<br>.hw-dept strong{color:#e8e8e8}
+.hw-dept{font-size:.75em;color:#888}
+.hw-dept strong{color:#e8e8e8}
+.kpi-actions{display:flex;gap:4px}
+.kpi-btn{background:#2a2d3a;border:1px solid #3a4a5a;color:#aaa;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:.75em;font-weight:600;letter-spacing:.3px;transition:all .15s}
+.kpi-btn:hover{background:#3a4a5a;color:#fff}
+.kpi-btn.del{color:#e87a7a;border-color:#5a2a2a}
+.kpi-btn.del:hover{background:#5a2a2a;color:#ff9a9a}
+.kpi-edit-input{background:#1a1d27;border:1px solid #4db8b8;color:#4db8b8;padding:2px 6px;border-radius:3px;font-size:.9em;width:70px;font-weight:600}
+.kpi-edit-note{background:#1a1d27;border:1px solid #4a5a6a;color:#ccc;padding:2px 6px;border-radius:3px;font-size:.9em;width:120px}
 </style>
 </head>
 <body>
@@ -827,7 +835,7 @@ table.ktbl tr:hover td{background:#1e2130}
 
   <div class="section-title">Completions This Week</div>
   <table class="ktbl" id="kentries-tbl">
-    <thead><tr><th>Piece #</th><th>Description</th><th>Client</th><th>Department</th><th>Value</th><th>Note</th><th>Completed</th></tr></thead>
+    <thead><tr><th>Piece #</th><th>Description</th><th>Client</th><th>Department</th><th>Value</th><th>Note</th><th>Completed</th><th>Actions</th></tr></thead>
     <tbody id="kentries-body"></tbody>
   </table>
 
@@ -882,19 +890,24 @@ function renderKPI(data){
       <div class="dc-count">${deptCounts[d]} completion${deptCounts[d]!==1?'s':''}</div>
     </div>`).join('');
 
-  // entries table (newest first)
-  const sorted=[...entries].sort((a,b)=>b.completed_at.localeCompare(a.completed_at));
+  // entries table (newest first) — track original index for API calls
+  const indexed=entries.map((e,i)=>({...e,_idx:i}));
+  const sorted=indexed.sort((a,b)=>b.completed_at.localeCompare(a.completed_at));
   document.getElementById('kentries-body').innerHTML = sorted.length
-    ? sorted.map(e=>`<tr>
+    ? sorted.map(e=>`<tr data-idx="${e._idx}">
         <td style="color:#888">#${e.job}</td>
         <td><strong>${e.name||'—'}</strong></td>
         <td>${e.customer||'—'}</td>
         <td><span class="ktdept kd-${e.dept}">${DEPT_LABELS[e.dept]||e.dept}</span></td>
-        <td class="ktval">${fmt(e.value)}</td>
-        <td style="color:#888;font-size:.85em">${e.note||''}</td>
+        <td class="ktval" id="kval-${e._idx}">${fmt(e.value)}</td>
+        <td style="color:#888;font-size:.85em" id="knote-${e._idx}">${e.note||''}</td>
         <td style="color:#666;font-size:.85em">${fmtDate(e.completed_at)}</td>
+        <td class="kpi-actions">
+          <button class="kpi-btn" onclick="editEntry(${e._idx})" title="Edit value/note">✏️</button>
+          <button class="kpi-btn del" onclick="deleteEntry(${e._idx})" title="Delete entry">✕</button>
+        </td>
       </tr>`).join('')
-    : '<tr><td colspan="7" style="color:#555;text-align:center;padding:18px">No completions recorded this week yet.</td></tr>';
+    : '<tr><td colspan="8" style="color:#555;text-align:center;padding:18px">No completions recorded this week yet.</td></tr>';
 
   // history
   const history = (data.history || []).slice().reverse();
@@ -923,6 +936,37 @@ function closeWeek(){
   fetch('/api/kpi/close-week',{method:'POST'})
     .then(r=>r.json())
     .then(d=>{if(d.ok){alert('Week closed! KPI reset for new week.');loadKPI();}else{alert('Error: '+(d.error||'unknown'));}})
+    .catch(()=>alert('Server error'));
+}
+
+function deleteEntry(idx){
+  if(!confirm('Delete this KPI entry?'))return;
+  fetch('/api/kpi/delete-entry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({index:idx})})
+    .then(r=>r.json())
+    .then(d=>{if(d.ok)loadKPI();else alert('Error: '+(d.error||'unknown'));})
+    .catch(()=>alert('Server error'));
+}
+
+function editEntry(idx){
+  const row=document.querySelector(`tr[data-idx="${idx}"]`);
+  if(!row)return;
+  const valTd=document.getElementById('kval-'+idx);
+  const noteTd=document.getElementById('knote-'+idx);
+  const curVal=parseFloat(valTd.textContent.replace(/[$,]/g,''))||0;
+  const curNote=noteTd.textContent||'';
+  valTd.innerHTML=`<input class="kpi-edit-input" type="number" value="${curVal}" id="kedit-val-${idx}">`;
+  noteTd.innerHTML=`<input class="kpi-edit-note" type="text" value="${curNote}" id="kedit-note-${idx}">`;
+  const actTd=row.querySelector('.kpi-actions');
+  actTd.innerHTML=`<button class="kpi-btn" onclick="saveEntry(${idx})" style="color:#5a9e5a;border-color:#3a6a3a" title="Save">✓</button><button class="kpi-btn" onclick="loadKPI()" title="Cancel">✕</button>`;
+  document.getElementById('kedit-val-'+idx).focus();
+}
+
+function saveEntry(idx){
+  const val=parseFloat(document.getElementById('kedit-val-'+idx).value)||0;
+  const note=document.getElementById('kedit-note-'+idx).value;
+  fetch('/api/kpi/edit-entry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({index:idx,value:val,note:note})})
+    .then(r=>r.json())
+    .then(d=>{if(d.ok)loadKPI();else alert('Error: '+(d.error||'unknown'));})
     .catch(()=>alert('Server error'));
 }
 
@@ -1006,6 +1050,9 @@ def stage_override():
         if item and pct == 100 and pct_old < 100:
             price = item.get('price') or 0
             dept  = item.get('stage', 'unknown')
+            # Metal items: differentiate small vs monument for KPI
+            if dept == 'metal':
+                dept = 'monument_metal' if item.get('monument') else 'small_metal'
             _record_kpi_entry(job, item, price, dept, '100% complete')
         return jsonify({'ok': True, 'job': job, 'pct': pct})
     except Exception as e:
@@ -1043,6 +1090,46 @@ def kpi_page():
 def api_kpi():
     with _lock:
         return jsonify(_kpi_data)
+
+@app.route('/api/kpi/delete-entry', methods=['POST'])
+def kpi_delete_entry():
+    try:
+        body = request.get_json(force=True)
+        idx  = int(body.get('index', -1))
+        with _lock:
+            entries = _kpi_data.get('entries', [])
+            if idx < 0 or idx >= len(entries):
+                return jsonify({'error': 'invalid index'}), 400
+            removed = entries.pop(idx)
+        _save_kpi()
+        log.info(f'KPI entry deleted: index={idx} job={removed.get("job")}')
+        return jsonify({'ok': True, 'removed': removed})
+    except Exception as e:
+        log.error(f'KPI delete failed: {e}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/kpi/edit-entry', methods=['POST'])
+def kpi_edit_entry():
+    try:
+        body  = request.get_json(force=True)
+        idx   = int(body.get('index', -1))
+        with _lock:
+            entries = _kpi_data.get('entries', [])
+            if idx < 0 or idx >= len(entries):
+                return jsonify({'error': 'invalid index'}), 400
+            entry = entries[idx]
+            if 'value' in body:
+                entry['value'] = round(float(body['value']), 2)
+            if 'note' in body:
+                entry['note'] = str(body['note'])
+            if 'dept' in body and body['dept']:
+                entry['dept'] = str(body['dept'])
+        _save_kpi()
+        log.info(f'KPI entry edited: index={idx} job={entry.get("job")}')
+        return jsonify({'ok': True, 'entry': entry})
+    except Exception as e:
+        log.error(f'KPI edit failed: {e}')
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/kpi/close-week', methods=['POST'])
 def kpi_close_week():
