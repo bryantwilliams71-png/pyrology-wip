@@ -115,6 +115,7 @@ def transform_rows(raw):
             'hBasing':       float(row.get('basingBidHours') or 0),
             'hMetalWorked':  float(row.get('metalHoursWorked') or 0),
             'hPolishWorked': float(row.get('polishHoursWorked') or 0),
+            'tier':          row.get('tierGrade'),
         })
     return items
 
@@ -215,7 +216,7 @@ table.wdt tr:hover td{background:#1e2130}
 .tdover{color:#ff6b6b;font-weight:600}.tdwarn{color:#ffaa44}.tdok{color:#5a9e5a}
 .tdval{color:#4db8b8;font-weight:600}.tdhrs{color:#ffd580;font-size:.85em}
 .metal-section-hdr{display:flex;align-items:center;gap:10px;padding:10px 0 6px;margin-top:4px}
-.metal-section-hdr h3{font-size:.9en;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+.metal-section-hdr h3{font-size:.9em;font-weight:700;letter-spacing:1px;text-transform:uppercase}
 .metal-section-hdr .metal-badge{font-size:.72em;padding:2px 8px;border-radius:10px;font-weight:600}
 .metal-section-stats{display:flex;gap:16px;margin-bottom:8px;padding:0 2px}
 .metal-section-stats span{font-size:.75em;color:#aaa}
@@ -236,6 +237,10 @@ table.wdt tr:hover td{background:#1e2130}
 .btn-complete{background:#1e3a1e;border:1px solid #3a7a3a;color:#5a9e5a;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:.8em;font-weight:700;transition:background .15s,color .15s;white-space:nowrap}
 .btn-complete:hover{background:#2a5a2a;color:#7acc7a;border-color:#5a9e5a}
 .btn-complete.done{background:#5a9e5a;color:#fff;border-color:#5a9e5a}
+.tdtier{display:inline-block;font-size:.72em;font-weight:700;padding:1px 6px;border-radius:3px;margin-top:3px;letter-spacing:.4px}
+.tdtier.t1{background:#4a2a6a;color:#c9a0f0;border:1px solid #7a4aaa}
+.tdtier.t2{background:#2a3a5a;color:#7aa8e8;border:1px solid #4a6aaa}
+.tdtier.t3{background:#3a2a1a;color:#d4924a;border:1px solid #8a5a2a}
 </style>
 </head>
 <body>
@@ -268,6 +273,9 @@ table.wdt tr:hover td{background:#1e2130}
       <div id="wdtools">
         <input id="wdsearch" placeholder="Search pieces..." type="text"/>
         <button class="wdbtn active" id="wdsortdue">Sort: Due Date</button>
+        <button class="wdbtn" id="wdsorttier" style="display:none">Sort: Tier</button>
+        <button class="wdbtn" id="wdsorttier" style="display:none">Sort: Tier</button>
+        <button class="wdbtn" id="wdsorttier" style="display:none">Sort: Tier</button>
         <button class="wdbtn" id="wdsortval">Sort: Value ↓</button>
         <button class="wdbtn" id="wdsortname">Sort: Name</button>
         <button id="wdback">← Back to All</button>
@@ -305,7 +313,7 @@ function daysDiff(d){if(!d)return null;return Math.floor((new Date(d)-new Date()
 function dueLabel(d){
   const diff=daysDiff(d);if(diff===null)return null;
   if(diff<0)return{t:'OVERDUE '+Math.abs(diff)+'D',c:'over'};
-  if(diff<=7)return{t:'DUE '+d,c:'warn'};
+  if(diff<77)return{t:'DUE '+d,c:'warn'};
   return{t:d,c:'ok'};
 }
 
@@ -379,7 +387,7 @@ function stgPctBar(item){
     <div class="prog-row">
       <span class="prog-label" style="color:${doneColor}">Done</span>
       <div class="prog-bar-bg" onclick="event.stopPropagation();setStgPctFromClick(event,'${item.job}')" title="Click to set completion %" style="cursor:pointer"><div class="prog-bar-fill" style="width:${pct}%;background:${doneColor}"></div></div>
-      <span class="prog-pct" style="color:${doneColor}">${pct}%</spam>
+      <span class="prog-pct" style="color:${doneColor}">${pct}%</span>
     </div>
     <div class="prog-row" style="margin-top:2px">
       <span class="prog-label" style="color:#e8a838">Remain</span>
@@ -469,17 +477,31 @@ function renderBoard(){
   }).join('');
 }
 
+const TIER_STAGES=['waxpull','waxchase','metal','patina'];
 function sortItems(items){
-  if(_drillSort==='due')items.sort((a,b)=>{if(!a.due&&!b.due)return 0;if(!a.due)return 1;if(!b.due)return-1;return a.due.localeCompare(b.due);});
+  if(_drillSort==='tier'){
+    items.sort((a,b)=>{
+      const ta=a.tier!=null?a.tier:99;
+      const tb=b.tier!=null?b.tier:99;
+      if(ta!==tb)return ta-tb;
+      if(!a.due&&!b.due)return 0;
+      if(!a.due)return 1;
+      if(!b.due)return-1;
+      return b.due.localeCompare(a.due);
+    });
+  } else if(_drillSort==='due')items.sort((a,b)=>{if(!a.due&&!b.due)return 0;if(!a.due)return 1;if(!b.due)return-1;return a.due.localeCompare(b.due);});
   else if(_drillSort==='val')items.sort((a,b)=>(b.price||0)-(a.price||0));
   else items.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   return items;
 }
 
 function openDrill(stageKey,stageName,stageColor){
-  _drillStage=stageKey;_drillSort='due';
+  _drillStage=stageKey;
+  const hasTier=TIER_STAGES.includes(stageKey);
+  document.getElementById('wdsorttier').style.display=hasTier?'':'none';
+  _drillSort=hasTier?'tier':'due';
   document.querySelectorAll('.wdbtn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('wdsortdue').classList.add('active');
+  document.getElementById(hasTier?'wdsorttier':'wdsortdue').classList.add('active');
   document.getElementById('wdtitle').textContent=stageName.toUpperCase();
   document.getElementById('wdtitle').style.color=stageColor;
   document.getElementById('wdsearch').value='';
@@ -490,6 +512,7 @@ function closeDrill(){document.getElementById('wdrillbg').style.display='none';_
 document.getElementById('wdback').onclick=closeDrill;
 document.getElementById('wdsearch').oninput=renderDrill;
 document.getElementById('wdsortdue').onclick=function(){_drillSort='due';document.querySelectorAll('.wdbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderDrill();};
+document.getElementById('wdsorttier').onclick=function(){_drillSort='tier';document.querySelectorAll('.wdbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderDrill();};
 document.getElementById('wdsortval').onclick=function(){_drillSort='val';document.querySelectorAll('.wdbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderDrill();};
 document.getElementById('wdsortname').onclick=function(){_drillSort='name';document.querySelectorAll('.wdbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderDrill();};
 
@@ -521,8 +544,9 @@ function renderDrillMetal(q){
       const dl=dueLabel(item.due);
       const h=(item.hMetal||0)+(item.hPolish||0);
       const isDone=stagePct(item)>=100;
+      const tierBadge=item.tier!=null?`<br><span class="tdtier t${item.tier}">TIER ${item.tier}</span>`:'';
       return`<tr>
-        <td style="color:#888">#${item.job}</td>
+        <td style="color:#888">#${item.job}${tierBadge}</td>
         <td><strong>${item.name||'—'}</strong><br><small style="color:#666">${item.status||''}</small></td>
         <td>${item.customer||'—'}</td>
         <td style="color:#888">${item.edition?'Ed.'+item.edition:''}</td>
@@ -585,8 +609,9 @@ function renderDrillMetal(q){
     items.map(item=>{
       const dl=dueLabel(item.due);
       const h=(item.hMetal||0)+(item.hPolish||0);
+      const tierBadge=item.tier!=null?`<br><span class="tdtier t${item.tier}">TIER ${item.tier}</span>`:'';
       return`<tr>
-        <td style="color:#888">#${item.job}</td>
+        <td style="color:#888">#${item.job}${tierBadge}</td>
         <td><strong>${item.name||'—'}</strong><span class="tdmon">MON</span><br><small style="color:#666">${item.status||''}</small></td>
         <td>${item.customer||'—'}</td>
         <td style="color:#888">${item.edition?'Ed.'+item.edition:''}</td>
@@ -634,8 +659,9 @@ function renderDrill(){
       const dl=dueLabel(item.due);
       const h=STAGE_HRS[_drillStage]?STAGE_HRS[_drillStage](item):0;
       const isDone=stagePct(item)>=100;
+      const tierBadge=item.tier!=null?`<br><span class="tdtier t${item.tier}">TIER ${item.tier}</span>`:'';
       return`<tr>
-        <td style="color:#888">#${item.job}</td>
+        <td style="color:#888">#${item.job}${tierBadge}</td>
         <td><strong>${item.name||'—'}</strong>${item.monument?'<span class="tdmon">MON</span>':''}<br><small style="color:#666">${item.status||''}</small></td>
         <td>${item.customer||'—'}</td>
         <td style="color:#888">${item.edition?'Ed.'+item.edition:''}</td>
