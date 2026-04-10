@@ -443,6 +443,9 @@ function renderDrillMetal(q){
     const monDoneVal=items.reduce((a,i)=>a+(i.price||0)*(metalPct(i)/100),0);
     const monRemVal=monVal-monDoneVal;
     const avgPct=items.length?Math.round(items.reduce((a,i)=>a+metalPct(i),0)/items.length):0;
+    const monTotalHrs=items.reduce((a,i)=>a+(i.hMetal||0)+(i.hPolish||0),0);
+    const monDoneHrs=items.reduce((a,i)=>{const h=(i.hMetal||0)+(i.hPolish||0);return a+h*(metalPct(i)/100);},0);
+    const monRemHrs=monTotalHrs-monDoneHrs;
     const summaryBar=`<div style="background:#12151f;border:1px solid #2a2d3a;border-radius:6px;padding:10px 14px;margin-bottom:10px;display:flex;gap:28px;align-items:center;flex-wrap:wrap">
       <div>
         <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.5px">Avg Completion</div>
@@ -458,6 +461,14 @@ function renderDrillMetal(q){
       <div>
         <div style="font-size:.65em;color:#e8a838;text-transform:uppercase;letter-spacing:.5px">Value Remaining</div>
         <div style="font-size:1.1em;font-weight:700;color:#e8a838;margin-top:2px">${fmt(monRemVal)}</div>
+      </div>
+      <div>
+        <div style="font-size:.65em;color:#5a9e5a;text-transform:uppercase;letter-spacing:.5px">Hrs Completed</div>
+        <div style="font-size:1.1em;font-weight:700;color:#5a9e5a;margin-top:2px">${monDoneHrs.toFixed(1)} hrs</div>
+      </div>
+      <div>
+        <div style="font-size:.65em;color:#e8a838;text-transform:uppercase;letter-spacing:.5px">Hrs Remaining</div>
+        <div style="font-size:1.1em;font-weight:700;color:#e8a838;margin-top:2px">${monRemHrs.toFixed(1)} hrs</div>
       </div>
       <div style="flex:1;min-width:160px">
         <div style="font-size:.65em;color:#888;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">Total Value Progress</div>
@@ -482,7 +493,7 @@ function renderDrillMetal(q){
         <td style="color:#888">${item.edition?'Ed.'+item.edition:''}</td>
         <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">—</span>'}</td>
         <td class="tdval">${fmt(item.price)}</td>
-        <td class="tdhrs">${h>0?h.toFixed(2)+' hrs':''}</td>
+        <td class="tdhrs">${(()=>{if(!h)return'';const pct=metalPct(item);const dh=h*(pct/100);const rh=h-dh;return`<div style="color:#ffd580;font-weight:700">${h.toFixed(1)} bid</div><div style="color:#5a9e5a;font-size:.82em">${dh.toFixed(1)} done</div><div style="color:#e8a838;font-size:.82em">${rh.toFixed(1)} left</div>`;})()}</td>
         <td>${pctBars(item)}</td>
       </tr>`;
     }).join('')+'</tbody></table>';
