@@ -964,9 +964,8 @@ def metal_override():
         if item and pct > pct_old:
             price = item.get('price') or 0
             if item.get('monument'):
-                # Monument metal: any % increase contributes delta value
-                delta_val = price * (pct - pct_old) / 100
-                _record_kpi_entry(job, item, delta_val, 'monument_metal',
+                # Monument metal: any % increase records the full assigned price
+                _record_kpi_entry(job, item, price, 'monument_metal',
                                   f'{pct_old}%→{pct}% progress')
             elif pct == 100 and pct_old < 100:
                 # Small metal: only full completion counts
