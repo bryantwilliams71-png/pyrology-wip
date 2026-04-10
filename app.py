@@ -70,7 +70,7 @@ def _load_stage_overrides():
         with open(STAGE_OVERRIDES_FILE) as f:
             _stage_overrides = json.load(f)
         log.info(f'Loaded {len(_stage_overrides)} stage override(s) from disk.')
-    except FileNotFoundErron:
+    except FileNotFoundError:
         pass
     except Exception as e:
         log.warning(f'Could not load stage overrides: {e}')
