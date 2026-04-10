@@ -20,7 +20,8 @@ API_URL    = os.getenv('WIP_API_URL',
 PORT       = int(os.getenv('PORT', 8080))
 CACHE_TTL  = int(os.getenv('CACHE_TTL', 60))
 SESSION_COOKIE = os.getenv('SESSION_COOKIE', '')
-OVERRIDES_FILE = '/tmp/metal_overrides.json'
+OVERRIDES_FILE       = '/tmp/metal_overrides.json'
+STAGE_OVERRIDES_FILE = '/tmp/stage_overrides.json'
 
 # ── Status → Stage mapping ─────────────────────────────────────────────────────
 STATUS_MAP = {
@@ -39,6 +40,7 @@ STATUS_MAP = {
 # ── Globals ────────────────────────────────────────────────────────────────────
 _cache           = {'items': [], 'updated': None, 'error': None}
 _metal_overrides = {}
+_stage_overrides = {}
 _lock            = threading.Lock()
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s  %(message)s', datefmt='%H:%M:%S')
@@ -62,7 +64,26 @@ def _save_overrides():
     except Exception as e:
         log.warning(f'Could not save overrides: {e}')
 
+def _load_stage_overrides():
+    global _stage_overrides
+    try:
+        with open(STAGE_OVERRIDES_FILE) as f:
+            _stage_overrides = json.load(f)
+        log.info(f'Loaded {len(_stage_overrides)} stage override(s) from disk.')
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        log.warning(f'Could not load stage overrides: {e}')
+
+def _save_stage_overrides():
+    try:
+        with open(STAGE_OVERRIDES_FILE, 'w') as f:
+            json.dump(_stage_overrides, f)
+    except Exception as e:
+        log.warning(f'Could not save stage overrides: {e}')
+
 _load_overrides()
+_load_stage_overrides()
 
 # ── Transform raw API rows → internal format ───────────────────────────────────
 def transform_rows(raw):
@@ -265,7 +286,7 @@ const STAGES=[
   {k:'base',    l:'Base',           c:'#4db8b8'},
   {k:'ready',   l:'✓ Ready',        c:'#5a9e5a'},
 ];
-const STAGE_HRS={
+const STACE_HRS={
   waxpull: i=>i.hWaxPull||0,
   waxchase:i=>(i.hWax||0)+(i.hSprue||0),
   metal:   i=>(i.hMetal||0)+(i.hPolish||0),
@@ -275,7 +296,7 @@ const STAGE_HRS={
 
 const fmt=v=>v?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(v):'—';
 const fmtH=h=>h>0?h.toLocaleString('en-US',{maximumFractionDigits:1})+' hrs bid':'';
-let _items=[], _drillStage=null, _drillSort='due', _metalOverrides={};
+let _items=[], _drillStage=null, _drillSort='due', _metalOverrides={}, _stageOverrides={};
 
 function daysDiff(d){if(!d)return null;return Math.floor((new Date(d)-new Date())/(86400000));}
 function dueLabel(d){
@@ -324,6 +345,44 @@ function pctBars(item){
     </div>
     <div class="prog-val" style="color:#e8a838;padding-left:59px">${fmt(remVal)} remaining</div>
     <div class="pct-btns">${btns}</div>
+  </div>`;
+}
+
+/* ── Stage (non-metal) progress bar helpers ── */
+function stagePct(item){
+  if(Object.prototype.hasOwnProperty.call(_stageOverrides,item.job))return _stageOverrides[item.job];
+  return 0;
+}
+function setStgPct(job,pct){
+  _stageOverrides[job]=pct;
+  fetch('/api/stage-override',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job,pct})})
+    .catch(e=>console.error('setStgPct failed:',e));
+  renderDrill();
+}
+function setStgPctFromClick(e,job){
+  const bar=e.currentTarget;const rect=bar.getBoundingClientRect();
+  const pct=Math.max(0,Math.min(100,Math.round((e.clientX-rect.left)/rect.width*100)));
+  setStgPct(job,pct);
+}
+function setStgPctFromClickRemain(e,job){
+  const bar=e.currentTarget;const rect=bar.getBoundingClientRect();
+  const rem=Math.max(0,Math.min(100,Math.round((e.clientX-rect.left)/rect.width*100)));
+  setStgPct(job,100-rem);
+}
+function stgPctBar(item){
+  const pct=stagePct(item);const rem=100-pct;
+  const doneColor=pct>=80?'#5a9e5a':pct>=50?'#e8a838':'#8b9dc3';
+  return `<div class="prog-wrap">
+    <div class="prog-row">
+      <span class="prog-label" style="color:${doneColor}">Done</span>
+      <div class="prog-bar-bg" onclick="event.stopPropagation();setStgPctFromClick(event,'${item.job}')" title="Click to set completion %" style="cursor:pointer"><div class="prog-bar-fill" style="width:${pct}%;background:${doneColor}"></div></div>
+      <span class="prog-pct" style="color:${doneColor}">${pct}%</span>
+    </div>
+    <div class="prog-row" style="margin-top:2px">
+      <span class="prog-label" style="color:#e8a838">Remain</span>
+      <div class="prog-bar-bg" onclick="event.stopPropagation();setStgPctFromClickRemain(event,'${item.job}')" title="Click to set remaining %" style="cursor:pointer"><div class="prog-bar-fill" style="width:${rem}%;background:#e8a838"></div></div>
+      <span class="prog-pct" style="color:#e8a838">${rem}%</span>
+    </div>
   </div>`;
 }
 
@@ -420,7 +479,7 @@ function renderDrillMetal(q){
 
   function smallTable(items){
     if(!items.length)return'<p style="color:#555;font-size:.8em;padding:8px 0">No items.</p>';
-    return`<table class="wdt"><thead><tr><th>Piece #</th><th>Description</th><th>Client</th><th>Edition</th><th>Due Date</th><th>Value</th><th>Hrs Bid</th></tr></thead><tbody>`+
+    return`<table class="wdt"><thead><tr><th>Piece #</th><th>Description</th><th>Client</th><th>Edition</th><th>Due Date</th><th>Value</th><th>Hrs Bid</th><th>Progress</th></tr></thead><tbody>`+
     items.map(item=>{
       const dl=dueLabel(item.due);
       const h=(item.hMetal||0)+(item.hPolish||0);
@@ -432,6 +491,7 @@ function renderDrillMetal(q){
         <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">—</span>'}</td>
         <td class="tdval">${fmt(item.price)}</td>
         <td class="tdhrs">${h>0?h.toFixed(2)+' hrs':''}</td>
+        <td>${stgPctBar(item)}</td>
       </tr>`;
     }).join('')+'</tbody></table>';
   }
@@ -528,7 +588,7 @@ function renderDrill(){
     `<span>Overdue: <strong style="color:#ff6b6b">${over}</strong></span>`+
     `<span>Monuments: <strong style="color:#7b5ea7">${items.filter(i=>i.monument).length}</strong></span>`;
   document.getElementById('wdtable').innerHTML=
-    `<table class="wdt"><thead><tr><th>Piece #</th><th>Description</th><th>Client</th><th>Edition</th><th>Due Date</th><th>Value</th><th>Hrs Bid</th></tr></thead><tbody>`+
+    `<table class="wdt"><thead><tr><th>Piece #</th><th>Description</th><th>Client</th><th>Edition</th><th>Due Date</th><th>Value</th><th>Hrs Bid</th><th>Progress</th></tr></thead><tbody>`+
     items.map(item=>{
       const dl=dueLabel(item.due);
       const h=STAGE_HRS[_drillStage]?STAGE_HRS[_drillStage](item):0;
@@ -540,6 +600,7 @@ function renderDrill(){
         <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">—</span>'}</td>
         <td class="tdval">${fmt(item.price)}</td>
         <td class="tdhrs">${h>0?h.toFixed(2)+' hrs':''}</td>
+        <td>${stgPctBar(item)}</td>
       </tr>`;
     }).join('')+'</tbody></table>';
 }
@@ -561,6 +622,7 @@ function loadData(){
       document.getElementById('werr').style.display='none';
     }
     if(d.metal_overrides)Object.assign(_metalOverrides,d.metal_overrides);
+    if(d.stage_overrides)Object.assign(_stageOverrides,d.stage_overrides);
     if(d.items&&d.items.length){
       _items=d.items;
       renderBoard();
@@ -590,11 +652,12 @@ def dashboard():
 def api_wip():
     with _lock:
         return jsonify({
-            'items':           _cache['items'],
-            'updated':         _cache['updated'],
-            'count':           len(_cache['items']),
-            'error':           _cache['error'],
-            'metal_overrides': dict(_metal_overrides),
+            'items':            _cache['items'],
+            'updated':          _cache['updated'],
+            'count':            len(_cache['items']),
+            'error':            _cache['error'],
+            'metal_overrides':  dict(_metal_overrides),
+            'stage_overrides':  dict(_stage_overrides),
         })
 
 @app.route('/api/metal-override', methods=['POST'])
@@ -613,6 +676,24 @@ def metal_override():
         return jsonify({'ok': True, 'job': job, 'pct': pct})
     except Exception as e:
         log.error(f'Override failed: {e}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/stage-override', methods=['POST'])
+def stage_override():
+    try:
+        body = request.get_json(force=True)
+        job  = str(body.get('job', '')).strip()
+        pct  = int(body.get('pct', 0))
+        if not job:
+            return jsonify({'error': 'missing job'}), 400
+        pct = max(0, min(100, pct))
+        with _lock:
+            _stage_overrides[job] = pct
+        _save_stage_overrides()
+        log.info(f'Stage override set: job={job} pct={pct}%')
+        return jsonify({'ok': True, 'job': job, 'pct': pct})
+    except Exception as e:
+        log.error(f'Stage override failed: {e}')
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/push-wip', methods=['POST'])
