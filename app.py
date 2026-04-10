@@ -7,7 +7,7 @@ Data arrives two ways:
   2. Browser-push: POST raw dithtracker JSON to /api/push-wip.
 """
 
-import os, time, logging, threading
+import os, time, logging, threading, json
 from datetime import datetime
 
 import requests
@@ -20,6 +20,7 @@ API_URL    = os.getenv('WIP_API_URL',
 PORT       = int(os.getenv('PORT', 8080))
 CACHE_TTL  = int(os.getenv('CACHE_TTL', 60))
 SESSION_COOKIE = os.getenv('SESSION_COOKIE', '')
+OVERRIDES_FILE = '/tmp/metal_overrides.json'
 
 # ── Status → Stage mapping ─────────────────────────────────────────────────────
 STATUS_MAP = {
@@ -36,11 +37,32 @@ STATUS_MAP = {
 }
 
 # ── Globals ────────────────────────────────────────────────────────────────────
-_cache = {'items': [], 'updated': None, 'error': None}
-_lock  = threading.Lock()
+_cache           = {'items': [], 'updated': None, 'error': None}
+_metal_overrides = {}
+_lock            = threading.Lock()
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s  %(message)s', datefmt='%H:%M:%S')
 log = logging.getLogger(__name__)
+
+def _load_overrides():
+    global _metal_overrides
+    try:
+        with open(OVERRIDES_FILE) as f:
+            _metal_overrides = json.load(f)
+        log.info(f'Loaded {len(_metal_overrides)} metal override(s) from disk.')
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        log.warning(f'Could not load overrides: {e}')
+
+def _save_overrides():
+    try:
+        with open(OVERRIDES_FILE, 'w') as f:
+            json.dump(_metal_overrides, f)
+    except Exception as e:
+        log.warning(f'Could not save overrides: {e}')
+
+_load_overrides()
 
 # ── Transform raw API rows → internal format ───────────────────────────────────
 def transform_rows(raw):
@@ -184,6 +206,12 @@ table.wdt tr:hover td{background:#1e2130}
 .prog-bar-fill{height:100%;border-radius:4px;transition:width .4s}
 .prog-pct{font-size:.75em;font-weight:700;width:34px;text-align:right;flex-shrink:0}
 .prog-val{font-size:.7em;color:#aaa;margin-top:1px;text-align:right}
+.pct-btns{display:flex;gap:4px;margin-top:7px;flex-wrap:wrap}
+.pct-btn{background:#1e2130;border:1px solid #3a3d4a;color:#777;padding:3px 9px;border-radius:10px;cursor:pointer;font-size:.68em;font-weight:700;transition:background .15s,color .15s,border-color .15s;user-select:none;line-height:1.4}
+.pct-btn:hover{background:#2a2d3a;color:#e8e8e8;border-color:#5a6a8a}
+.pct-btn.active{background:#8b9dc3;color:#000;border-color:#8b9dc3}
+.pct-btn.active-full{background:#5a9e5a;color:#fff;border-color:#5a9e5a}
+.pct-btn.active-half{background:#e8a838;color:#000;border-color:#e8a838}
 </style>
 </head>
 <body>
@@ -247,7 +275,7 @@ const STAGE_HRS={
 
 const fmt=v=>v?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(v):'—';
 const fmtH=h=>h>0?h.toLocaleString('en-US',{maximumFractionDigits:1})+' hrs bid':'';
-let _items=[], _drillStage=null, _drillSort='due';
+let _items=[], _drillStage=null, _drillSort='due', _metalOverrides={};
 
 function daysDiff(d){if(!d)return null;return Math.floor((new Date(d)-new Date())/(86400000));}
 function dueLabel(d){
@@ -259,16 +287,29 @@ function dueLabel(d){
 
 /* ── progress bar helper ── */
 function metalPct(item){
+  if(Object.prototype.hasOwnProperty.call(_metalOverrides,item.job))return _metalOverrides[item.job];
   const bid=(item.hMetal||0)+(item.hPolish||0);
   const done=(item.hMetalWorked||0)+(item.hPolishWorked||0);
   return bid>0?Math.min(100,Math.round(done/bid*100)):0;
+}
+function setPct(job,pct){
+  _metalOverrides[job]=pct;
+  fetch('/api/metal-override',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job,pct})})
+    .catch(e=>console.error('setPct failed:',e));
+  renderDrill();
 }
 function pctBars(item){
   const pct=metalPct(item);
   const rem=100-pct;
   const doneVal=item.price*(pct/100);
   const remVal=item.price*((100-pct)/100);
-  const doneColor=pct>=80?'#5a9e5a':pct>=40?'#e8a838':'#8b9dc3';
+  const doneColor=pct>=80?'#5a9e5a':pct>=50?'#e8a838':'#8b9dc3';
+  const milestones=[0,25,50,75,100];
+  const btns=milestones.map(m=>{
+    let cls='pct-btn';
+    if(pct===m){cls+=m===100?' active-full':m>=50?' active-half':' active';}
+    return`<button class="${cls}" onclick="event.stopPropagation();setPct('${item.job}',${m})">${m}%</button>`;
+  }).join('');
   return `<div class="prog-wrap">
     <div class="prog-row">
       <span class="prog-label" style="color:${doneColor}">Done</span>
@@ -282,6 +323,7 @@ function pctBars(item){
       <span class="prog-pct" style="color:#e8a838">${rem}%</span>
     </div>
     <div class="prog-val" style="color:#e8a838;padding-left:59px">${fmt(remVal)} remaining</div>
+    <div class="pct-btns">${btns}</div>
   </div>`;
 }
 
@@ -507,6 +549,7 @@ function loadData(){
     } else {
       document.getElementById('werr').style.display='none';
     }
+    if(d.metal_overrides)Object.assign(_metalOverrides,d.metal_overrides);
     if(d.items&&d.items.length){
       _items=d.items;
       renderBoard();
@@ -536,11 +579,30 @@ def dashboard():
 def api_wip():
     with _lock:
         return jsonify({
-            'items':   _cache['items'],
-            'updated': _cache['updated'],
-            'count':   len(_cache['items']),
-            'error':   _cache['error'],
+            'items':           _cache['items'],
+            'updated':         _cache['updated'],
+            'count':           len(_cache['items']),
+            'error':           _cache['error'],
+            'metal_overrides': dict(_metal_overrides),
         })
+
+@app.route('/api/metal-override', methods=['POST'])
+def metal_override():
+    try:
+        body = request.get_json(force=True)
+        job  = str(body.get('job', '')).strip()
+        pct  = int(body.get('pct', 0))
+        if not job:
+            return jsonify({'error': 'missing job'}), 400
+        pct = max(0, min(100, pct))
+        with _lock:
+            _metal_overrides[job] = pct
+        _save_overrides()
+        log.info(f'Metal override set: job={job} pct={pct}%')
+        return jsonify({'ok': True, 'job': job, 'pct': pct})
+    except Exception as e:
+        log.error(f'Override failed: {e}')
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/push-wip', methods=['POST'])
 def push_wip():
