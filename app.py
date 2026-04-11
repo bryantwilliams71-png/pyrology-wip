@@ -302,8 +302,8 @@ table.wdt tr:hover td{background:#1e2130}
 .pct-btn.active-half{background:#e8a838;color:#000;border-color:#e8a838}
 .btn-complete{background:#1e3a1e;border:1px solid #3a7a3a;color:#5a9e5a;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:.8em;font-weight:700;transition:background .15s,color .15s;white-space:nowrap}
 .btn-complete:hover{background:#2a5a2a;color:#7acc7a;border-color:#5a9e5a}
-.btn-complete.done{background:#5a9e5a;color:#fff;border-color:#5a9e5a;cursor:not-allowed;opacity:.85}
-.btn-complete.done:hover{background:#5a9e5a;color:#fff;border-color:#5a9e5a}
+.btn-complete.done{background:#5a9e5a;color:#fff;border-color:#5a9e5a;cursor:pointer;opacity:.85}
+.btn-complete.done:hover{background:#3a6e3a;color:#fff;border-color:#5a9e5a}
 .tdtier{display:inline-block;font-size:.72em;font-weight:700;padding:1px 6px;border-radius:3px;margin-top:3px;letter-spacing:.4px}
 .tdtier.t1{background:#4a2a6a;color:#c9a0f0;border:1px solid #7a4aaa}
 .tdtier.t2{background:#2a3a5a;color:#7aa8e8;border:1px solid #4a6aaa}
@@ -699,7 +699,7 @@ function renderDrillMetal(q){
         <td class="tdval">${fmt(item.price)}</td>
         <td class="tdhrs">${h>0?h.toFixed(2)+' hrs':''}</td>
         <td>${stgPctBar(item)}</td>
-        <td><button class="btn-complete${isDone?' done':''}" ${isDone?'disabled':''}onclick="event.stopPropagation();setStgPct('${item.job}',100)">${isDone?'â Done':'â'}</button></td>
+        <td><button class="btn-complete${isDone?' done':''}" onclick="event.stopPropagation();setStgPct('${item.job}',${isDone?0:100})">${isDone?'â Done':'â'}</button></td>
       </tr>`;
     }).join('')+'</tbody></table>';
   }
@@ -818,7 +818,7 @@ function renderDrill(){
         <td class="tdval">${fmt(item.price)}</td>
         <td class="tdhrs">${h>0?h.toFixed(2)+' hrs':''}</td>
         <td>${stgPctBar(item)}</td>
-        <td><button class="btn-complete${isDone?' done':''}" ${isDone?'disabled':''}onclick="event.stopPropagation();setStgPct('${item.job}',100)">${isDone?'â Done':'â'}</button></td>
+        <td><button class="btn-complete${isDone?' done':''}" onclick="event.stopPropagation();setStgPct('${item.job}',${isDone?0:100})">${isDone?'â Done':'â'}</button></td>
       </tr>`;
     }).join('')+'</tbody></table>';
 }
