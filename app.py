@@ -462,6 +462,7 @@ function setPct(job,pct){
   fetch('/api/metal-override',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job,pct})})
     .catch(e=>console.error('setPct failed:',e));
   renderDrill();
+  document.getElementById('wdrillbg').style.display='flex';
 }
 function pctBars(item){
   const pct=metalPct(item);
