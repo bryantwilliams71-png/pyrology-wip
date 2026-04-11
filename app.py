@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Pyrology WIP Production Dashboard â Cloud Version
+Pyrology WIP Production Dashboard &mdash; Cloud Version
 --------------------------------------------------
 Data arrives two ways:
   1. Server-pull: set SESSION_COOKIE env var.
@@ -14,7 +14,7 @@ import requests
 from flask import Flask, jsonify, Response, request
 from flask_cors import CORS
 
-# ââ Config âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# -- Config ---------------------------------------------------------------------
 API_URL    = os.getenv('WIP_API_URL',
              'https://dithtracker-reporting.azurewebsites.net/Api/Reports/Wip?pageSize=500')
 PORT       = int(os.getenv('PORT', 8080))
@@ -25,7 +25,7 @@ STAGE_OVERRIDES_FILE = '/tmp/stage_overrides.json'
 PRIORITY_FILE        = '/tmp/priority_overrides.json'
 KPI_FILE             = '/tmp/kpi_data.json'
 
-# ââ Status â Stage mapping âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# -- Status &rarr; Stage mapping -----------------------------------------------------
 STATUS_MAP = {
     'Mold':'molds','Waiting on Creation/Mold':'molds','Scan':'molds',
     'Waiting on Production':'creation','Print/Cast':'creation',
@@ -39,11 +39,11 @@ STATUS_MAP = {
     'Ready':'ready','Packing/Shipping':'ready',
 }
 
-# ââ Globals ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# -- Globals --------------------------------------------------------------------
 _cache              = {'items': [], 'updated': None, 'error': None}
 _metal_overrides    = {}
 _stage_overrides    = {}
-_priority_overrides = {}          # job â 1 (urgent) | 2 (high) | 0 (normal/default)
+_priority_overrides = {}          # job &rarr; 1 (urgent) | 2 (high) | 0 (normal/default)
 _kpi_data           = {'week_start': '', 'entries': [], 'history': []}
 _lock            = threading.Lock()
 logging.basicConfig(level=logging.INFO,
@@ -151,7 +151,7 @@ _load_stage_overrides()
 _load_priority_overrides()
 _load_kpi()
 
-# ââ Transform raw API rows â internal format âââââââââââââââââââââââââââââââââââ
+# -- Transform raw API rows &rarr; internal format -----------------------------------
 def transform_rows(raw):
     items = []
     for row in raw:
@@ -185,7 +185,7 @@ def transform_rows(raw):
         })
     return items
 
-# ââ Server-side fetch ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# -- Server-side fetch ----------------------------------------------------------
 def fetch():
     log.info('Fetching from Tracker API...')
     try:
@@ -220,13 +220,13 @@ def refresh_loop():
                 _cache['error'] = err
         time.sleep(CACHE_TTL)
 
-# ââ Dashboard HTML âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# -- Dashboard HTML -------------------------------------------------------------
 DASHBOARD_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Production Status Board â Pyrology</title>
+<title>Production Status Board &mdash; Pyrology</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'Segoe UI',Arial,sans-serif;overflow:hidden}
@@ -331,22 +331,22 @@ table.wdt tr:hover td{background:#1e2130}
 <body>
 <div id="wtop">
   <div style="display:flex;align-items:center;gap:10px">
-    <div style="font-size:1.6em">ð­</div>
-    <h1>PRODUCTION STATUS BOARD<span>Work In Progress â Click any department to drill down</span></h1>
+    <div style="font-size:1.6em">&#127981;</div>
+    <h1>PRODUCTION STATUS BOARD<span>Work In Progress &mdash; Click any department to drill down</span></h1>
   </div>
   <div style="display:flex;align-items:center;gap:12px">
-    <a href="/kpi" style="display:inline-flex;align-items:center;gap:5px;background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;text-decoration:none;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;letter-spacing:.5px">ð KPI</a>
+    <a href="/kpi" style="display:inline-flex;align-items:center;gap:5px;background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;text-decoration:none;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;letter-spacing:.5px">&#128202; KPI</a>
     <div id="wclock">--:--:--<small>Loading...</small></div>
   </div>
 </div>
 <div id="werr"></div>
 <div id="wstats">
-  <div class="wstat">â TOTAL ITEMS <strong id="stotal">â</strong></div>
-  <div class="wstat teal">â TOTAL VALUE <strong id="svalue">â</strong></div>
-  <div class="wstat green">â READY <strong id="sready">â</strong></div>
-  <div class="wstat red">â OVERDUE <strong id="sover">â</strong></div>
-  <div class="wstat gold">â DUE THIS WEEK <strong id="sweek">â</strong></div>
-  <div class="wstat gold">â MONUMENTS <strong id="smon">â</strong></div>
+  <div class="wstat">&#9679; TOTAL ITEMS <strong id="stotal">&mdash;</strong></div>
+  <div class="wstat teal">&#9679; TOTAL VALUE <strong id="svalue">&mdash;</strong></div>
+  <div class="wstat green">&#9679; READY <strong id="sready">&mdash;</strong></div>
+  <div class="wstat red">&#9679; OVERDUE <strong id="sover">&mdash;</strong></div>
+  <div class="wstat gold">&#9679; DUE THIS WEEK <strong id="sweek">&mdash;</strong></div>
+  <div class="wstat gold">&#9679; MONUMENTS <strong id="smon">&mdash;</strong></div>
   <div class="pri-sort-legend"><span><span class="pri-dot p1"></span> Urgent</span><span><span class="pri-dot p2"></span> High</span><span style="color:#555">Right-click card to flag</span></div>
   <div id="wlive">Loading...</div>
 </div>
@@ -363,10 +363,10 @@ table.wdt tr:hover td{background:#1e2130}
         <input id="wdsearch" placeholder="Search pieces..." type="text"/>
         <button class="wdbtn active" id="wdsortdue">Sort: Due Date</button>
         <button class="wdbtn" id="wdsorttier" style="display:none">Sort: Tier</button>
-        <button class="wdbtn" id="wdsortval">Sort: Value â</button>
+        <button class="wdbtn" id="wdsortval">Sort: Value &darr;</button>
         <button class="wdbtn" id="wdsortname">Sort: Name</button>
         <button class="wdbtn" id="wdsortpri">Sort: Priority</button>
-        <button id="wdback">â Back to All</button>
+        <button id="wdback">&larr; Back to All</button>
       </div>
     </div>
     <div id="wdtable"></div>
@@ -383,7 +383,7 @@ const STAGES=[
   {k:'metal',   l:'Metal Work',     c:'#8b9dc3', sub:'Small & Monument'},
   {k:'patina',  l:'Patina',         c:'#c45c8a'},
   {k:'base',    l:'Base',           c:'#4db8b8'},
-  {k:'ready',   l:'â Ready',        c:'#5a9e5a'},
+  {k:'ready',   l:'&#10003; Ready',        c:'#5a9e5a'},
 ];
 const STAGE_HRS={
   waxpull: i=>i.hWaxPull||0,
@@ -393,7 +393,7 @@ const STAGE_HRS={
   base:    i=>i.hBasing||0,
 };
 
-const fmt=v=>v?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(v):'â';
+const fmt=v=>v?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(v):'&mdash;';
 const fmtH=h=>h>0?h.toLocaleString('en-US',{maximumFractionDigits:1})+' hrs bid':'';
 let _items=[], _drillStage=null, _drillSort='due', _metalOverrides={}, _stageOverrides={}, _priorityOverrides={};
 
@@ -405,12 +405,12 @@ function dueLabel(d){
   return{t:d,c:'ok'};
 }
 
-/* ââ priority helpers ââ */
+/* -- priority helpers -- */
 function getPri(job){return _priorityOverrides[job]||0;}
 function cyclePri(job,e){
   if(e){e.preventDefault();e.stopPropagation();}
   const cur=getPri(job);
-  const next=cur===0?1:cur===1?2:0;  // 0â1(urgent)â2(high)â0(normal)
+  const next=cur===0?1:cur===1?2:0;  // 0&rarr;1(urgent)&rarr;2(high)&rarr;0(normal)
   _priorityOverrides[job]=next;
   if(next===0)delete _priorityOverrides[job];
   fetch('/api/priority-override',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job,priority:next})})
@@ -437,8 +437,8 @@ function priSort(items){
 function priBtns(job){
   const p=getPri(job);
   return`<div style="display:flex;gap:2px">`+
-    `<button class="pri-btn${p===1?' p1':''}" onclick="event.stopPropagation();cyclePriTo('${job}',${p===1?0:1})" title="Urgent">ð´</button>`+
-    `<button class="pri-btn${p===2?' p2':''}" onclick="event.stopPropagation();cyclePriTo('${job}',${p===2?0:2})" title="High">ð¡</button>`+
+    `<button class="pri-btn${p===1?' p1':''}" onclick="event.stopPropagation();cyclePriTo('${job}',${p===1?0:1})" title="Urgent">&#128308;</button>`+
+    `<button class="pri-btn${p===2?' p2':''}" onclick="event.stopPropagation();cyclePriTo('${job}',${p===2?0:2})" title="High">&#128993;</button>`+
     `</div>`;
 }
 function cyclePriTo(job,pri){
@@ -450,7 +450,7 @@ function cyclePriTo(job,pri){
   if(_drillStage)renderDrill();
 }
 
-/* ââ progress bar helper ââ */
+/* -- progress bar helper -- */
 function metalPct(item){
   if(Object.prototype.hasOwnProperty.call(_metalOverrides,item.job))return _metalOverrides[item.job];
   const bid=(item.hMetal||0)+(item.hPolish||0);
@@ -492,7 +492,7 @@ function pctBars(item){
   </div>`;
 }
 
-/* ââ Stage (non-metal) progress bar helpers ââ */
+/* -- Stage (non-metal) progress bar helpers -- */
 function stagePct(item){
   if(Object.prototype.hasOwnProperty.call(_stageOverrides,item.job))return _stageOverrides[item.job];
   return 0;
@@ -530,7 +530,7 @@ function stgPctBar(item){
   </div>`;
 }
 
-/* ââ Stage scoreboard summary bar (shared by all non-monument sections) ââ */
+/* -- Stage scoreboard summary bar (shared by all non-monument sections) -- */
 function stgSummaryBar(items,stageColor){
   if(!items.length)return'';
   const totalVal=items.reduce((a,i)=>a+(i.price||0),0);
@@ -591,7 +591,7 @@ function renderBoard(){
         ${s.sub?`<div class="wcsub">${s.sub}</div>`:''}
         <div class="wccount">${sd.items.length} ITEMS</div>
         <div class="wcval">${fmt(sd.val)}</div>
-        ${sd.hrs>0?`<div class="wchrs">â± ${fmtH(sd.hrs)}</div>`:''}
+        ${sd.hrs>0?`<div class="wchrs">&#9201; ${fmtH(sd.hrs)}</div>`:''}
       </div>
       <div class="wcbody">
         ${shown.map(item=>{
@@ -609,7 +609,7 @@ function renderBoard(){
             </div>
           </div>`;
         }).join('')}
-        ${extra>0?`<div class="wmore">+${extra} more â click to see all</div>`:''}
+        ${extra>0?`<div class="wmore">+${extra} more &mdash; click to see all</div>`:''}
       </div>
     </div>`;
   }).join('');
@@ -659,7 +659,7 @@ document.getElementById('wdsortval').onclick=function(){_drillSort='val';documen
 document.getElementById('wdsortname').onclick=function(){_drillSort='name';document.querySelectorAll('.wdbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderDrill();};
 document.getElementById('wdsortpri').onclick=function(){_drillSort='pri';document.querySelectorAll('.wdbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderDrill();};
 
-/* ââ Metal Work special drill-down ââ */
+/* -- Metal Work special drill-down -- */
 function renderDrillMetal(q){
   let all=_items.filter(i=>i.stage==='metal');
   if(q)all=all.filter(i=>(i.name+' '+i.customer+' '+i.job).toLowerCase().includes(q));
@@ -692,14 +692,14 @@ function renderDrillMetal(q){
       return`<tr style="${pri===1?'background:#1a0f0f':pri===2?'background:#1a160f':''}">
         <td>${priBtns(item.job)}</td>
         <td style="color:#888">#${item.job}${tierBadge}</td>
-        <td><strong>${item.name||'â'}</strong><br><small style="color:#666">${item.status||''}</small></td>
-        <td>${item.customer||'â'}</td>
+        <td><strong>${item.name||'&mdash;'}</strong><br><small style="color:#666">${item.status||''}</small></td>
+        <td>${item.customer||'&mdash;'}</td>
         <td style="color:#888">${item.edition?'Ed.'+item.edition:''}</td>
-        <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">â</span>'}</td>
+        <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">&mdash;</span>'}</td>
         <td class="tdval">${fmt(item.price)}</td>
         <td class="tdhrs">${h>0?h.toFixed(2)+' hrs':''}</td>
         <td>${stgPctBar(item)}</td>
-        <td><button class="btn-complete${isDone?' done':''}" onclick="event.stopPropagation();setStgPct('${item.job}',${isDone?0:100})">${isDone?'â Done':'â'}</button></td>
+        <td><button class="btn-complete${isDone?' done':''}" onclick="event.stopPropagation();setStgPct('${item.job}',${isDone?0:100})">${isDone?'&#10003; Done':'&#10003;'}</button></td>
       </tr>`;
     }).join('')+'</tbody></table>';
   }
@@ -759,10 +759,10 @@ function renderDrillMetal(q){
       return`<tr style="${pri===1?'background:#1a0f0f':pri===2?'background:#1a160f':''}">
         <td>${priBtns(item.job)}</td>
         <td style="color:#888">#${item.job}${tierBadge}</td>
-        <td><strong>${item.name||'â'}</strong><span class="tdmon">MON</span><br><small style="color:#666">${item.status||''}</small></td>
-        <td>${item.customer||'â'}</td>
+        <td><strong>${item.name||'&mdash;'}</strong><span class="tdmon">MON</span><br><small style="color:#666">${item.status||''}</small></td>
+        <td>${item.customer||'&mdash;'}</td>
         <td style="color:#888">${item.edition?'Ed.'+item.edition:''}</td>
-        <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">â</span>'}</td>
+        <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">&mdash;</span>'}</td>
         <td class="tdval">${fmt(item.price)}</td>
         <td class="tdhrs">${(()=>{if(!h)return'';const pct=metalPct(item);const dh=h*(pct/100);const rh=h-dh;return`<div style="color:#ffd580;font-weight:700">${h.toFixed(1)} bid</div><div style="color:#5a9e5a;font-size:.82em">${dh.toFixed(1)} done</div><div style="color:#e8a838;font-size:.82em">${rh.toFixed(1)} left</div>`;})()}</td>
         <td>${pctBars(item)}</td>
@@ -771,9 +771,9 @@ function renderDrillMetal(q){
   }
 
   document.getElementById('wdtable').innerHTML=
-    `<div class="metal-section-hdr"><h3 style="color:#8b9dc3">Small Metal</h3><span class="metal-badge" style="background:#8b9dc322;color:#8b9dc3">${small.length} items Â· ${fmt(small.reduce((a,i)=>a+(i.price||0),0))}</span></div>`+
+    `<div class="metal-section-hdr"><h3 style="color:#8b9dc3">Small Metal</h3><span class="metal-badge" style="background:#8b9dc322;color:#8b9dc3">${small.length} items &middot; ${fmt(small.reduce((a,i)=>a+(i.price||0),0))}</span></div>`+
     smallTable(small)+
-    `<div class="metal-section-hdr" style="margin-top:18px"><h3 style="color:#7b5ea7">Monument Metal</h3><span class="metal-badge" style="background:#7b5ea722;color:#7b5ea7">${mon.length} items Â· ${fmt(mon.reduce((a,i)=>a+(i.price||0),0))}</span></div>`+
+    `<div class="metal-section-hdr" style="margin-top:18px"><h3 style="color:#7b5ea7">Monument Metal</h3><span class="metal-badge" style="background:#7b5ea722;color:#7b5ea7">${mon.length} items &middot; ${fmt(mon.reduce((a,i)=>a+(i.price||0),0))}</span></div>`+
     monTable(mon);
 }
 
@@ -811,14 +811,14 @@ function renderDrill(){
       return`<tr style="${pri===1?'background:#1a0f0f':pri===2?'background:#1a160f':''}">
         <td>${priBtns(item.job)}</td>
         <td style="color:#888">#${item.job}${tierBadge}</td>
-        <td><strong>${item.name||'â'}</strong>${item.monument?'<span class="tdmon">MON</span>':''}<br><small style="color:#666">${item.status||''}</small></td>
-        <td>${item.customer||'â'}</td>
+        <td><strong>${item.name||'&mdash;'}</strong>${item.monument?'<span class="tdmon">MON</span>':''}<br><small style="color:#666">${item.status||''}</small></td>
+        <td>${item.customer||'&mdash;'}</td>
         <td style="color:#888">${item.edition?'Ed.'+item.edition:''}</td>
-        <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">â</span>'}</td>
+        <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">&mdash;</span>'}</td>
         <td class="tdval">${fmt(item.price)}</td>
         <td class="tdhrs">${h>0?h.toFixed(2)+' hrs':''}</td>
         <td>${stgPctBar(item)}</td>
-        <td><button class="btn-complete${isDone?' done':''}" onclick="event.stopPropagation();setStgPct('${item.job}',${isDone?0:100})">${isDone?'â Done':'â'}</button></td>
+        <td><button class="btn-complete${isDone?' done':''}" onclick="event.stopPropagation();setStgPct('${item.job}',${isDone?0:100})">${isDone?'&#10003; Done':'&#10003;'}</button></td>
       </tr>`;
     }).join('')+'</tbody></table>';
 }
@@ -835,7 +835,7 @@ function loadData(){
   fetch('/api/wip').then(r=>r.json()).then(d=>{
     if(d.error){
       document.getElementById('werr').style.display='block';
-      document.getElementById('werr').textContent='â  '+d.error;
+      document.getElementById('werr').textContent='&#9888; '+d.error;
     } else {
       document.getElementById('werr').style.display='none';
     }
@@ -846,11 +846,11 @@ function loadData(){
       _items=d.items;
       renderBoard();
       if(_drillStage)renderDrill();
-      document.getElementById('wlive').textContent='â Live Â· Updated '+new Date(d.updated).toLocaleTimeString();
+      document.getElementById('wlive').textContent='&#9679; Live &middot; Updated '+new Date(d.updated).toLocaleTimeString();
     }
   }).catch(()=>{
     document.getElementById('werr').style.display='block';
-    document.getElementById('werr').textContent='â  Cannot reach server.';
+    document.getElementById('werr').textContent='&#9888; Cannot reach server.';
   });
 }
 loadData();
@@ -859,13 +859,13 @@ setInterval(loadData,60000);
 </body>
 </html>"""
 
-# ââ KPI Page HTML ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# -- KPI Page HTML --------------------------------------------------------------
 KPI_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>KPI Tracker â Pyrology</title>
+<title>KPI Tracker &mdash; Pyrology</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;min-height:100%;background:#0f1117;color:#e8e8e8;font-family:'Segoe UI',Arial,sans-serif}
@@ -917,10 +917,10 @@ table.ktbl tr:hover td{background:#1e2130}
 <body>
 <div id="ktop">
   <div style="display:flex;align-items:center;gap:10px">
-    <div style="font-size:1.6em">ð</div>
-    <h1>KPI TRACKER<span>Weekly Production Value â Per Department</span></h1>
+    <div style="font-size:1.6em">&#128202;</div>
+    <h1>KPI TRACKER<span>Weekly Production Value &mdash; Per Department</span></h1>
   </div>
-  <a href="/" class="nav-link">ð­ Dashboard</a>
+  <a href="/" class="nav-link">&#127981; Dashboard</a>
 </div>
 <div id="kbody">
   <div class="week-banner">
@@ -929,8 +929,8 @@ table.ktbl tr:hover td{background:#1e2130}
       <div class="week-sub" id="kweek-sub"></div>
     </div>
     <div style="display:flex;align-items:center;gap:14px">
-      <div style="font-size:.82em;color:#888">Total this week: <span id="ktotal-week" style="color:#4db8b8;font-weight:700;font-size:1.2em">â</span></div>
-      <button class="btn-close-week" onclick="closeWeek()">ð Close Week</button>
+      <div style="font-size:.82em;color:#888">Total this week: <span id="ktotal-week" style="color:#4db8b8;font-weight:700;font-size:1.2em">&mdash;</span></div>
+      <button class="btn-close-week" onclick="closeWeek()">&#128274; Close Week</button>
     </div>
   </div>
 
@@ -955,7 +955,7 @@ const DEPT_ORDER = ['waxpull','waxchase','shell','small_metal','monument_metal',
 function fmt(v){if(!v)return'$0';return'$'+Number(v).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});}
 
 function fmtDate(iso){
-  if(!iso)return'â';
+  if(!iso)return'&mdash;';
   const d=new Date(iso);
   return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+'  '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
 }
@@ -965,7 +965,7 @@ function weekRange(startIso){
   const s=new Date(startIso+'T00:00:00');
   const e=new Date(s); e.setDate(e.getDate()+6);
   const opts={month:'short',day:'numeric'};
-  return s.toLocaleDateString('en-US',opts)+' â '+e.toLocaleDateString('en-US',{...opts,year:'numeric'});
+  return s.toLocaleDateString('en-US',opts)+' &ndash; '+e.toLocaleDateString('en-US',{...opts,year:'numeric'});
 }
 
 function renderKPI(data){
@@ -993,21 +993,21 @@ function renderKPI(data){
       <div class="dc-count">${deptCounts[d]} completion${deptCounts[d]!==1?'s':''}</div>
     </div>`).join('');
 
-  // entries table (newest first) â track original index for API calls
+  // entries table (newest first) &mdash; track original index for API calls
   const indexed=entries.map((e,i)=>({...e,_idx:i}));
   const sorted=indexed.sort((a,b)=>b.completed_at.localeCompare(a.completed_at));
   document.getElementById('kentries-body').innerHTML = sorted.length
     ? sorted.map(e=>`<tr data-idx="${e._idx}">
         <td style="color:#888">#${e.job}</td>
-        <td><strong>${e.name||'â'}</strong></td>
-        <td>${e.customer||'â'}</td>
+        <td><strong>${e.name||'&mdash;'}</strong></td>
+        <td>${e.customer||'&mdash;'}</td>
         <td><span class="ktdept kd-${e.dept}">${DEPT_LABELS[e.dept]||e.dept}</span></td>
         <td class="ktval" id="kval-${e._idx}">${fmt(e.value)}</td>
         <td style="color:#888;font-size:.85em" id="knote-${e._idx}">${e.note||''}</td>
         <td style="color:#666;font-size:.85em">${fmtDate(e.completed_at)}</td>
         <td class="kpi-actions">
-          <button class="kpi-btn" onclick="editEntry(${e._idx})" title="Edit value/note">âï¸</button>
-          <button class="kpi-btn del" onclick="deleteEntry(${e._idx})" title="Delete entry">â</button>
+          <button class="kpi-btn" onclick="editEntry(${e._idx})" title="Edit value/note">&#9999;</button>
+          <button class="kpi-btn del" onclick="deleteEntry(${e._idx})" title="Delete entry">&#10005;</button>
         </td>
       </tr>`).join('')
     : '<tr><td colspan="8" style="color:#555;text-align:center;padding:18px">No completions recorded this week yet.</td></tr>';
@@ -1027,7 +1027,7 @@ function renderKPI(data){
       return`<div class="history-week">
         <div class="hw-title">
           <span>Week of ${weekRange(w.week_start)}</span>
-          <span class="hw-total">${fmt(wTotal)} Â· ${wEntries.length} items</span>
+          <span class="hw-total">${fmt(wTotal)} &middot; ${wEntries.length} items</span>
         </div>
         <div class="hw-depts">${activeDepts.map(d=>`<div class="hw-dept"><strong>${DEPT_LABELS[d]}:</strong> ${fmt(wDepts[d])}</div>`).join('')}</div>
       </div>`;
@@ -1062,7 +1062,7 @@ function editEntry(idx){
   noteTd.innerHTML=`<input class="kpi-edit-note" type="text" value="${curNote}" id="kedit-note-${idx}">`;
   // Replace action buttons with save/cancel
   const actTd=row.querySelector('.kpi-actions');
-  actTd.innerHTML=`<button class="kpi-btn" onclick="saveEntry(${idx})" style="color:#5a9e5a;border-color:#3a6a3a" title="Save">â</button><button class="kpi-btn" onclick="loadKPI()" title="Cancel">â</button>`;
+  actTd.innerHTML=`<button class="kpi-btn" onclick="saveEntry(${idx})" style="color:#5a9e5a;border-color:#3a6a3a" title="Save">&#10003;</button><button class="kpi-btn" onclick="loadKPI()" title="Cancel">&#10005;</button>`;
   document.getElementById('kedit-val-'+idx).focus();
 }
 
@@ -1086,7 +1086,7 @@ setInterval(loadKPI,30000);
 </body>
 </html>"""
 
-# ââ Flask app ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# -- Flask app ------------------------------------------------------------------
 app = Flask(__name__)
 CORS(app, origins='*')
 
@@ -1128,7 +1128,7 @@ def metal_override():
             if item.get('monument'):
                 # Monument metal: any % increase records the full assigned price
                 _record_kpi_entry(job, item, price, 'monument_metal',
-                                  f'{pct_old}%â{pct}% progress')
+                                  f'{pct_old}%&rarr;{pct}% progress')
             elif pct == 100 and pct_old < 100:
                 # Small metal: only full completion counts
                 _record_kpi_entry(job, item, price, 'small_metal', '100% complete')
@@ -1273,29 +1273,29 @@ def kpi_close_week():
             _kpi_data['week_start'] = _current_week_start()
             _kpi_data['entries'] = []
         _save_kpi()
-        log.info(f'Week closed: {current["week_start"]} â {len(current["entries"])} entries archived.')
+        log.info(f'Week closed: {current["week_start"]} &rarr; {len(current["entries"])} entries archived.')
         return jsonify({'ok': True, 'archived_entries': len(current['entries']),
                         'new_week_start': _kpi_data['week_start']})
     except Exception as e:
         log.error(f'Close week failed: {e}')
         return jsonify({'error': str(e)}), 500
 
-# ââ Startup ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# -- Startup --------------------------------------------------------------------
 if SESSION_COOKIE:
-    log.info('SESSION_COOKIE set â running initial server-side fetch...')
+    log.info('SESSION_COOKIE set &mdash; running initial server-side fetch...')
     items, err = fetch()
     with _lock:
         if items is not None:
             _cache['items']   = items
             _cache['updated'] = datetime.utcnow().isoformat() + 'Z'
-            log.info(f'â  {len(items)} items loaded.')
+            log.info(f'&#10003;  {len(items)} items loaded.')
         else:
             _cache['error'] = err
-            log.warning(f'â   Initial fetch failed: {err}')
+            log.warning(f'&#9888;  Initial fetch failed: {err}')
     t = threading.Thread(target=refresh_loop, daemon=True)
     t.start()
 else:
-    log.info('No SESSION_COOKIE â waiting for browser push to /api/push-wip')
+    log.info('No SESSION_COOKIE &mdash; waiting for browser push to /api/push-wip')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT, debug=False, use_reloader=False)
