@@ -648,7 +648,6 @@ function openDrill(stageKey,stageName,stageColor){
   document.getElementById('wdtitle').style.color=stageColor;
   document.getElementById('wdsearch').value='';
   renderDrill();
-  document.getElementById('wdrillbg').style.display='flex';
 }
 function closeDrill(){document.getElementById('wdrillbg').style.display='none';_drillStage=null;}
 document.getElementById('wdback').onclick=closeDrill;
@@ -835,7 +834,7 @@ function loadData(){
   fetch('/api/wip').then(r=>r.json()).then(d=>{
     if(d.error){
       document.getElementById('werr').style.display='block';
-      document.getElementById('werr').textContent='&#9888; '+d.error;
+      document.getElementById('werr').textContent='\u26A0 '+d.error;
     } else {
       document.getElementById('werr').style.display='none';
     }
@@ -846,11 +845,11 @@ function loadData(){
       _items=d.items;
       renderBoard();
       if(_drillStage)renderDrill();
-      document.getElementById('wlive').textContent='&#9679; Live &middot; Updated '+new Date(d.updated).toLocaleTimeString();
+      document.getElementById('wlive').textContent='\u25CF Live \u00B7 Updated '+new Date(d.updated).toLocaleTimeString();
     }
   }).catch(()=>{
     document.getElementById('werr').style.display='block';
-    document.getElementById('werr').textContent='&#9888; Cannot reach server.';
+    document.getElementById('werr').textContent='\u26A0 Cannot reach server.';
   });
 }
 loadData();
