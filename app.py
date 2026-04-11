@@ -25,6 +25,7 @@ STAGE_OVERRIDES_FILE = '/tmp/stage_overrides.json'
 PRIORITY_FILE        = '/tmp/priority_overrides.json'
 KPI_FILE             = '/tmp/kpi_data.json'
 KPI_PIN              = os.getenv('KPI_PIN', '1977')
+MAINTENANCE_FILE     = '/tmp/maintenance_data.json'
 
 # ââ Status â Stage mapping âââââââââââââââââââââââââââââââââââââââââââââââââââââ
 STATUS_MAP = {
@@ -46,6 +47,7 @@ _metal_overrides    = {}
 _stage_overrides    = {}
 _priority_overrides = {}          # job â 1 (urgent) | 2 (high) | 0 (normal/default)
 _kpi_data           = {'week_start': '', 'entries': [], 'history': []}
+_maint_data         = {'requests': [], 'next_id': 1}
 _lock            = threading.Lock()
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s  %(message)s', datefmt='%H:%M:%S')
@@ -147,10 +149,29 @@ def _record_kpi_entry(job, item, value, dept, note):
     _save_kpi()
     log.info(f'KPI entry: job={job} dept={dept} value={value:.2f} note={note}')
 
+def _load_maintenance():
+    global _maint_data
+    try:
+        with open(MAINTENANCE_FILE) as f:
+            _maint_data = json.load(f)
+        log.info(f'Loaded {len(_maint_data.get("requests", []))} maintenance request(s) from disk.')
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        log.warning(f'Could not load maintenance data: {e}')
+
+def _save_maintenance():
+    try:
+        with open(MAINTENANCE_FILE, 'w') as f:
+            json.dump(_maint_data, f)
+    except Exception as e:
+        log.warning(f'Could not save maintenance data: {e}')
+
 _load_overrides()
 _load_stage_overrides()
 _load_priority_overrides()
 _load_kpi()
+_load_maintenance()
 
 # ââ Transform raw API rows â internal format âââââââââââââââââââââââââââââââââââ
 def transform_rows(raw):
@@ -337,6 +358,7 @@ table.wdt tr:hover td{background:#1e2130}
   </div>
   <div style="display:flex;align-items:center;gap:12px">
     <a href="/kpi" style="display:inline-flex;align-items:center;gap:5px;background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;text-decoration:none;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;letter-spacing:.5px">ð KPI</a>
+    <a href="/maintenance" style="display:inline-flex;align-items:center;gap:5px;background:#1e2a3a;border:1px solid #3a4a6a;color:#e8a838;text-decoration:none;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;letter-spacing:.5px">ð§ Maintenance</a>
     <div id="wclock">--:--:--<small>Loading...</small></div>
   </div>
 </div>
@@ -944,7 +966,10 @@ table.ktbl tr:hover td{background:#1e2130}
     <div style="font-size:1.6em">ð</div>
     <h1>KPI TRACKER<span>Weekly Production Value â Per Department</span></h1>
   </div>
-  <a href="/" class="nav-link">ð­ Dashboard</a>
+  <div class="nav-links" style="display:flex;gap:8px">
+    <a href="/" class="nav-link">ð­ Dashboard</a>
+    <a href="/maintenance" class="nav-link" style="color:#e8a838;border-color:#6a4a1a">ð§ Maintenance</a>
+  </div>
 </div>
 <div id="kbody">
   <div class="week-banner">
@@ -1186,6 +1211,310 @@ setInterval(loadKPI,30000);
 </body>
 </html>"""
 
+# ââ Maintenance Request HTML ââââââââââââââââââââââââââââââââââââââââââââââââââ
+MAINTENANCE_HTML = r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Maintenance Requests &#8212; Pyrology</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0f1117;color:#e8e8e8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh}
+#mtop{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:#161822;border-bottom:1px solid #2a2d3a}
+#mtop h1{font-size:.95em;font-weight:700;letter-spacing:.5px;color:#e8e8e8}
+#mtop h1 span{display:block;font-size:.78em;font-weight:400;color:#888;margin-top:2px}
+.nav-links{display:flex;gap:8px}
+.nav-link{display:inline-flex;align-items:center;gap:5px;background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;text-decoration:none;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;letter-spacing:.5px}
+.nav-link:hover{background:#2a3a5a}
+#mbody{padding:16px 18px;max-width:1400px;margin:0 auto}
+
+/* Form */
+.maint-form{background:#1a1d27;border:1px solid #2a2d3a;border-radius:8px;padding:18px;margin-bottom:20px}
+.maint-form h2{font-size:.85em;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#e8a838;margin-bottom:14px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group.full{grid-column:1/-1}
+.form-group label{font-size:.72em;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#888}
+.form-group input,.form-group select,.form-group textarea{background:#0f1117;border:1px solid #2a2d3a;color:#e8e8e8;padding:8px 10px;border-radius:5px;font-size:.88em;font-family:inherit}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:#4db8b8}
+.form-group textarea{resize:vertical;min-height:70px}
+.form-group select{cursor:pointer}
+.form-actions{display:flex;gap:10px;margin-top:14px;align-items:center}
+.btn-submit{background:#e8a838;border:none;color:#000;padding:9px 24px;border-radius:6px;cursor:pointer;font-size:.88em;font-weight:700;letter-spacing:.5px;transition:background .15s}
+.btn-submit:hover{background:#f0c050}
+.btn-submit:disabled{opacity:.5;cursor:not-allowed}
+.form-msg{font-size:.82em;color:#5a9e5a;min-height:1.2em}
+
+/* Photo preview */
+.photo-preview{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
+.photo-preview img{width:60px;height:60px;object-fit:cover;border-radius:4px;border:1px solid #3a4a5a}
+.photo-label{display:inline-flex;align-items:center;gap:5px;background:#2a2d3a;border:1px solid #3a4a5a;color:#aaa;padding:6px 14px;border-radius:5px;cursor:pointer;font-size:.82em;font-weight:600;transition:all .15s}
+.photo-label:hover{background:#3a4a5a;color:#fff}
+.photo-label input{display:none}
+
+/* Filters */
+.filter-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.filter-btn{background:#1a1d27;border:1px solid #2a2d3a;color:#888;padding:6px 14px;border-radius:5px;cursor:pointer;font-size:.78em;font-weight:700;letter-spacing:.5px;transition:all .15s}
+.filter-btn:hover{background:#2a2d3a;color:#fff}
+.filter-btn.active{background:#2a3a5a;color:#4db8b8;border-color:#3a5a8a}
+.filter-count{font-size:.78em;color:#666;margin-left:auto}
+
+/* Request cards */
+.req-card{background:#1a1d27;border:1px solid #2a2d3a;border-radius:8px;padding:14px 16px;margin-bottom:10px;transition:border-color .15s}
+.req-card:hover{border-color:#3a4a5a}
+.req-card.status-open{border-left:3px solid #e8a838}
+.req-card.status-in_progress{border-left:3px solid #4db8b8}
+.req-card.status-resolved{border-left:3px solid #5a9e5a}
+.req-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;gap:10px}
+.req-title{font-size:.92em;font-weight:700;color:#e8e8e8;flex:1}
+.req-id{font-size:.75em;color:#555;font-weight:600}
+.req-meta{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px}
+.req-tag{font-size:.72em;font-weight:700;padding:2px 8px;border-radius:3px;text-transform:uppercase;letter-spacing:.4px}
+.tag-priority-low{background:#1a2a1a;color:#5a9e5a;border:1px solid #3a6a3a}
+.tag-priority-medium{background:#2a2a1a;color:#e8a838;border:1px solid #6a5a1a}
+.tag-priority-high{background:#2a1a1a;color:#e87a7a;border:1px solid #6a2a2a}
+.tag-priority-critical{background:#3a0a0a;color:#ff6a6a;border:1px solid #8a2a2a;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+.tag-status{font-size:.72em;font-weight:700;padding:2px 8px;border-radius:3px;letter-spacing:.4px}
+.tag-open{background:#2a2a1a;color:#e8a838;border:1px solid #6a5a1a}
+.tag-in_progress{background:#1a2a2a;color:#4db8b8;border:1px solid #2a7a8a}
+.tag-resolved{background:#1a2a1a;color:#5a9e5a;border:1px solid #3a6a3a}
+.req-dept{font-size:.72em;font-weight:700;padding:2px 8px;border-radius:3px;background:#1a1a2a;color:#7aa8e8;border:1px solid #3a5a8a;text-transform:uppercase;letter-spacing:.4px}
+.req-desc{font-size:.85em;color:#aaa;line-height:1.5;margin-bottom:8px}
+.req-photos{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.req-photos img{width:80px;height:80px;object-fit:cover;border-radius:4px;border:1px solid #2a2d3a;cursor:pointer;transition:transform .15s}
+.req-photos img:hover{transform:scale(1.05)}
+.req-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.req-info{font-size:.75em;color:#555}
+.req-actions{display:flex;gap:6px}
+.req-btn{background:#2a2d3a;border:1px solid #3a4a5a;color:#aaa;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:.75em;font-weight:600;letter-spacing:.3px;transition:all .15s}
+.req-btn:hover{background:#3a4a5a;color:#fff}
+.req-btn.del{color:#e87a7a;border-color:#5a2a2a}
+.req-btn.del:hover{background:#5a2a2a;color:#ff9a9a}
+.empty-state{text-align:center;padding:40px;color:#555;font-size:.9em}
+
+/* Lightbox */
+#lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;align-items:center;justify-content:center;cursor:pointer}
+#lightbox.show{display:flex}
+#lightbox img{max-width:90vw;max-height:90vh;border-radius:8px}
+</style>
+</head>
+<body>
+<div id="mtop">
+  <div style="display:flex;align-items:center;gap:10px">
+    <div style="font-size:1.6em">&#x1F527;</div>
+    <h1>MAINTENANCE REQUESTS<span>Submit &amp; Track Equipment Maintenance</span></h1>
+  </div>
+  <div class="nav-links">
+    <a href="/" class="nav-link">&#x1F3ED; Dashboard</a>
+    <a href="/kpi" class="nav-link">&#x1F4CA; KPI</a>
+  </div>
+</div>
+<div id="mbody">
+
+  <div class="maint-form">
+    <h2>&#x1F4DD; Submit New Request</h2>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Equipment / Area *</label>
+        <input type="text" id="mf-equip" placeholder="e.g. Shell room kiln #2">
+      </div>
+      <div class="form-group">
+        <label>Department</label>
+        <select id="mf-dept">
+          <option value="">â Select â</option>
+          <option value="Wax Pull">Wax Pull</option>
+          <option value="Wax Chase">Wax Chase</option>
+          <option value="Shell Room">Shell Room</option>
+          <option value="Small Metal">Small Metal</option>
+          <option value="Monument Metal">Monument Metal</option>
+          <option value="Patina">Patina</option>
+          <option value="Base">Base</option>
+          <option value="General / Facility">General / Facility</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Priority *</label>
+        <select id="mf-priority">
+          <option value="low">Low â Can wait</option>
+          <option value="medium" selected>Medium â Needs attention soon</option>
+          <option value="high">High â Affecting production</option>
+          <option value="critical">Critical â Production stopped</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Requested By *</label>
+        <input type="text" id="mf-name" placeholder="Your name">
+      </div>
+      <div class="form-group full">
+        <label>Description *</label>
+        <textarea id="mf-desc" placeholder="Describe the issue..."></textarea>
+      </div>
+      <div class="form-group full">
+        <label>Photos (optional)</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <label class="photo-label">&#x1F4F7; Attach Photos<input type="file" id="mf-photos" accept="image/*" multiple></label>
+          <span id="mf-photo-count" style="font-size:.78em;color:#666"></span>
+        </div>
+        <div class="photo-preview" id="mf-preview"></div>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-submit" id="mf-submit" onclick="submitRequest()">Submit Request</button>
+      <span class="form-msg" id="mf-msg"></span>
+    </div>
+  </div>
+
+  <div class="filter-bar" id="filter-bar">
+    <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
+    <button class="filter-btn" data-filter="open" onclick="setFilter('open')">&#x1F7E1; Open</button>
+    <button class="filter-btn" data-filter="in_progress" onclick="setFilter('in_progress')">&#x1F535; In Progress</button>
+    <button class="filter-btn" data-filter="resolved" onclick="setFilter('resolved')">&#x1F7E2; Resolved</button>
+    <span class="filter-count" id="filter-count"></span>
+  </div>
+
+  <div id="req-list"></div>
+</div>
+
+<div id="lightbox" onclick="this.classList.remove('show')">
+  <img id="lightbox-img" src="">
+</div>
+
+<script>
+let _requests=[];
+let _filter='all';
+let _photoData=[];
+
+document.getElementById('mf-photos').addEventListener('change',function(){
+  _photoData=[];
+  const preview=document.getElementById('mf-preview');
+  preview.innerHTML='';
+  const files=[...this.files].slice(0,4);
+  document.getElementById('mf-photo-count').textContent=files.length?files.length+' file(s) selected':'';
+  files.forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=function(e){
+      _photoData.push(e.target.result);
+      const img=document.createElement('img');
+      img.src=e.target.result;
+      preview.appendChild(img);
+    };
+    reader.readAsDataURL(file);
+  });
+});
+
+function submitRequest(){
+  const equip=document.getElementById('mf-equip').value.trim();
+  const dept=document.getElementById('mf-dept').value;
+  const priority=document.getElementById('mf-priority').value;
+  const name=document.getElementById('mf-name').value.trim();
+  const desc=document.getElementById('mf-desc').value.trim();
+  const msg=document.getElementById('mf-msg');
+  if(!equip||!desc||!name){msg.style.color='#e87a7a';msg.textContent='Please fill in all required fields.';return;}
+  const btn=document.getElementById('mf-submit');
+  btn.disabled=true;btn.textContent='Submitting...';
+  fetch('/api/maintenance/submit',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({equipment:equip,department:dept,priority:priority,requested_by:name,description:desc,photos:_photoData})
+  }).then(r=>r.json()).then(d=>{
+    btn.disabled=false;btn.textContent='Submit Request';
+    if(d.ok){
+      msg.style.color='#5a9e5a';msg.textContent='Request #'+d.id+' submitted successfully!';
+      document.getElementById('mf-equip').value='';
+      document.getElementById('mf-desc').value='';
+      document.getElementById('mf-photos').value='';
+      document.getElementById('mf-preview').innerHTML='';
+      document.getElementById('mf-photo-count').textContent='';
+      _photoData=[];
+      loadRequests();
+      setTimeout(()=>{msg.textContent='';},4000);
+    }else{msg.style.color='#e87a7a';msg.textContent='Error: '+(d.error||'unknown');}
+  }).catch(()=>{btn.disabled=false;btn.textContent='Submit Request';msg.style.color='#e87a7a';msg.textContent='Server error';});
+}
+
+function setFilter(f){
+  _filter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>{b.classList.toggle('active',b.dataset.filter===f);});
+  renderRequests();
+}
+
+function renderRequests(){
+  const list=document.getElementById('req-list');
+  let filtered=_filter==='all'?_requests:_requests.filter(r=>r.status===_filter);
+  const counts={all:_requests.length,open:_requests.filter(r=>r.status==='open').length,
+    in_progress:_requests.filter(r=>r.status==='in_progress').length,
+    resolved:_requests.filter(r=>r.status==='resolved').length};
+  document.getElementById('filter-count').textContent=filtered.length+' of '+_requests.length+' requests';
+  document.querySelectorAll('.filter-btn').forEach(b=>{
+    const f=b.dataset.filter;const c=counts[f]||0;
+    if(f!=='all')b.textContent=b.textContent.split('(')[0].trim()+' ('+c+')';
+  });
+  if(!filtered.length){list.innerHTML='<div class="empty-state">No maintenance requests '+(_filter==='all'?'yet':'matching this filter')+'.</div>';return;}
+  list.innerHTML=filtered.map(r=>{
+    const photos=(r.photos||[]).map(p=>'<img src="'+p+'" onclick="showPhoto(this.src)">').join('');
+    const statusOpts=[{v:'open',l:'Open'},{v:'in_progress',l:'In Progress'},{v:'resolved',l:'Resolved'}];
+    const statusSelect='<select class="req-btn" onchange="updateStatus('+r.id+',this.value)" style="background:#2a2d3a;color:#aaa;border:1px solid #3a4a5a;padding:4px 8px;border-radius:4px;font-size:.75em;cursor:pointer">'
+      +statusOpts.map(o=>'<option value="'+o.v+'"'+(o.v===r.status?' selected':'')+'>'+o.l+'</option>').join('')+'</select>';
+    return '<div class="req-card status-'+r.status+'">'
+      +'<div class="req-header"><div class="req-title">'+r.equipment+'</div><span class="req-id">#'+r.id+'</span></div>'
+      +'<div class="req-meta">'
+      +'<span class="req-tag tag-priority-'+r.priority+'">'+r.priority+'</span>'
+      +'<span class="tag-status tag-'+r.status+'">'+(r.status==='in_progress'?'In Progress':r.status.charAt(0).toUpperCase()+r.status.slice(1))+'</span>'
+      +(r.department?'<span class="req-dept">'+r.department+'</span>':'')
+      +'</div>'
+      +'<div class="req-desc">'+r.description.replace(/</g,'&lt;').replace(/\n/g,'<br>')+'</div>'
+      +(photos?'<div class="req-photos">'+photos+'</div>':'')
+      +'<div class="req-footer">'
+      +'<span class="req-info">By '+r.requested_by+' &middot; '+fmtDate(r.created_at)+(r.resolved_at?' &middot; Resolved '+fmtDate(r.resolved_at):'')+'</span>'
+      +'<div class="req-actions">'+statusSelect+'<button class="req-btn del" onclick="deleteRequest('+r.id+')">Delete</button></div>'
+      +'</div></div>';
+  }).join('');
+}
+
+function fmtDate(iso){
+  if(!iso)return '';
+  const d=new Date(iso);
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+}
+
+function showPhoto(src){
+  document.getElementById('lightbox-img').src=src;
+  document.getElementById('lightbox').classList.add('show');
+}
+
+function updateStatus(id,status){
+  fetch('/api/maintenance/update-status',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({id:id,status:status})
+  }).then(r=>r.json()).then(d=>{if(d.ok)loadRequests();else alert('Error: '+(d.error||'unknown'));})
+  .catch(()=>alert('Server error'));
+}
+
+function deleteRequest(id){
+  if(!confirm('Delete this maintenance request?'))return;
+  fetch('/api/maintenance/delete',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({id:id})
+  }).then(r=>r.json()).then(d=>{if(d.ok)loadRequests();else alert('Error: '+(d.error||'unknown'));})
+  .catch(()=>alert('Server error'));
+}
+
+function loadRequests(){
+  fetch('/api/maintenance').then(r=>r.json()).then(d=>{
+    _requests=(d.requests||[]).slice().sort((a,b)=>{
+      const po={critical:0,high:1,medium:2,low:3};
+      const so={open:0,in_progress:1,resolved:2};
+      if(so[a.status]!==so[b.status])return so[a.status]-so[b.status];
+      if(po[a.priority]!==po[b.priority])return po[a.priority]-po[b.priority];
+      return b.id-a.id;
+    });
+    renderRequests();
+  }).catch(()=>{document.getElementById('req-list').innerHTML='<div class="empty-state">Cannot reach server</div>';});
+}
+loadRequests();
+setInterval(loadRequests,30000);
+</script>
+</body>
+</html>"""
+
 # ââ Flask app ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 app = Flask(__name__)
 CORS(app, origins='*')
@@ -1422,6 +1751,103 @@ def kpi_delete_week():
                         'deleted_entries': len(removed.get('entries', []))})
     except Exception as e:
         log.error(f'Delete week failed: {e}')
+        return jsonify({'error': str(e)}), 500
+
+# ââ Maintenance routes ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+@app.route('/maintenance')
+def maintenance_page():
+    return Response(MAINTENANCE_HTML, mimetype='text/html; charset=utf-8')
+
+@app.route('/api/maintenance')
+def api_maintenance():
+    with _lock:
+        return jsonify(_maint_data)
+
+@app.route('/api/maintenance/submit', methods=['POST'])
+def maint_submit():
+    try:
+        body = request.get_json(force=True)
+        equip = str(body.get('equipment', '')).strip()
+        desc  = str(body.get('description', '')).strip()
+        name  = str(body.get('requested_by', '')).strip()
+        dept  = str(body.get('department', '')).strip()
+        pri   = str(body.get('priority', 'medium')).strip()
+        photos = body.get('photos', [])
+        if not equip or not desc or not name:
+            return jsonify({'error': 'Missing required fields'}), 400
+        if pri not in ('low', 'medium', 'high', 'critical'):
+            pri = 'medium'
+        # Limit photos to 4, each max ~500KB base64
+        if isinstance(photos, list):
+            photos = [p for p in photos[:4] if isinstance(p, str) and len(p) < 700000]
+        else:
+            photos = []
+        with _lock:
+            req_id = _maint_data.get('next_id', 1)
+            _maint_data['next_id'] = req_id + 1
+            new_req = {
+                'id':           req_id,
+                'equipment':    equip,
+                'description':  desc,
+                'requested_by': name,
+                'department':   dept,
+                'priority':     pri,
+                'status':       'open',
+                'photos':       photos,
+                'created_at':   datetime.utcnow().isoformat() + 'Z',
+                'resolved_at':  None,
+            }
+            if 'requests' not in _maint_data:
+                _maint_data['requests'] = []
+            _maint_data['requests'].append(new_req)
+        _save_maintenance()
+        log.info(f'Maintenance request #{req_id} submitted: {equip} by {name}')
+        return jsonify({'ok': True, 'id': req_id})
+    except Exception as e:
+        log.error(f'Maintenance submit failed: {e}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/maintenance/update-status', methods=['POST'])
+def maint_update_status():
+    try:
+        body   = request.get_json(force=True)
+        req_id = int(body.get('id', -1))
+        status = str(body.get('status', '')).strip()
+        if status not in ('open', 'in_progress', 'resolved'):
+            return jsonify({'error': 'invalid status'}), 400
+        with _lock:
+            reqs = _maint_data.get('requests', [])
+            req  = next((r for r in reqs if r['id'] == req_id), None)
+            if not req:
+                return jsonify({'error': 'request not found'}), 404
+            req['status'] = status
+            if status == 'resolved' and not req.get('resolved_at'):
+                req['resolved_at'] = datetime.utcnow().isoformat() + 'Z'
+            elif status != 'resolved':
+                req['resolved_at'] = None
+        _save_maintenance()
+        log.info(f'Maintenance #{req_id} status â {status}')
+        return jsonify({'ok': True, 'id': req_id, 'status': status})
+    except Exception as e:
+        log.error(f'Maintenance status update failed: {e}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/maintenance/delete', methods=['POST'])
+def maint_delete():
+    try:
+        body   = request.get_json(force=True)
+        req_id = int(body.get('id', -1))
+        with _lock:
+            reqs = _maint_data.get('requests', [])
+            idx  = next((i for i, r in enumerate(reqs) if r['id'] == req_id), None)
+            if idx is None:
+                return jsonify({'error': 'request not found'}), 404
+            removed = reqs.pop(idx)
+        _save_maintenance()
+        log.info(f'Maintenance #{req_id} deleted: {removed.get("equipment")}')
+        return jsonify({'ok': True, 'id': req_id})
+    except Exception as e:
+        log.error(f'Maintenance delete failed: {e}')
         return jsonify({'error': str(e)}), 500
 
 # ââ Startup ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
