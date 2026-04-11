@@ -649,6 +649,7 @@ function openDrill(stageKey,stageName,stageColor){
   document.getElementById('wdtitle').style.color=stageColor;
   document.getElementById('wdsearch').value='';
   renderDrill();
+  document.getElementById('wdrillbg').style.display='flex';
 }
 function closeDrill(){document.getElementById('wdrillbg').style.display='none';_drillStage=null;}
 document.getElementById('wdback').onclick=closeDrill;
