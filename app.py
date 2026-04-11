@@ -1092,7 +1092,7 @@ CORS(app, origins='*')
 
 @app.route('/')
 def dashboard():
-    return Response(DASHBOARD_HTML, mimetype='text/html')
+    return Response(DASHBOARD_HTML, mimetype='text/html; charset=utf-8')
 
 @app.route('/api/wip')
 def api_wip():
@@ -1211,7 +1211,7 @@ def health():
 
 @app.route('/kpi')
 def kpi_page():
-    return Response(KPI_HTML, mimetype='text/html')
+    return Response(KPI_HTML, mimetype='text/html; charset=utf-8')
 
 @app.route('/api/kpi')
 def api_kpi():
