@@ -1544,237 +1544,70 @@ SHIPPING_HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Shipping Tracker — Pyrology</title>
+<title>Shipping Requests — Pyrology</title>
 <style>
-* { margin:0; padding:0; box-sizing:border-box; }
-body {
-  background:#0f1419; color:#ccc; font-family:'Segoe UI',sans-serif; font-size:14px;
-  background-image: repeating-linear-gradient(0deg, rgba(100,150,200,.01) 1px, transparent 1px);
-}
-a { color:#7aa8e8; text-decoration:none; }
-a:hover { text-decoration:underline; }
-#shdr {
-  background:linear-gradient(135deg, #1a2332 0%, #0f1419 100%);
-  border-bottom:2px solid #3a5a8a;
-  padding:20px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:20px;
-}
-#shdr h1 {
-  font-size:1.8em;
-  letter-spacing:1px;
-}
-#shdr h1 span {
-  display:block;
-  font-size:.6em;
-  color:#888;
-  margin-top:4px;
-  font-weight:400;
-}
-.nav-links {
-  display:flex;
-  gap:8px;
-}
-.nav-link {
-  display:inline-flex;
-  align-items:center;
-  gap:5px;
-  background:#1e2a3a;
-  border:1px solid #3a4a6a;
-  color:#4db8b8;
-  text-decoration:none;
-  padding:5px 13px;
-  border-radius:5px;
-  font-size:.82em;
-  font-weight:700;
-  letter-spacing:.5px;
-}
-.nav-link:hover { background:#2a3a4a; }
-.ship-form {
-  background:#1a2332;
-  border:1px solid #3a4a6a;
-  border-radius:8px;
-  padding:20px;
-  margin:20px;
-}
-.form-grid {
-  display:grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap:15px;
-  margin-top:15px;
-}
-.form-group {
-  display:flex;
-  flex-direction:column;
-}
-.form-group label {
-  font-weight:600;
-  margin-bottom:5px;
-  color:#ccc;
-  font-size:.9em;
-}
-.form-group input,
-.form-group textarea,
-.form-group select {
-  background:#0f1419;
-  border:1px solid #3a4a6a;
-  color:#ccc;
-  padding:8px;
-  border-radius:4px;
-  font-family:inherit;
-  font-size:.9em;
-}
-.form-group input:focus,
-.form-group textarea:focus,
-.form-group select:focus {
-  outline:none;
-  border-color:#7aa8e8;
-  box-shadow:0 0 6px rgba(122,168,232,.3);
-}
-.form-group textarea {
-  resize:vertical;
-  min-height:80px;
-}
-.photo-upload {
-  display:flex;
-  gap:10px;
-  margin-top:5px;
-  flex-wrap:wrap;
-}
-.photo-slot {
-  width:80px;
-  height:80px;
-  background:#0f1419;
-  border:2px dashed #3a4a6a;
-  border-radius:4px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  cursor:pointer;
-  overflow:hidden;
-  font-size:2em;
-  position:relative;
-}
-.photo-slot img {
-  max-width:100%;
-  max-height:100%;
-}
-.photo-slot input {
-  position:absolute;
-  width:100%;
-  height:100%;
-  opacity:0;
-  cursor:pointer;
-}
-.btn-submit,
-.btn-filter,
-.btn-delete {
-  background:#3a6a9a;
-  color:#fff;
-  border:1px solid #5a8aca;
-  padding:8px 16px;
-  border-radius:4px;
-  cursor:pointer;
-  font-weight:600;
-  font-size:.9em;
-}
-.btn-submit:hover { background:#4a7aaa; }
-.btn-filter.active { background:#7aa8e8; border-color:#9ac8ff; }
-.btn-delete { background:#6a3a3a; border-color:#8a5a5a; }
-.btn-delete:hover { background:#7a4a4a; }
-.sbody {
-  padding:20px;
-}
-.filter-bar {
-  display:flex;
-  gap:10px;
-  margin-bottom:20px;
-  flex-wrap:wrap;
-}
-.ship-card {
-  background:#1a2332;
-  border-left:4px solid #3a6a9a;
-  border:1px solid #3a4a6a;
-  border-radius:6px;
-  padding:15px;
-  margin-bottom:12px;
-}
-.ship-card.pending { border-left-color:#ffb74d; }
-.ship-card.packed { border-left-color:#4db8b8; }
-.ship-card.shipped { border-left-color:#81c784; }
-.ship-card.delivered { border-left-color:#888; }
-.card-header {
-  display:flex;
-  justify-content:space-between;
-  align-items:start;
-  margin-bottom:10px;
-  gap:10px;
-}
-.card-title {
-  font-weight:700;
-  font-size:1.05em;
-  color:#ccc;
-}
-.card-meta {
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap:8px;
-  font-size:.85em;
-  color:#aaa;
-  margin:8px 0;
-}
-.card-row {
-  display:flex;
-  justify-content:space-between;
-  padding:5px 0;
-  font-size:.9em;
-  border-bottom:1px solid #2a3a4a;
-}
-.card-row:last-child { border-bottom:none; }
-.card-label { color:#888; min-width:120px; }
-.card-value { color:#ddd; }
-.card-photos {
-  display:flex;
-  gap:8px;
-  margin-top:10px;
-  flex-wrap:wrap;
-}
-.card-photo {
-  max-width:80px;
-  max-height:80px;
-  border-radius:4px;
-  cursor:pointer;
-}
-.card-actions {
-  display:flex;
-  gap:8px;
-  margin-top:12px;
-}
-.card-actions select,
-.card-actions button {
-  flex:1;
-  min-width:80px;
-}
-.empty-state {
-  text-align:center;
-  padding:40px 20px;
-  color:#666;
-  font-size:1.1em;
-}
-#ship-list {
-  max-height:calc(100vh - 300px);
-  overflow-y:auto;
-}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#0f1419;color:#ccc;font-family:'Segoe UI',sans-serif;font-size:14px;}
+a{color:#7aa8e8;text-decoration:none;}
+a:hover{text-decoration:underline;}
+#shdr{background:linear-gradient(135deg,#1a2332 0%,#0f1419 100%);border-bottom:2px solid #3a5a8a;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:20px;}
+#shdr h1{font-size:1.6em;letter-spacing:1px;}
+#shdr h1 span{display:block;font-size:.55em;color:#888;margin-top:3px;font-weight:400;}
+.nav-links{display:flex;gap:8px;}
+.nav-link{display:inline-flex;align-items:center;gap:5px;background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;text-decoration:none;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;letter-spacing:.5px;}
+.nav-link:hover{background:#2a3a4a;}
+
+/* ── Toggle form ── */
+.toggle-form-btn{background:#3a6a9a;color:#fff;border:1px solid #5a8aca;padding:10px 20px;border-radius:6px;cursor:pointer;font-weight:700;font-size:.95em;margin:16px 20px 0;display:inline-flex;align-items:center;gap:6px;}
+.toggle-form-btn:hover{background:#4a7aaa;}
+.ship-form{background:#1a2332;border:1px solid #3a4a6a;border-radius:8px;padding:20px;margin:12px 20px 0;display:none;}
+.ship-form.open{display:block;}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin-top:14px;}
+.form-group{display:flex;flex-direction:column;}
+.form-group label{font-weight:600;margin-bottom:4px;color:#ccc;font-size:.88em;}
+.form-group input,.form-group textarea,.form-group select{background:#0f1419;border:1px solid #3a4a6a;color:#ccc;padding:8px;border-radius:4px;font-family:inherit;font-size:.9em;}
+.form-group input:focus,.form-group textarea:focus,.form-group select:focus{outline:none;border-color:#7aa8e8;box-shadow:0 0 6px rgba(122,168,232,.3);}
+.form-group textarea{resize:vertical;min-height:70px;}
+.btn-submit{background:#3a6a9a;color:#fff;border:1px solid #5a8aca;padding:8px 18px;border-radius:4px;cursor:pointer;font-weight:700;font-size:.9em;}
+.btn-submit:hover{background:#4a7aaa;}
+
+/* ── Board layout ── */
+.board-wrapper{padding:16px 20px;overflow-x:auto;}
+.board{display:flex;gap:14px;min-height:calc(100vh - 200px);align-items:flex-start;}
+.board-col{flex:0 0 280px;background:#141c26;border:1px solid #2a3a4a;border-radius:8px;display:flex;flex-direction:column;max-height:calc(100vh - 180px);}
+.col-header{padding:12px 14px;font-weight:700;font-size:.95em;letter-spacing:.5px;display:flex;align-items:center;gap:8px;border-bottom:2px solid transparent;flex-shrink:0;}
+.col-header .count{background:rgba(255,255,255,.08);padding:2px 8px;border-radius:10px;font-size:.8em;font-weight:400;}
+.board-col.requested .col-header{border-color:#ffb74d;color:#ffb74d;}
+.board-col.approved .col-header{border-color:#42a5f5;color:#42a5f5;}
+.board-col.packed .col-header{border-color:#4db8b8;color:#4db8b8;}
+.board-col.shipped .col-header{border-color:#81c784;color:#81c784;}
+.board-col.delivered .col-header{border-color:#888;color:#aaa;}
+.col-body{padding:10px;overflow-y:auto;flex:1;}
+
+/* ── Cards ── */
+.req-card{background:#1a2332;border:1px solid #2e3e52;border-radius:6px;padding:12px;margin-bottom:10px;cursor:default;transition:border-color .15s;}
+.req-card:hover{border-color:#4a6a8a;}
+.req-card .c-job{font-weight:700;font-size:1em;color:#ddd;margin-bottom:2px;}
+.req-card .c-client{font-size:.88em;color:#7aa8e8;margin-bottom:6px;}
+.req-card .c-items{font-size:.85em;color:#bbb;background:#0f1419;border-radius:4px;padding:6px 8px;margin-bottom:8px;white-space:pre-wrap;max-height:80px;overflow-y:auto;}
+.req-card .c-row{display:flex;justify-content:space-between;font-size:.83em;padding:3px 0;color:#999;}
+.req-card .c-row b{color:#ccc;font-weight:500;}
+.req-card .c-actions{display:flex;gap:6px;margin-top:10px;}
+.req-card .c-actions select{flex:1;background:#0f1419;border:1px solid #3a4a6a;color:#ccc;padding:5px;border-radius:4px;font-size:.82em;}
+.req-card .c-actions button{background:#5a2a2a;border:1px solid #7a4a4a;color:#ccc;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:.78em;}
+.req-card .c-actions button:hover{background:#7a3a3a;}
+.empty-col{text-align:center;padding:30px 10px;color:#555;font-size:.9em;}
+
+/* ── Responsive ── */
+@media(max-width:900px){.board{flex-direction:column;}.board-col{flex:none;width:100%;max-height:none;}}
 </style>
 </head>
 <body>
 
 <div id="shdr">
-  <div>
-    <div style="font-size:1.6em">📦</div>
-    <h1>SHIPPING TRACKER<span>Track Shipments &amp; Deliveries</span></h1>
+  <div style="display:flex;align-items:center;gap:14px;">
+    <div style="font-size:1.5em">📋</div>
+    <h1>SHIPPING REQUESTS<span>Client Shipping Request Board</span></h1>
   </div>
   <div class="nav-links">
     <a href="/" class="nav-link">🏭 Dashboard</a>
@@ -1783,177 +1616,114 @@ a:hover { text-decoration:underline; }
   </div>
 </div>
 
-<div class="sbody">
-  <div class="ship-form">
-    <h2>📦 New Shipment</h2>
-    <div class="form-grid">
-      <div class="form-group">
-        <label>Job / Piece No *</label>
-        <input type="text" id="sf-job" placeholder="e.g. TOB300">
-      </div>
-      <div class="form-group">
-        <label>Client *</label>
-        <input type="text" id="sf-client" placeholder="Client name">
-      </div>
-      <div class="form-group" style="grid-column:1/-1">
-        <label>Ship To Address *</label>
-        <textarea id="sf-address" placeholder="Full shipping address"></textarea>
-      </div>
-      <div class="form-group">
-        <label>Carrier / Method</label>
-        <select id="sf-carrier">
-          <option value="">— Select —</option>
-          <option value="FedEx">FedEx</option>
-          <option value="UPS">UPS</option>
-          <option value="USPS">USPS</option>
-          <option value="Freight/LTL">Freight/LTL</option>
-          <option value="Will Call/Pickup">Will Call/Pickup</option>
-          <option value="Other">Other</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Tracking #</label>
-        <input type="text" id="sf-tracking" placeholder="Tracking number">
-      </div>
-      <div class="form-group">
-        <label>Ship Date</label>
-        <input type="date" id="sf-ship-date">
-      </div>
-      <div class="form-group">
-        <label># of Packages</label>
-        <input type="number" id="sf-packages" min="1" value="1" placeholder="1">
-      </div>
-      <div class="form-group">
-        <label>Estimated Weight</label>
-        <input type="text" id="sf-weight" placeholder="e.g. 150 lbs">
-      </div>
-      <div class="form-group" style="grid-column:1/-1">
-        <label>Special Instructions</label>
-        <textarea id="sf-instructions" placeholder="Crating notes, delivery instructions..."></textarea>
-      </div>
-      <div class="form-group" style="grid-column:1/-1">
-        <label>Photos (optional — up to 4)</label>
-        <div class="photo-upload" id="sf-photo-upload">
-          <div class="photo-slot"><input type="file" accept="image/*" onchange="handlePhotoUpload(this)"></div>
-          <div class="photo-slot"><input type="file" accept="image/*" onchange="handlePhotoUpload(this)"></div>
-          <div class="photo-slot"><input type="file" accept="image/*" onchange="handlePhotoUpload(this)"></div>
-          <div class="photo-slot"><input type="file" accept="image/*" onchange="handlePhotoUpload(this)"></div>
-        </div>
-      </div>
-    </div>
-    <button class="btn-submit" onclick="submitShipment()" style="margin-top:15px">✓ Submit Shipment</button>
-  </div>
+<button class="toggle-form-btn" onclick="toggleForm()">➕ New Shipping Request</button>
 
-  <div style="padding:0 20px">
-    <div class="filter-bar">
-      <button class="btn-filter active" onclick="filterShipments('all')">All</button>
-      <button class="btn-filter" onclick="filterShipments('pending')">🟡 Pending</button>
-      <button class="btn-filter" onclick="filterShipments('packed')">🔵 Packed</button>
-      <button class="btn-filter" onclick="filterShipments('shipped')">🟢 Shipped</button>
-      <button class="btn-filter" onclick="filterShipments('delivered')">✅ Delivered</button>
+<div class="ship-form" id="reqForm">
+  <h3 style="margin-bottom:4px;">📦 Add Shipping Request</h3>
+  <p style="color:#777;font-size:.82em;margin-bottom:10px;">Enter what the client has requested to be shipped.</p>
+  <div class="form-grid">
+    <div class="form-group">
+      <label>Job / Order # *</label>
+      <input type="text" id="sf-job" placeholder="e.g. TOB300">
+    </div>
+    <div class="form-group">
+      <label>Client *</label>
+      <input type="text" id="sf-client" placeholder="Client name">
+    </div>
+    <div class="form-group" style="grid-column:1/-1">
+      <label>Items Requested to Ship *</label>
+      <textarea id="sf-items" placeholder="List what the client wants shipped — e.g. 2x Bronze plaques, 1x Granite base, 3x Engraved panels..."></textarea>
+    </div>
+    <div class="form-group" style="grid-column:1/-1">
+      <label>Ship To Address *</label>
+      <textarea id="sf-address" placeholder="Full shipping address" style="min-height:50px"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Requested Ship Date</label>
+      <input type="date" id="sf-ship-date">
+    </div>
+    <div class="form-group">
+      <label>Carrier / Method</label>
+      <select id="sf-carrier">
+        <option value="">— Select —</option>
+        <option value="FedEx">FedEx</option>
+        <option value="UPS">UPS</option>
+        <option value="USPS">USPS</option>
+        <option value="Freight/LTL">Freight/LTL</option>
+        <option value="Will Call/Pickup">Will Call/Pickup</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Tracking #</label>
+      <input type="text" id="sf-tracking" placeholder="If known">
+    </div>
+    <div class="form-group">
+      <label># of Packages</label>
+      <input type="number" id="sf-packages" min="1" value="1">
+    </div>
+    <div class="form-group">
+      <label>Estimated Weight</label>
+      <input type="text" id="sf-weight" placeholder="e.g. 150 lbs">
+    </div>
+    <div class="form-group" style="grid-column:1/-1">
+      <label>Special Instructions</label>
+      <textarea id="sf-instructions" placeholder="Crating notes, delivery instructions..." style="min-height:50px"></textarea>
     </div>
   </div>
+  <button class="btn-submit" onclick="submitRequest()" style="margin-top:14px">✓ Submit Request</button>
+</div>
 
-  <div id="ship-list" style="padding:0 20px"></div>
+<div class="board-wrapper">
+  <div class="board" id="board"></div>
 </div>
 
 <script>
 let _shipments=[];
-let _currentFilter='all';
-let _photoData=[]; // array of base64 strings
+const STATUSES=['requested','approved','packed','shipped','delivered'];
+const STATUS_CFG={
+  requested:{icon:'📝',label:'Requested'},
+  approved:{icon:'✅',label:'Approved'},
+  packed:{icon:'📦',label:'Packed'},
+  shipped:{icon:'🚚',label:'Shipped'},
+  delivered:{icon:'🏁',label:'Delivered'}
+};
 
-function handlePhotoUpload(input){
-  if(!input.files||!input.files[0])return;
-  const file=input.files[0];
-  const reader=new FileReader();
-  reader.onload=(e)=>{
-    let b64=e.target.result;
-    if(!_photoData)_photoData=[];
-    if(_photoData.length<4&&!_photoData.includes(b64)){
-      _photoData.push(b64);
-      renderPhotos();
-    }
-  };
-  reader.readAsDataURL(file);
+function toggleForm(){
+  document.getElementById('reqForm').classList.toggle('open');
 }
 
-function renderPhotos(){
-  const slots=document.querySelectorAll('#sf-photo-upload .photo-slot');
-  slots.forEach((slot,i)=>{
-    slot.innerHTML='';
-    if(i<_photoData.length){
-      const img=document.createElement('img');
-      img.src=_photoData[i];
-      const delBtn=document.createElement('button');
-      delBtn.textContent='✕';
-      delBtn.style='position:absolute;top:2px;right:2px;background:#f00;color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;';
-      delBtn.onclick=(e)=>{
-        e.stopPropagation();
-        _photoData.splice(i,1);
-        renderPhotos();
-      };
-      slot.appendChild(img);
-      slot.appendChild(delBtn);
-    }else{
-      const lbl=document.createElement('input');
-      lbl.type='file';
-      lbl.accept='image/*';
-      lbl.onchange=(e)=>handlePhotoUpload(e.target);
-      slot.appendChild(lbl);
-    }
-  });
-}
-
-function submitShipment(){
+function submitRequest(){
   const job=document.getElementById('sf-job').value.trim();
   const client=document.getElementById('sf-client').value.trim();
+  const items=document.getElementById('sf-items').value.trim();
   const ship_to=document.getElementById('sf-address').value.trim();
-  const carrier=document.getElementById('sf-carrier').value.trim();
-  const tracking=document.getElementById('sf-tracking').value.trim();
   const ship_date=document.getElementById('sf-ship-date').value;
+  const carrier=document.getElementById('sf-carrier').value;
+  const tracking=document.getElementById('sf-tracking').value.trim();
   const packages=parseInt(document.getElementById('sf-packages').value)||1;
   const weight=document.getElementById('sf-weight').value.trim();
   const instructions=document.getElementById('sf-instructions').value.trim();
 
-  if(!job||!client||!ship_to){
-    alert('Please fill in Job, Client, and Address');
+  if(!job||!client||!items||!ship_to){
+    alert('Please fill in Job, Client, Items Requested, and Ship To Address');
     return;
   }
-
-  const payload={
-    job, client, ship_to, carrier, tracking, ship_date,
-    packages, weight, instructions,
-    photos: _photoData||[]
-  };
 
   fetch('/api/shipping/submit',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(payload)
+    body:JSON.stringify({job,client,items_requested:items,ship_to,ship_date,carrier,tracking,packages,weight,instructions,photos:[]})
   }).then(r=>{
     if(r.ok){
-      document.getElementById('sf-job').value='';
-      document.getElementById('sf-client').value='';
-      document.getElementById('sf-address').value='';
+      ['sf-job','sf-client','sf-items','sf-address','sf-tracking','sf-weight','sf-instructions'].forEach(id=>document.getElementById(id).value='');
       document.getElementById('sf-carrier').value='';
-      document.getElementById('sf-tracking').value='';
       document.getElementById('sf-ship-date').value='';
       document.getElementById('sf-packages').value='1';
-      document.getElementById('sf-weight').value='';
-      document.getElementById('sf-instructions').value='';
-      _photoData=[];
-      renderPhotos();
+      document.getElementById('reqForm').classList.remove('open');
       loadShipments();
-      alert('Shipment submitted!');
-    }else alert('Error submitting shipment');
-  }).catch(e=>{console.error(e);alert('Error: '+e);});
-}
-
-function filterShipments(status){
-  _currentFilter=status;
-  document.querySelectorAll('.btn-filter').forEach(b=>b.classList.remove('active'));
-  event.target.classList.add('active');
-  renderShipments();
+    }else alert('Error submitting request');
+  }).catch(e=>alert('Error: '+e));
 }
 
 function updateStatus(id,newStatus){
@@ -1967,8 +1737,8 @@ function updateStatus(id,newStatus){
   }).catch(e=>alert('Error: '+e));
 }
 
-function deleteShipment(id){
-  if(!confirm('Delete this shipment?'))return;
+function deleteRequest(id){
+  if(!confirm('Remove this shipping request?'))return;
   fetch('/api/shipping/delete',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
@@ -1979,70 +1749,50 @@ function deleteShipment(id){
   }).catch(e=>alert('Error: '+e));
 }
 
-function renderShipments(){
-  let filtered=_shipments.slice();
-  if(_currentFilter!=='all'){
-    filtered=filtered.filter(s=>s.status===_currentFilter);
-  }
-
-  const statusOrder={pending:0,packed:1,shipped:2,delivered:3};
-  filtered.sort((a,b)=>{
-    if(statusOrder[a.status]!==statusOrder[b.status]){
-      return statusOrder[a.status]-statusOrder[b.status];
-    }
-    return b.id-a.id;
-  });
-
-  const html=filtered.length?filtered.map(s=>{
-    const icon={'pending':'🟡','packed':'🔵','shipped':'🟢','delivered':'✅'}[s.status]||'◯';
-    return `
-      <div class="ship-card ${s.status}">
-        <div class="card-header">
-          <div>
-            <div class="card-title">${icon} ${s.job} — ${s.client}</div>
-            <div class="card-meta">
-              <span>Carrier: ${s.carrier||'—'}</span>
-              <span>Tracking: ${s.tracking||'—'}</span>
-            </div>
+function renderBoard(){
+  const board=document.getElementById('board');
+  let html='';
+  STATUSES.forEach(st=>{
+    const cfg=STATUS_CFG[st];
+    const cards=_shipments.filter(s=>(s.status||'requested')===st);
+    cards.sort((a,b)=>b.id-a.id);
+    html+=`<div class="board-col ${st}">
+      <div class="col-header">${cfg.icon} ${cfg.label} <span class="count">${cards.length}</span></div>
+      <div class="col-body">`;
+    if(cards.length){
+      cards.forEach(s=>{
+        const items=s.items_requested||s.instructions||'—';
+        html+=`<div class="req-card">
+          <div class="c-job">${s.job}</div>
+          <div class="c-client">${s.client}</div>
+          <div class="c-items">${items}</div>
+          <div class="c-row"><span>Ship To:</span><b>${s.ship_to||'—'}</b></div>
+          <div class="c-row"><span>Date:</span><b>${s.ship_date||'—'}</b></div>
+          ${s.carrier?`<div class="c-row"><span>Carrier:</span><b>${s.carrier}</b></div>`:''}
+          ${s.tracking?`<div class="c-row"><span>Tracking:</span><b>${s.tracking}</b></div>`:''}
+          ${s.packages&&s.packages>1?`<div class="c-row"><span>Pkgs:</span><b>${s.packages}</b></div>`:''}
+          ${s.weight?`<div class="c-row"><span>Weight:</span><b>${s.weight}</b></div>`:''}
+          <div class="c-actions">
+            <select onchange="updateStatus(${s.id},this.value)">
+              ${STATUSES.map(o=>`<option value="${o}"${o===st?' selected':''}>${STATUS_CFG[o].icon} ${STATUS_CFG[o].label}</option>`).join('')}
+            </select>
+            <button onclick="deleteRequest(${s.id})">✕</button>
           </div>
-        </div>
-        <div class="card-row">
-          <span class="card-label">Address:</span>
-          <span class="card-value">${s.ship_to}</span>
-        </div>
-        <div class="card-row">
-          <span class="card-label">Ship Date:</span>
-          <span class="card-value">${s.ship_date||'—'}</span>
-        </div>
-        <div class="card-row">
-          <span class="card-label">Packages:</span>
-          <span class="card-value">${s.packages||'—'}</span>
-        </div>
-        <div class="card-row">
-          <span class="card-label">Weight:</span>
-          <span class="card-value">${s.weight||'—'}</span>
-        </div>
-        ${s.instructions?`<div class="card-row"><span class="card-label">Instructions:</span><span class="card-value">${s.instructions}</span></div>`:''}
-        ${s.photos&&s.photos.length?`<div class="card-photos">${s.photos.map(p=>`<img class="card-photo" src="${p}" onclick="window.open(this.src)">`).join('')}</div>`:''}
-        <div class="card-actions">
-          <select onchange="updateStatus(${s.id},this.value)" style="flex:1">
-            <option value="${s.status}" selected>${s.status}</option>
-            ${['pending','packed','shipped','delivered'].filter(st=>st!==s.status).map(st=>`<option value="${st}">${st}</option>`).join('')}
-          </select>
-          <button class="btn-delete" onclick="deleteShipment(${s.id})">🗑 Delete</button>
-        </div>
-      </div>
-    `;
-  }).join(''):`<div class="empty-state">No shipments</div>`;
-
-  document.getElementById('ship-list').innerHTML=html;
+        </div>`;
+      });
+    }else{
+      html+=`<div class="empty-col">No requests</div>`;
+    }
+    html+=`</div></div>`;
+  });
+  board.innerHTML=html;
 }
 
 function loadShipments(){
   fetch('/api/shipping').then(r=>r.json()).then(d=>{
     _shipments=(d.shipments||[]).slice();
-    renderShipments();
-  }).catch(()=>{document.getElementById('ship-list').innerHTML='<div class="empty-state">Cannot reach server</div>';});
+    renderBoard();
+  }).catch(()=>{document.getElementById('board').innerHTML='<div class="empty-col" style="padding:40px">Cannot reach server</div>';});
 }
 
 loadShipments();
@@ -2052,7 +1802,7 @@ setInterval(loadShipments,30000);
 </body>
 </html>"""
 
-# ── Flask app ─────────────────────────────────────────────────────────────────
+# ── Flask app ──────────────────────────────────────────────────────────────────
 app = Flask(__name__)
 CORS(app, origins='*')
 
@@ -2412,6 +2162,8 @@ def ship_submit():
         instructions = str(body.get('instructions', '')).strip()
         photos = body.get('photos', [])
 
+        items_requested = str(body.get('items_requested', '')).strip()
+
         if not job or not client or not ship_to:
             return jsonify({'error': 'Missing required fields'}), 400
 
@@ -2429,13 +2181,14 @@ def ship_submit():
                 'job':           job,
                 'client':        client,
                 'ship_to':       ship_to,
+                'items_requested': items_requested,
                 'carrier':       carrier,
                 'tracking':      tracking,
                 'ship_date':     ship_date,
                 'packages':      packages,
                 'weight':        weight,
                 'instructions':  instructions,
-                'status':        'pending',
+                'status':        'requested',
                 'photos':        photos,
                 'created_at':    datetime.utcnow().isoformat() + 'Z',
                 'delivered_at':  None,
@@ -2456,7 +2209,7 @@ def ship_update_status():
         body = request.get_json(force=True)
         ship_id = int(body.get('id', -1))
         status = str(body.get('status', '')).strip()
-        if status not in ('pending', 'packed', 'shipped', 'delivered'):
+        if status not in ('requested', 'approved', 'pending', 'packed', 'shipped', 'delivered'):
             return jsonify({'error': 'invalid status'}), 400
         with _lock:
             shipments = _ship_data.get('shipments', [])
