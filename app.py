@@ -1644,6 +1644,10 @@ a:hover{text-decoration:underline;}
       <label>Client *</label>
       <input type="text" id="sf-client" placeholder="Client name">
     </div>
+    <div class="form-group">
+      <label>Client Email</label>
+      <input type="email" id="sf-email" placeholder="client@example.com">
+    </div>
     <div class="form-group" style="grid-column:1/-1">
       <label>Items Requested to Ship *</label>
       <textarea id="sf-items" placeholder="List what the client wants shipped — e.g. 2x Bronze plaques, 1x Granite base, 3x Engraved panels..."></textarea>
@@ -1711,6 +1715,7 @@ function toggleForm(){
 function submitRequest(){
   const job=document.getElementById('sf-job').value.trim();
   const client=document.getElementById('sf-client').value.trim();
+  const client_email=document.getElementById('sf-email').value.trim();
   const items=document.getElementById('sf-items').value.trim();
   const ship_to=document.getElementById('sf-address').value.trim();
   const ship_date=document.getElementById('sf-ship-date').value;
@@ -1728,10 +1733,10 @@ function submitRequest(){
   fetch('/api/shipping/submit',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({job,client,items_requested:items,ship_to,ship_date,carrier,tracking,packages,weight,instructions,photos:[]})
+    body:JSON.stringify({job,client,client_email,items_requested:items,ship_to,ship_date,carrier,tracking,packages,weight,instructions,photos:[]})
   }).then(r=>{
     if(r.ok){
-      ['sf-job','sf-client','sf-items','sf-address','sf-tracking','sf-weight','sf-instructions'].forEach(id=>document.getElementById(id).value='');
+      ['sf-job','sf-client','sf-email','sf-items','sf-address','sf-tracking','sf-weight','sf-instructions'].forEach(id=>document.getElementById(id).value='');
       document.getElementById('sf-carrier').value='';
       document.getElementById('sf-ship-date').value='';
       document.getElementById('sf-packages').value='1';
@@ -1775,6 +1780,7 @@ function openEdit(id){
       <div class="form-grid">
         <div><label>Job / Order #</label><input id="ef-job" value="${s.job||''}"></div>
         <div><label>Client</label><input id="ef-client" value="${s.client||''}"></div>
+        <div><label>Client Email</label><input type="email" id="ef-email" value="${s.client_email||''}"></div>
         <div class="full"><label>Items Requested</label><textarea id="ef-items">${s.items_requested||''}</textarea></div>
         <div class="full"><label>Ship To Address</label><textarea id="ef-address" style="min-height:50px">${s.ship_to||''}</textarea></div>
         <div><label>Ship Date</label><input type="date" id="ef-date" value="${s.ship_date||''}"></div>
@@ -1799,6 +1805,7 @@ function saveEdit(id){
     id,
     job:document.getElementById('ef-job').value.trim(),
     client:document.getElementById('ef-client').value.trim(),
+    client_email:document.getElementById('ef-email').value.trim(),
     items_requested:document.getElementById('ef-items').value.trim(),
     ship_to:document.getElementById('ef-address').value.trim(),
     ship_date:document.getElementById('ef-date').value,
@@ -1834,6 +1841,7 @@ function renderBoard(){
         html+=`<div class="req-card">
           <div class="c-job">${s.job}</div>
           <div class="c-client">${s.client}</div>
+          ${s.client_email?`<div class="c-row" style="margin-bottom:6px"><span>📧</span><b style="color:#7aa8e8">${s.client_email}</b></div>`:''}
           <div class="c-items">${items}</div>
           <div class="c-row"><span>Ship To:</span><b>${s.ship_to||'—'}</b></div>
           <div class="c-row"><span>Date:</span><b>${s.ship_date||'—'}</b></div>
@@ -1841,6 +1849,7 @@ function renderBoard(){
           ${s.tracking?`<div class="c-row"><span>Tracking:</span><b>${s.tracking}</b></div>`:''}
           ${s.packages&&s.packages>1?`<div class="c-row"><span>Pkgs:</span><b>${s.packages}</b></div>`:''}
           ${s.weight?`<div class="c-row"><span>Weight:</span><b>${s.weight}</b></div>`:''}
+          ${s.instructions?`<div class="c-row" style="margin-top:4px;padding-top:6px;border-top:1px solid #2e3e52"><span>📋 Notes:</span><b style="white-space:pre-wrap">${s.instructions}</b></div>`:''}
           <div class="c-actions">
             <select onchange="updateStatus(${s.id},this.value)">
               ${STATUSES.map(o=>`<option value="${o}"${o===st?' selected':''}>${STATUS_CFG[o].icon} ${STATUS_CFG[o].label}</option>`).join('')}
@@ -2223,6 +2232,7 @@ def ship_submit():
         body = request.get_json(force=True)
         job = str(body.get('job', '')).strip()
         client = str(body.get('client', '')).strip()
+        client_email = str(body.get('client_email', '')).strip()
         ship_to = str(body.get('ship_to', '')).strip()
         carrier = str(body.get('carrier', '')).strip()
         tracking = str(body.get('tracking', '')).strip()
@@ -2250,6 +2260,7 @@ def ship_submit():
                 'id':            ship_id,
                 'job':           job,
                 'client':        client,
+                'client_email':  client_email,
                 'ship_to':       ship_to,
                 'items_requested': items_requested,
                 'carrier':       carrier,
@@ -2308,7 +2319,7 @@ def ship_edit():
             shipment = next((s for s in shipments if s['id'] == ship_id), None)
             if not shipment:
                 return jsonify({'error': 'shipment not found'}), 404
-            editable = ['job','client','items_requested','ship_to','carrier','tracking','ship_date','packages','weight','instructions']
+            editable = ['job','client','client_email','items_requested','ship_to','carrier','tracking','ship_date','packages','weight','instructions']
             for field in editable:
                 if field in body:
                     val = body[field]
