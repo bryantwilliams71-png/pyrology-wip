@@ -1,4 +1,4 @@
-  #!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Pyrology WIP Production Dashboard — Cloud Version
 --------------------------------------------------
@@ -208,12 +208,14 @@ def _save_schedule():
         log.warning(f'Could not save schedule data: {e}')
 
 def _get_week_monday(dt=None):
+    """Return the Monday of the week for a given date (or today)."""
     if dt is None:
         dt = datetime.now()
     monday = dt - timedelta(days=dt.weekday())
     return monday.strftime('%Y-%m-%d')
 
 def _auto_rollover():
+    """Move incomplete items from past weeks to current week, mark as carryover."""
     today_monday = _get_week_monday()
     assignments = _schedule_data.get('assignments', {})
     changed = False
@@ -221,6 +223,7 @@ def _auto_rollover():
         if not info.get('week'):
             continue
         if info['week'] < today_monday and not info.get('done'):
+            # This item's scheduled week has passed and it's not done — roll over
             if not info.get('carryover'):
                 info['original_week'] = info.get('original_week') or info['week']
             info['week'] = today_monday
@@ -492,11 +495,11 @@ function schedBadge(job){
   const w=a.week;
   let label,color;
   if(w===today){label='THIS WEEK';color='#4db8b8';}
-  else if(w>today){const diff=Math.round((new Date(w)-new Date(today))/(7*86400000));label=diff===1?'NEXT WEEK':'+'+diff+'W';color='#5ae8a8';}
+  else if(w>today){const diff=Math.round((new Date(w)-new Date(today))/(7*86400000));label=diff===1?'NEXT WEEK':`+${diff}W`;color='#5ae8a8';}
   else{label='PAST';color='#888';}
   if(a.carryover){label='⚠ CARRY';color='#e8a838';}
   if(a.done){label='✓ SCHED';color='#5a9e5a';}
-  return'<span style="font-size:.6em;font-weight:700;padding:1px 4px;border-radius:3px;background:'+color+'22;color:'+color+';margin-left:3px">'+label+'</span>';
+  return`<span style="font-size:.6em;font-weight:700;padding:1px 4px;border-radius:3px;background:${color}22;color:${color};margin-left:3px">${label}</span>`;
 }
 
 function daysDiff(d){if(!d)return null;return Math.floor((new Date(d)-new Date())/(86400000));}
@@ -2320,8 +2323,8 @@ def ship_submit():
                 'job':           job,
                 'client':        client,
                 'client_email':  client_email,
-                'ship_to':       ship_to,
                 'items_requested': items_requested,
+                'ship_to':       ship_to,
                 'carrier':       carrier,
                 'tracking':      tracking,
                 'ship_date':     ship_date,
@@ -2412,169 +2415,174 @@ def ship_delete():
         log.error(f'Shipping delete failed: {e}')
         return jsonify({'error': str(e)}), 500
 
+# ── Schedule Page HTML ─────────────────────────────────────────────────────────
 SCHEDULE_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Production Schedule â Pyrology</title>
+<title>Production Schedule — Pyrology</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'Segoe UI',Arial,sans-serif}
+html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'Segoe UI',Arial,sans-serif;overflow:hidden}
 .top-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:#1a1d27;border-bottom:1px solid #2a2d3a}
 .top-bar h1{font-size:1.3em;font-weight:700;letter-spacing:1px;color:#fff}
 .top-bar h1 span{font-size:.65em;font-weight:400;color:#888;display:block;letter-spacing:.5px}
 .nav-links{display:flex;gap:8px;align-items:center}
 .nav-links a{display:inline-flex;align-items:center;gap:5px;background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;text-decoration:none;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;letter-spacing:.5px}
-.nav-links a.active{background:#4db8b8;color:#000;border-color:#4db8b8}
-.summary-bar{display:flex;gap:18px;padding:8px 16px;background:#141620;border-bottom:1px solid #2a2d3a;align-items:center;flex-wrap:wrap}
+.summary-bar{display:flex;gap:18px;padding:6px 16px;background:#141620;border-bottom:1px solid #2a2d3a;align-items:center;flex-wrap:wrap}
 .sstat{font-size:.78em;color:#aaa}.sstat strong{color:#fff;font-size:1.1em}
 .sstat.teal strong{color:#4db8b8}.sstat.red strong{color:#e05555}
 .sstat.gold strong{color:#e8a838}.sstat.green strong{color:#5a9e5a}
-.schedule-body{padding:16px;overflow-y:auto;height:calc(100vh - 110px)}
-.week-section{margin-bottom:20px;background:#1a1d27;border-radius:8px;border:1px solid #2a2d3a;overflow:hidden}
-.week-section.current{border-color:#4db8b8}
-.week-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;cursor:pointer;user-select:none}
-.week-header:hover{background:#1e2130}
-.week-title{font-size:1.05em;font-weight:700;letter-spacing:.5px}
-.week-title .label{color:#4db8b8}.week-title .dates{color:#888;font-size:.85em;font-weight:400;margin-left:8px}
-.week-stats{display:flex;gap:14px;font-size:.78em;color:#aaa}
-.week-stats strong{color:#fff}
-.week-body{padding:0 12px 12px}
-.week-body.collapsed{display:none}
-.carryover-banner{background:#3d2e10;border:1px solid #5a4a1a;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:.82em;color:#ffaa44;display:flex;align-items:center;gap:8px}
-.carryover-banner strong{color:#ffd580}
-.dept-group{margin-bottom:10px}
-.dept-header{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:5px;margin-bottom:4px;cursor:pointer;user-select:none}
-.dept-header:hover{opacity:.9}
-.dept-header .dept-name{font-weight:700;font-size:.88em;letter-spacing:.5px}
-.dept-header .dept-count{font-size:.72em;color:#fff;opacity:.7}
-.dept-header .dept-value{font-size:.72em;margin-left:auto;font-weight:600}
-.dept-body.collapsed{display:none}
-.scard{display:flex;align-items:center;gap:12px;background:#0f1117;border-radius:6px;padding:10px 14px;margin-bottom:6px;border-left:4px solid #333;transition:border-color .2s}
+.dept-grid{display:flex;gap:4px;padding:6px;overflow-x:auto;height:calc(100vh - 90px)}
+.dept-col{flex:1;min-width:200px;background:#1a1d27;border-radius:6px;display:flex;flex-direction:column;border:1px solid #2a2d3a;overflow:hidden}
+.dept-hdr{padding:7px 8px 5px;text-align:center;border-radius:6px 6px 0 0;flex-shrink:0;cursor:pointer}
+.dept-hdr:hover{opacity:.9}
+.dept-label{font-size:.72em;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
+.dept-sub{font-size:.58em;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.4px}
+.dept-count{font-size:1.15em;font-weight:700;color:#fff;margin-top:2px}
+.dept-hrs{font-size:.72em;color:#ffd580;margin-top:2px;font-weight:600}
+.dept-val{font-size:.78em;color:rgba(255,255,255,.85);margin-top:1px}
+.dept-body{flex:1;overflow-y:auto;padding:4px;display:flex;flex-direction:column;gap:6px}
+.week-block{background:#141620;border-radius:5px;border:1px solid #2a2d3a;overflow:hidden}
+.week-block.current{border-color:#4db8b8}
+.wb-hdr{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;cursor:pointer;user-select:none;font-size:.72em;font-weight:700}
+.wb-hdr:hover{background:#1e2130}
+.wb-hdr .wlabel{color:#4db8b8}.wb-hdr .wdates{color:#888;font-weight:400;margin-left:4px}
+.wb-hdr .wstats{color:#aaa;font-weight:400}
+.wb-hdr .wstats strong{color:#fff}
+.wb-body{padding:3px}
+.wb-body.collapsed{display:none}
+.wb-summary{display:flex;gap:10px;padding:3px 8px;font-size:.68em;color:#888;border-bottom:1px solid #1a1d27;margin-bottom:3px}
+.wb-summary .hrs{color:#ffd580;font-weight:600}.wb-summary .val{color:#4db8b8;font-weight:600}
+.scard{background:#0f1117;border-radius:4px;padding:5px 6px;margin-bottom:3px;border-left:3px solid #333;font-size:.7em}
 .scard:hover{border-left-color:#4db8b8}
-.scard.carryover{border-left-color:#e8a838;background:#1a160f}
-.scard.carryover .co-badge{display:inline-block;background:#e8a838;color:#000;font-size:.65em;font-weight:800;padding:1px 6px;border-radius:3px;margin-left:6px;letter-spacing:.3px}
-.scard .job-info{flex:1;min-width:0}
-.scard .job-title{font-weight:700;font-size:.9em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.scard .job-meta{display:flex;gap:12px;font-size:.78em;color:#888;margin-top:3px;flex-wrap:wrap}
-.scard .job-meta .stage-badge{padding:1px 6px;border-radius:3px;font-size:.85em;font-weight:600}
-.scard .job-meta .due-over{color:#ff6b6b;font-weight:600}
-.scard .job-meta .due-warn{color:#ffaa44}
-.scard .job-meta .due-ok{color:#5a9e5a}
-.scard .job-actions{display:flex;gap:6px;align-items:center;flex-shrink:0}
-.week-picker{background:#0f1117;border:1px solid #3a3d4a;color:#e8e8e8;padding:4px 8px;border-radius:4px;font-size:.78em;cursor:pointer}
-.week-picker option{background:#1a1d27;color:#e8e8e8}
-.btn-sm{background:#2a2d3a;border:1px solid #3a3d4a;color:#aaa;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:.75em;font-weight:600;transition:all .15s}
+.scard.carry{border-left-color:#e8a838;background:#1a160f}
+.scard .s-title{font-weight:600;color:#e8e8e8;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scard .s-meta{display:flex;gap:8px;color:#888;font-size:.9em;margin-top:2px;flex-wrap:wrap;align-items:center}
+.scard .s-hrs{color:#ffd580;font-weight:600}.scard .s-val{color:#4db8b8;font-weight:600}
+.scard .s-due{font-size:.85em;padding:1px 4px;border-radius:3px;background:#1e2230;color:#aaa}
+.scard .s-due.over{background:#3d1515;color:#ff6b6b}.scard .s-due.warn{background:#3d2e10;color:#ffaa44}
+.scard .s-actions{display:flex;gap:4px;margin-top:3px;align-items:center}
+.week-picker{background:#0f1117;border:1px solid #3a3d4a;color:#e8e8e8;padding:2px 4px;border-radius:3px;font-size:.85em;cursor:pointer;max-width:110px}
+.btn-sm{background:#2a2d3a;border:1px solid #3a3d4a;color:#aaa;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:.85em;font-weight:600}
 .btn-sm:hover{background:#3a3d4a;color:#fff}
-.btn-sm.done{background:#1e3a1e;border-color:#3a7a3a;color:#5a9e5a}
-.btn-sm.done:hover{background:#2a5a2a;color:#7acc7a}
 .btn-sm.done.active{background:#5a9e5a;color:#fff}
-.btn-sm.remove{color:#ff6b6b;border-color:#3d1515}
-.btn-sm.remove:hover{background:#3d1515}
-.unscheduled-section{margin-top:24px}
-.unscheduled-section h2{font-size:1em;font-weight:700;color:#888;letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;padding-left:4px}
-.filter-bar{display:flex;gap:8px;padding:0 16px 0;margin-bottom:-8px;flex-wrap:wrap;align-items:center}
-.filter-bar select,.filter-bar input{background:#0f1117;border:1px solid #3a3d4a;color:#e8e8e8;padding:5px 10px;border-radius:4px;font-size:.82em}
-.filter-bar input{width:220px}
-.empty-week{text-align:center;padding:20px;color:#555;font-size:.85em}
-.pri-badge{font-size:.65em;font-weight:800;padding:1px 5px;border-radius:3px;margin-left:6px}
-.pri-badge.p1{background:#ff4444;color:#fff}
-.pri-badge.p2{background:#e8a838;color:#000}
+.co-badge{display:inline-block;background:#e8a838;color:#000;font-size:.7em;font-weight:800;padding:0 4px;border-radius:2px;margin-left:4px}
+.pri-badge{font-size:.7em;font-weight:800;padding:0 4px;border-radius:2px;margin-left:4px}
+.pri-badge.p1{background:#ff4444;color:#fff}.pri-badge.p2{background:#e8a838;color:#000}
+.wcmon{background:#7b5ea7;color:#fff;font-size:.7em;padding:0 4px;border-radius:2px;margin-left:3px}
 </style>
 </head>
 <body>
 <div class="top-bar">
   <div style="display:flex;align-items:center;gap:10px">
-    <div style="font-size:1.6em">ð</div>
-    <h1>PRODUCTION SCHEDULE<span>Weekly Production Planning â Assign items to weeks</span></h1>
+    <div style="font-size:1.6em">📅</div>
+    <h1>PRODUCTION SCHEDULE<span>Weekly Department Planning — Hours & Value by Week</span></h1>
   </div>
   <div class="nav-links">
-    <a href="/">ð­ Dashboard</a>
-    <a href="/kpi">ð KPI</a>
-    <a href="/maintenance">ð§ Maintenance</a>
-    <a href="/shipping">ð¦ Shipping</a>
+    <a href="/">🏭 Dashboard</a>
+    <a href="/kpi">📊 KPI</a>
+    <a href="/maintenance">🔧 Maintenance</a>
+    <a href="/shipping">📦 Shipping</a>
   </div>
 </div>
 <div class="summary-bar" id="summary-bar"></div>
-<div class="filter-bar" style="padding-top:10px">
-  <input type="text" id="search" placeholder="Search by job #, name, or client...">
-  <select id="stage-filter"><option value="">All Stages</option></select>
-  <select id="week-jump"><option value="">Jump to week...</option></select>
-</div>
-<div class="schedule-body" id="schedule-body"></div>
+<div class="dept-grid" id="dept-grid"></div>
 
 <script>
 const STAGES=[
-  {k:'molds',c:'#4a6fa5',l:'Molds'},{k:'creation',c:'#7b5ea7',l:'Creation'},
-  {k:'waxpull',c:'#e8a838',l:'Wax Pull'},{k:'waxchase',c:'#d4763b',l:'Wax Chase'},
-  {k:'shell',c:'#5a9e6f',l:'Shell'},{k:'metal',c:'#8b9dc3',l:'Metal'},
-  {k:'patina',c:'#c45c8a',l:'Patina'},{k:'base',c:'#4db8b8',l:'Base'},
-  {k:'ready',c:'#5a9e5a',l:'Ready'}
+  {k:'molds',c:'#4a6fa5',l:'Molds',hKey:['hWax']},
+  {k:'creation',c:'#7b5ea7',l:'Creation',hKey:['hWax']},
+  {k:'waxpull',c:'#e8a838',l:'Wax Pull',hKey:['hWaxPull']},
+  {k:'waxchase',c:'#d4763b',l:'Wax Chase',hKey:['hSprue']},
+  {k:'shell',c:'#5a9e6f',l:'Shell',hKey:[]},
+  {k:'metal',c:'#8b9dc3',l:'Metal',hKey:['hMetal']},
+  {k:'patina',c:'#c45c8a',l:'Patina',hKey:['hPatina']},
+  {k:'base',c:'#4db8b8',l:'Base',hKey:['hBasing']},
+  {k:'ready',c:'#5a9e5a',l:'Ready',hKey:[]}
 ];
 const STAGE_MAP=Object.fromEntries(STAGES.map(s=>[s.k,s]));
-const fmt=v=>v?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(v):'â';
+const fmt=v=>v?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(v):'—';
+const fmtHrs=h=>h?h.toFixed(1)+'h':'—';
 
-let _items=[], _assignments={}, _priorities={}, _stageOverrides={};
-let _filter='', _stageFilter='';
+let _items=[], _assignments={}, _priorities={};
 
 function getMonday(d){const dt=new Date(d);const day=dt.getDay();const diff=dt.getDate()-day+(day===0?-6:1);dt.setDate(diff);return dt.toISOString().slice(0,10);}
 function addWeeks(monday,n){const d=new Date(monday+'T00:00:00');d.setDate(d.getDate()+n*7);return d.toISOString().slice(0,10);}
 function fmtWeekRange(monday){
-  const d=new Date(monday+'T00:00:00');
-  const end=new Date(d);end.setDate(end.getDate()+6);
+  const d=new Date(monday+'T00:00:00');const end=new Date(d);end.setDate(end.getDate()+6);
   const mo={month:'short',day:'numeric'};
-  return d.toLocaleDateString('en-US',mo)+' â '+end.toLocaleDateString('en-US',mo);
+  return d.toLocaleDateString('en-US',mo)+' – '+end.toLocaleDateString('en-US',mo);
 }
 function weekLabel(monday){
   const today=getMonday(new Date().toISOString().slice(0,10));
   if(monday===today)return'This Week';
   if(monday===addWeeks(today,1))return'Next Week';
-  if(monday===addWeeks(today,-1))return'Last Week';
   const diff=Math.round((new Date(monday)-new Date(today))/(7*86400000));
-  if(diff>0)return`${diff} Weeks Out`;
-  return`${Math.abs(diff)} Weeks Ago`;
+  if(diff>0)return'Wk +'+diff;
+  return'Wk '+diff;
+}
+
+function itemHours(item){
+  const s=STAGE_MAP[item.stage];
+  if(!s||!s.hKey.length)return 0;
+  return s.hKey.reduce((a,k)=>a+(item[k]||0),0);
 }
 
 function daysDiff(d){if(!d)return null;return Math.floor((new Date(d)-new Date())/(86400000));}
 function dueTag(d){
   const diff=daysDiff(d);if(diff===null)return'';
-  if(diff<0)return`<span class="due-over">OVERDUE ${Math.abs(diff)}D</span>`;
-  if(diff<=7)return`<span class="due-warn">Due ${d}</span>`;
-  return`<span class="due-ok">${d}</span>`;
+  if(diff<0)return'<span class="s-due over">OD '+Math.abs(diff)+'D</span>';
+  if(diff<=7)return'<span class="s-due warn">'+d.slice(5)+'</span>';
+  return'<span class="s-due">'+d.slice(5)+'</span>';
 }
 
 function priTag(job){
   const p=_priorities[job]||0;
-  if(p===1)return'<span class="pri-badge p1">URGENT</span>';
-  if(p===2)return'<span class="pri-badge p2">HIGH</span>';
+  if(p===1)return'<span class="pri-badge p1">URG</span>';
+  if(p===2)return'<span class="pri-badge p2">HI</span>';
   return'';
-}
-
-function stageTag(stage){
-  const s=STAGE_MAP[stage];
-  if(!s)return'';
-  return`<span class="stage-badge" style="background:${s.c}22;color:${s.c}">${s.l}</span>`;
-}
-
-function getWeeks(){
-  const today=getMonday(new Date().toISOString().slice(0,10));
-  const weeks=new Set();
-  // Always include current week + 3 future weeks
-  for(let i=0;i<4;i++)weeks.add(addWeeks(today,i));
-  // Add weeks from assignments
-  Object.values(_assignments).forEach(a=>{if(a.week)weeks.add(a.week);});
-  return Array.from(weeks).sort();
 }
 
 function buildWeekOptions(){
   const today=getMonday(new Date().toISOString().slice(0,10));
-  let html='<option value="">â Unschedule â</option>';
+  let html='<option value="">— Move —</option>';
   for(let i=0;i<8;i++){
     const w=addWeeks(today,i);
-    html+=`<option value="${w}">${weekLabel(w)} (${fmtWeekRange(w)})</option>`;
+    html+='<option value="'+w+'">'+weekLabel(w)+' ('+fmtWeekRange(w)+')</option>';
   }
   return html;
+}
+
+function autoAssign(){
+  const today=getMonday(new Date().toISOString().slice(0,10));
+  // For each department, find the last scheduled week with manual assignments
+  const deptLastWeek={};
+  STAGES.forEach(s=>{deptLastWeek[s.k]=null;});
+  // First pass: find latest week per dept from existing manual assignments
+  _items.forEach(i=>{
+    const a=_assignments[i.job];
+    if(a&&a.week&&!a.auto){
+      if(!deptLastWeek[i.stage]||a.week>deptLastWeek[i.stage])deptLastWeek[i.stage]=a.week;
+    }
+  });
+  // Second pass: assign unscheduled items to NEXT week after last planned
+  _items.forEach(i=>{
+    if(!_assignments[i.job]||!_assignments[i.job].week){
+      let targetWeek;
+      if(deptLastWeek[i.stage]){
+        // Department has planned weeks — new item goes to next week after last planned
+        targetWeek=addWeeks(deptLastWeek[i.stage],1);
+      } else {
+        // No planned weeks yet — start at current week
+        targetWeek=today;
+      }
+      _assignments[i.job]={week:targetWeek,carryover:false,original_week:null,done:false,auto:true};
+      // Update dept last week so subsequent unassigned items stack into same overflow week
+      deptLastWeek[i.stage]=targetWeek;
+    }
+  });
 }
 
 function assignWeek(job,week){
@@ -2582,156 +2590,134 @@ function assignWeek(job,week){
   if(!week){
     delete _assignments[job];
   } else {
-    _assignments[job]={week, carryover:a.carryover||false, original_week:a.original_week||null, done:a.done||false, auto:false};
+    _assignments[job]={week,carryover:a.carryover||false,original_week:a.original_week||null,done:a.done||false,auto:false};
   }
   fetch('/api/schedule/assign',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({job,week:week||''})}).catch(e=>console.error('assign failed',e));
   render();
 }
 
-function bulkAssignDept(stage,week){
-  const items=_items.filter(i=>i.stage===stage&&(!_assignments[i.job]||_assignments[i.job].auto));
-  items.forEach(i=>{
-    _assignments[i.job]={week,carryover:false,original_week:null,done:false,auto:false};
-    fetch('/api/schedule/assign',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({job:i.job,week})}).catch(e=>console.error('bulk assign failed',e));
-  });
-  render();
-}
-
 function toggleDone(job){
-  const a=_assignments[job];
-  if(!a)return;
+  const a=_assignments[job];if(!a)return;
   a.done=!a.done;
   fetch('/api/schedule/mark-done',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({job,done:a.done})}).catch(e=>console.error('mark-done failed',e));
   render();
 }
 
-function filterItems(items){
-  let f=items;
-  if(_filter){
-    const q=_filter.toLowerCase();
-    f=f.filter(i=>(i.job+' '+i.name+' '+(i.customer||'')).toLowerCase().includes(q));
-  }
-  if(_stageFilter)f=f.filter(i=>i.stage===_stageFilter);
-  return f;
+function toggleWb(id){
+  const el=document.getElementById(id);
+  if(el)el.classList.toggle('collapsed');
 }
 
 function render(){
   const today=getMonday(new Date().toISOString().slice(0,10));
-  const weeks=getWeeks();
-  const allFiltered=filterItems(_items);
+  autoAssign();
 
-  // Auto-assign: items with no assignment default to this week
-  allFiltered.forEach(i=>{
-    if(!_assignments[i.job]||!_assignments[i.job].week){
-      _assignments[i.job]={week:today,carryover:false,original_week:null,done:false,auto:true};
-    }
-  });
+  // Gather weeks across all assignments
+  const allWeeks=new Set();
+  for(let i=0;i<4;i++)allWeeks.add(addWeeks(today,i));
+  Object.values(_assignments).forEach(a=>{if(a&&a.week)allWeeks.add(a.week);});
+  const weeks=Array.from(allWeeks).sort();
 
   // Summary stats
-  const scheduled=allFiltered.filter(i=>_assignments[i.job]?.week);
-  const carryovers=scheduled.filter(i=>_assignments[i.job]?.carryover);
-  const thisWeekItems=scheduled.filter(i=>_assignments[i.job]?.week===today);
-  const deptCounts={};
-  STAGES.forEach(s=>{deptCounts[s.l]=thisWeekItems.filter(i=>i.stage===s.k).length;});
-  const deptSummary=Object.entries(deptCounts).filter(([,c])=>c>0).map(([d,c])=>`${d}: ${c}`).join(' Â· ');
+  const totalHrs=_items.reduce((a,i)=>a+itemHours(i),0);
+  const totalVal=_items.reduce((a,i)=>a+(i.price||0),0);
+  const thisWeekItems=_items.filter(i=>_assignments[i.job]&&_assignments[i.job].week===today);
+  const twHrs=thisWeekItems.reduce((a,i)=>a+itemHours(i),0);
+  const twVal=thisWeekItems.reduce((a,i)=>a+(i.price||0),0);
+  const carryovers=_items.filter(i=>_assignments[i.job]&&_assignments[i.job].carryover);
   document.getElementById('summary-bar').innerHTML=
-    `<div class="sstat">â TOTAL ITEMS <strong>${allFiltered.length}</strong></div>`+
-    `<div class="sstat teal">â SCHEDULED <strong>${scheduled.length}</strong></div>`+
-    `<div class="sstat green">â THIS WEEK <strong>${thisWeekItems.length}</strong></div>`+
-    `<div class="sstat red">â CARRYOVER <strong>${carryovers.length}</strong></div>`+
-    `<div class="sstat" style="font-size:.72em;color:#888;margin-left:8px">${deptSummary}</div>`;
-
-  // Week jump dropdown
-  const jumpEl=document.getElementById('week-jump');
-  const curJump=jumpEl.value;
-  jumpEl.innerHTML='<option value="">Jump to week...</option>'+weeks.map(w=>
-    `<option value="${w}"${w===curJump?' selected':''}>${weekLabel(w)} (${fmtWeekRange(w)})</option>`).join('');
-
-  // Stage filter
-  const stgEl=document.getElementById('stage-filter');
-  const curStg=stgEl.value;
-  stgEl.innerHTML='<option value="">All Stages</option>'+STAGES.map(s=>
-    `<option value="${s.k}"${s.k===curStg?' selected':''}>${s.l}</option>`).join('');
+    '<div class="sstat">TOTAL <strong>'+_items.length+'</strong> items</div>'+
+    '<div class="sstat gold">HOURS <strong>'+fmtHrs(totalHrs)+'</strong></div>'+
+    '<div class="sstat teal">VALUE <strong>'+fmt(totalVal)+'</strong></div>'+
+    '<div class="sstat green">THIS WEEK <strong>'+thisWeekItems.length+'</strong> items · '+fmtHrs(twHrs)+' · '+fmt(twVal)+'</div>'+
+    (carryovers.length?'<div class="sstat red">CARRYOVER <strong>'+carryovers.length+'</strong></div>':'');
 
   const weekOpts=buildWeekOptions();
-  let html='';
+  let grid='';
 
-  const sortFn=(a,b)=>{
-    const ca=_assignments[a.job]?.carryover?0:1, cb=_assignments[b.job]?.carryover?0:1;
-    if(ca!==cb)return ca-cb;
-    const pa=_priorities[a.job]||0, pb=_priorities[b.job]||0;
-    const wa=pa===1?0:pa===2?1:2, wb=pb===1?0:pb===2?1:2;
-    if(wa!==wb)return wa-wb;
-    if(!a.due&&!b.due)return 0;if(!a.due)return 1;if(!b.due)return-1;
-    return a.due.localeCompare(b.due);
-  };
+  // Render each department as a column
+  STAGES.forEach(stg=>{
+    const deptItems=_items.filter(i=>i.stage===stg.k);
+    const deptHrs=deptItems.reduce((a,i)=>a+itemHours(i),0);
+    const deptVal=deptItems.reduce((a,i)=>a+(i.price||0),0);
 
-  function groupByDept(items){
-    const groups={};
-    STAGES.forEach(s=>{const g=items.filter(i=>i.stage===s.k);if(g.length)groups[s.k]=g;});
-    const noStage=items.filter(i=>!STAGE_MAP[i.stage]);
-    if(noStage.length)groups['_other']=noStage;
-    return groups;
-  }
+    let body='';
+    weeks.forEach(w=>{
+      const wItems=deptItems.filter(i=>_assignments[i.job]&&_assignments[i.job].week===w);
+      if(!wItems.length)return;
 
-  function renderDeptGroups(items,weekOpts,weekKey){
-    const groups=groupByDept(items);
-    const stageKeys=STAGES.map(s=>s.k).concat(['_other']);
-    let out='';
-    stageKeys.forEach(sk=>{
-      const g=groups[sk];if(!g||!g.length)return;
-      g.sort(sortFn);
-      const s=STAGE_MAP[sk];
-      const deptColor=s?s.c:'#888';
-      const deptName=s?s.l:'Other';
-      const deptVal=g.reduce((a,i)=>a+(i.price||0),0);
-      const doneCount=g.filter(i=>_assignvæÖVçG5¶æ¦ö%ÓòæFöæRæÆVæwF°¢6öç7B6'&W3ÖræfÇFW"Óåö76væÖVçG5¶æ¦ö%Óòæ6''÷fW"æÆVæwF°¢÷WB³ÖÆFb6Æ73Ò&FWBÖw&÷W#à¢ÆFb6Æ73Ò&FWBÖVFW""7GÆSÒ&&6¶w&÷VæC¢G¶FWD6öÆ÷'Ó¶&÷&FW"ÖÆVgC£76öÆBG¶FWD6öÆ÷'Ò"öæ6Æ6³Ò'F2ææWDVÆVÖVçE6&Ææræ6Æ74Æ7BçFövvÆRv6öÆÆ6VBr#à¢Ç7â6Æ73Ò&FWBÖæÖR"7GÆSÒ&6öÆ÷#¢G¶FWD6öÆ÷'Ò#âG¶FWDæÖWÓÂ÷7ãà¢Ç7â6Æ73Ò&FWBÖ6÷VçB#âG¶ræÆVæwFÒFVÒG¶ræÆVæwFãòw2s¢rwÓÂ÷7ãà¢G¶6'&W3öÇ7â7GÆSÒ&6öÆ÷#¢6S3¶föçB×6¦S¢ãs&VÒ#î)ªG¶6'&W7Ò6''÷fW#Â÷7ãæ¢rwÐ¢Ç7â7GÆSÒ&6öÆ÷#¢3VSV¶föçB×6¦S¢ãs&VÒ#âG¶FöæT6÷VçGÒòG¶ræÆVæwFÒFöæSÂ÷7ãà¢Ç7â6Æ73Ò&FWB×fÇVR"7GÆSÒ&6öÆ÷#¢G¶FWD6öÆ÷'Ò#âG¶f×BFWEfÂÓÂ÷7ãà¢ÂöFcà¢ÆFb6Æ73Ò&FWBÖ&öG#âG¶ræÖÓç&VæFW$6&BÇvVV´÷G2ÇvVV´¶Wæ¦öârrÓÂöFcà¢ÂöFcæ°¢Ò°¢&WGW&â÷WC°¢Ð ¢òò&VæFW"V6vVV°¢vVV·2æf÷$V6sÓç°¢6öç7B47W'&VçC×sÓÓ×FöF°¢6öç7B57C×sÇFöF°¢6öç7BvVV´FV×3ÖÆÄfÇFW&VBæfÇFW"Óåö76væÖVçG5¶æ¦ö%ÓòçvVV³ÓÓ×r°¢6öç7B6'&W3×vVV´FV×2æfÇFW"Óåö76væÖVçG5¶æ¦ö%Óòæ6''÷fW"° ¢6öç7BF÷FÅfÃ×vVV´FV×2ç&VGV6RÆÓæ²ç&6WÇÃÃ°¢6öç7BFöæT6÷VçC×vVV´FV×2æfÇFW"Óåö76væÖVçG5¶æ¦ö%ÓòæFöæRæÆVæwF°¢6öç7BFWD6÷VçCÖæWr6WBvVV´FV×2æÖÓæç7FvRç6¦S° ¢FÖÂ³ÖÆFb6Æ73Ò'vVV²×6V7FöâG¶47W'&VçCòr7W'&VçBs¢rwÒ"CÒ'vVV²ÒG·wÒ#à¢ÆFb6Æ73Ò'vVV²ÖVFW""öæ6Æ6³Ò'FövvÆUvVV²rG·wÒr#à¢ÆFb6Æ73Ò'vVV²×FFÆR#à¢Ç7â6Æ73Ò&Æ&VÂ#âG·vVV´Æ&VÂrÓÂ÷7ãà¢Ç7â6Æ73Ò&FFW2#âG¶f×EvVVµ&ævRrÓÂ÷7ãà¢G¶6'&W2æÆVæwFöÇ7â7GÆSÒ&6öÆ÷#¢6S3¶föçB×6¦S¢ãsVVÓ¶Ö&vâÖÆVgC£#î)ªG¶6'&W2æÆVæwFÒ6''÷fW#Â÷7ãæ¢rwÐ¢ÂöFcà¢ÆFb6Æ73Ò'vVV²×7FG2#à¢Ç7ãäFV×3¢Ç7G&öæsâG·vVV´FV×2æÆVæwFÓÂ÷7G&öæsãÂ÷7ãà¢Ç7ãäFWG3¢Ç7G&öæsâG¶FWD6÷VçGÓÂ÷7G&öæsãÂ÷7ãà¢Ç7ãåfÇVS¢Ç7G&öær7GÆSÒ&6öÆ÷#¢3FF###âG¶f×BF÷FÅfÂÓÂ÷7G&öæsãÂ÷7ãà¢Ç7ãäFöæS¢Ç7G&öær7GÆSÒ&6öÆ÷#¢3VSV#âG¶FöæT6÷VçGÒòG·vVV´FV×2æÆVæwFÓÂ÷7G&öæsãÂ÷7ãà¢ÂöFcà¢ÂöFcà¢ÆFb6Æ73Ò'vVV²Ö&öGG¶57Bbb47W'&VçCòr6öÆÆ6VBs¢rwÒ"CÒ'v"ÒG·wÒ#à¢G¶6'&W2æÆVæwFöÆFb6Æ73Ò&6''÷fW"Ö&ææW"#î)ªÇ7G&öæsâG¶6'&W2æÆVæwFÒFVÒG¶6'&W2æÆVæwFãòw2s¢rwÓÂ÷7G&öæsâ6'&VB÷fW"g&öÒ&Wf÷W2vVV²G¶6'&W2æÆVæwFãòw2s¢rwÒ(	BFW6R&R&÷&FW3ÂöFcæ¢rwÐ¢G·vVV´FV×2æÆVæwF÷&VæFW$FWDw&÷W2vVV´FV×2ÇvVV´÷G2Çr¦ÆFb6Æ73Ò&V×G×vVV²#äæòFV×266VGVÆVBf÷"F2vVV³ÂöFcæÐ¢ÂöFcà¢ÂöFcæ°¢Ò° ¢òòVç66VGVÆVBFV×2w&÷WVB'FW'FÖVç@¢6öç7BVç66VCÖÆÄfÇFW&VBæfÇFW"Óâö76væÖVçG5¶æ¦ö%ÓòçvVV²°¢bVç66VBæÆVæwF°¢FÖÂ³ÖÆFb6Æ73Ò'Vç66VGVÆVB×6V7Föâ#à¢Æ#ï	ù8²Vç66VGVÆVBFV×2G·Vç66VBæÆVæwFÒÂö#à¢G·&VæFW$FWDw&÷W2Vç66VBÇvVV´÷G2ÂrrÐ¢ÂöFcæ°¢Ð ¢Fö7VÖVçBævWDVÆVÖVçD'Bw66VGVÆRÖ&öGræææW$DÔÃÖFÖÃ
+      const isCurrent=w===today;
+      const wHrs=wItems.reduce((a,i)=>a+itemHours(i),0);
+      const wVal=wItems.reduce((a,i)=>a+(i.price||0),0);
+      const doneCount=wItems.filter(i=>_assignments[i.job]&&_assignments[i.job].done).length;
+      const carries=wItems.filter(i=>_assignments[i.job]&&_assignments[i.job].carryover);
+
+      // Sort: carryovers first, then priority, then due
+      wItems.sort((a,b)=>{
+        const ca=_assignments[a.job]&&_assignments[a.job].carryover?0:1;
+        const cb=_assignments[b.job]&&_assignments[b.job].carryover?0:1;
+        if(ca!==cb)return ca-cb;
+        const pa=_priorities[a.job]||0,pb=_priorities[b.job]||0;
+        const wa=pa===1?0:pa===2?1:2,wb=pb===1?0:pb===2?1:2;
+        if(wa!==wb)return wa-wb;
+        if(!a.due&&!b.due)return 0;if(!a.due)return 1;if(!b.due)return-1;
+        return a.due.localeCompare(b.due);
+      });
+
+      const wbId='wb-'+stg.k+'-'+w;
+      body+='<div class="week-block'+(isCurrent?' current':'')+'">'+
+        '<div class="wb-hdr" onclick="toggleWb(\''+wbId+'\')">'+
+          '<span><span class="wlabel">'+weekLabel(w)+'</span><span class="wdates"> '+fmtWeekRange(w)+'</span></span>'+
+          '<span class="wstats"><strong>'+wItems.length+'</strong> · '+fmtHrs(wHrs)+' · '+fmt(wVal)+(doneCount?' · <span style="color:#5a9e5a">'+doneCount+' done</span>':'')+'</span>'+
+        '</div>'+
+        '<div class="wb-body" id="'+wbId+'">'+
+          (carries.length?'<div style="font-size:.68em;color:#e8a838;padding:2px 6px">⚠ '+carries.length+' carryover</div>':'')+
+          wItems.map(i=>{
+            const a=_assignments[i.job]||{};
+            const hrs=itemHours(i);
+            const isCarry=a.carryover;
+            const isDone=a.done;
+            return '<div class="scard'+(isCarry?' carry':'')+'" style="'+(isDone?'opacity:.5':'')+';border-left-color:'+stg.c+'">'+
+              '<div class="s-title">#'+i.job+' '+i.name+(i.monument?'<span class="wcmon">MON</span>':'')+
+                (isCarry?'<span class="co-badge">CARRY</span>':'')+priTag(i.job)+
+                (isDone?'<span style="color:#5a9e5a;margin-left:4px">✓</span>':'')+'</div>'+
+              '<div class="s-meta">'+
+                '<span>'+i.customer+'</span>'+
+                (hrs?'<span class="s-hrs">'+fmtHrs(hrs)+'</span>':'')+
+                (i.price?'<span class="s-val">'+fmt(i.price)+'</span>':'')+
+                dueTag(i.due)+
+              '</div>'+
+              '<div class="s-actions">'+
+                '<select class="week-picker" onchange="assignWeek(\''+i.job+'\',this.value)">'+
+                  weekOpts.replace('value="'+w+'"','value="'+w+'" selected')+
+                '</select>'+
+                '<button class="btn-sm done'+(isDone?' active':'')+'" onclick="toggleDone(\''+i.job+'\')">'+
+                  (isDone?'✓':'Done')+'</button>'+
+              '</div>'+
+            '</div>';
+          }).join('')+
+        '</div>'+
+      '</div>';
+    });
+
+    if(!body)body='<div style="text-align:center;padding:20px;color:#555;font-size:.75em">No items</div>';
+
+    grid+='<div class="dept-col">'+
+      '<div class="dept-hdr" style="background:'+stg.c+'22">'+
+        '<div class="dept-label" style="color:'+stg.c+'">'+stg.l+'</div>'+
+        '<div class="dept-count">'+deptItems.length+'</div>'+
+        '<div class="dept-sub">ITEMS</div>'+
+        (deptHrs?'<div class="dept-hrs">'+fmtHrs(deptHrs)+' bid</div>':'')+
+        '<div class="dept-val">'+fmt(deptVal)+'</div>'+
+      '</div>'+
+      '<div class="dept-body">'+body+'</div>'+
+    '</div>';
+  });
+
+  document.getElementById('dept-grid').innerHTML=grid;
 }
-
-function renderCard(item,weekOpts,currentWeek){
-  const a=_assignments[item.job]||{};
-  const isCarry=a.carryover;
-  const isDone=a.done;
-  const stg=STAGE_MAP[item.stage];
-  const borderColor=isCarry?'#e8a838':isDone?'#5a9e5a':(stg?stg.c:'#333');
-  return`<div class="scard${isCarry?' carryover':''}" style="border-left-color:${borderColor};${isDone?'opacity:.6':''}">
-    <div class="job-info">
-      <div class="job-title">
-        #${item.job} ${item.name}${item.monument?'<span style="background:#7b5ea7;color:#fff;font-size:.65em;padding:1px 4px;border-radius:3px;margin-left:4px">MON</span>':''}
-        ${isCarry?'<span class="co-badge">CARRYOVER</span>':''}
-        ${priTag(item.job)}
-        ${isDone?'<span style="color:#5a9e5a;font-size:.75em;margin-left:6px">â DONE</span>':''}
-      </div>
-      <div class="job-meta">
-        <span>${item.customer||'â'}</span>
-        ${stageTag(item.stage)}
-        ${dueTag(item.due)}
-        ${item.price?`<span style="color:#4db8b8;font-weight:600">${fmt(item.price)}</span>`:''}
-        ${a.original_week?`<span style="color:#888;font-size:.85em">Originally: ${fmtWeekRange(a.original_week)}</span>`:''}
-      </div>
-    </div>
-    <div class="job-actions">
-      <select class="week-picker" onchange="assignWeek('${item.job}',this.value)" title="Assign to week">
-        ${weekOpts.replace(`value="${currentWeek}"`,`value="${currentWeek}" selected`)}
-      </select>
-      <button class="btn-sm done${isDone?' active':''}" onclick="toggleDone('${item.job}')" title="${isDone?'Mark incomplete':'Mark done'}">${isDone?'â Done':'â'}</button>
-    </div>
-  </div>`;
-}
-
-function toggleWeek(w){
-  const el=document.getElementById('wb-'+w);
-  if(el)el.classList.toggle('collapsed');
-}
-
-document.getElementById('search').oninput=function(){_filter=this.value;render();};
-document.getElementById('stage-filter').onchange=function(){_stageFilter=this.value;render();};
-document.getElementById('week-jump').onchange=function(){
-  if(this.value){const el=document.getElementById('week-'+this.value);if(el)el.scrollIntoView({behavior:'smooth',block:'start'});}
-};
 
 function loadData(){
   Promise.all([
@@ -2740,12 +2726,10 @@ function loadData(){
   ]).then(([wip,sched])=>{
     if(wip.items)_items=wip.items;
     if(wip.priority_overrides)_priorities=wip.priority_overrides;
-    if(wip.stage_overrides)_stageOverrides=wip.stage_overrides;
     if(sched.assignments){
-      // Mark server-persisted assignments as non-auto
       _assignments={};
       Object.entries(sched.assignments).forEach(([job,a])=>{
-        _assignments[job]={...a, auto:false};
+        _assignments[job]={...a,auto:false};
       });
     }
     render();
@@ -2755,7 +2739,8 @@ loadData();
 setInterval(loadData,60000);
 </script>
 </body>
-</html>"""
+</html>
+"""
 
 @app.route('/schedule')
 def schedule_page():
@@ -2819,7 +2804,6 @@ def schedule_mark_done():
     except Exception as e:
         log.error(f'Schedule mark-done failed: {e}')
         return jsonify({'error': str(e)}), 500
-
 
 # ── Startup ────────────────────────────────────────────────────────────────────
 if SESSION_COOKIE:
