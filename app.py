@@ -1562,26 +1562,25 @@ a:hover{text-decoration:underline;}
 .toggle-form-btn:hover{background:#4a7aaa;}
 .ship-form{background:#1a2332;border:1px solid #3a4a6a;border-radius:8px;padding:20px;margin:12px 20px 0;display:none;}
 .ship-form.open{display:block;}
-.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin-top:14px;}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:14px;}
 .form-group{display:flex;flex-direction:column;}
 .form-group label{font-weight:600;margin-bottom:4px;color:#ccc;font-size:.88em;}
 .form-group input,.form-group textarea,.form-group select{background:#0f1419;border:1px solid #3a4a6a;color:#ccc;padding:8px;border-radius:4px;font-family:inherit;font-size:.9em;}
 .form-group input:focus,.form-group textarea:focus,.form-group select:focus{outline:none;border-color:#7aa8e8;box-shadow:0 0 6px rgba(122,168,232,.3);}
 .form-group textarea{resize:vertical;min-height:70px;}
-.btn-submit{background:#3a6a9a;color:#fff;border:1px solid #5a8aca;padding:8px 18px;border-radius:4px;cursor:pointer;font-weight:700;font-size:.9em;}
-.btn-submit:hover{background:#4a7aaa;}
+.btn-submit,.btn-save{background:#3a6a9a;color:#fff;border:1px solid #5a8aca;padding:8px 18px;border-radius:4px;cursor:pointer;font-weight:700;font-size:.9em;}
+.btn-submit:hover,.btn-save:hover{background:#4a7aaa;}
 
 /* ── Board layout ── */
 .board-wrapper{padding:16px 20px;overflow-x:auto;}
 .board{display:flex;gap:14px;min-height:calc(100vh - 200px);align-items:flex-start;}
-.board-col{flex:0 0 280px;background:#141c26;border:1px solid #2a3a4a;border-radius:8px;display:flex;flex-direction:column;max-height:calc(100vh - 180px);}
+.board-col{flex:1 1 0;min-width:260px;background:#141c26;border:1px solid #2a3a4a;border-radius:8px;display:flex;flex-direction:column;max-height:calc(100vh - 180px);}
 .col-header{padding:12px 14px;font-weight:700;font-size:.95em;letter-spacing:.5px;display:flex;align-items:center;gap:8px;border-bottom:2px solid transparent;flex-shrink:0;}
 .col-header .count{background:rgba(255,255,255,.08);padding:2px 8px;border-radius:10px;font-size:.8em;font-weight:400;}
 .board-col.requested .col-header{border-color:#ffb74d;color:#ffb74d;}
 .board-col.approved .col-header{border-color:#42a5f5;color:#42a5f5;}
 .board-col.packed .col-header{border-color:#4db8b8;color:#4db8b8;}
 .board-col.shipped .col-header{border-color:#81c784;color:#81c784;}
-.board-col.delivered .col-header{border-color:#888;color:#aaa;}
 .col-body{padding:10px;overflow-y:auto;flex:1;}
 
 /* ── Cards ── */
@@ -1594,9 +1593,24 @@ a:hover{text-decoration:underline;}
 .req-card .c-row b{color:#ccc;font-weight:500;}
 .req-card .c-actions{display:flex;gap:6px;margin-top:10px;}
 .req-card .c-actions select{flex:1;background:#0f1419;border:1px solid #3a4a6a;color:#ccc;padding:5px;border-radius:4px;font-size:.82em;}
-.req-card .c-actions button{background:#5a2a2a;border:1px solid #7a4a4a;color:#ccc;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:.78em;}
-.req-card .c-actions button:hover{background:#7a3a3a;}
+.req-card .c-actions button,.btn-edit,.btn-del{background:#2a3a4a;border:1px solid #3a4a6a;color:#ccc;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:.78em;}
+.btn-del{background:#5a2a2a;border-color:#7a4a4a;}
+.btn-edit:hover{background:#3a4a5a;}.btn-del:hover{background:#7a3a3a;}
 .empty-col{text-align:center;padding:30px 10px;color:#555;font-size:.9em;}
+
+/* ── Edit overlay ── */
+.edit-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:100;}
+.edit-panel{background:#1a2332;border:1px solid #3a5a8a;border-radius:10px;padding:24px;width:560px;max-width:95vw;max-height:90vh;overflow-y:auto;}
+.edit-panel h3{margin-bottom:12px;color:#ddd;}
+.edit-panel .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.edit-panel .full{grid-column:1/-1;}
+.edit-panel input,.edit-panel textarea,.edit-panel select{width:100%;background:#0f1419;border:1px solid #3a4a6a;color:#ccc;padding:7px;border-radius:4px;font-family:inherit;font-size:.9em;}
+.edit-panel textarea{resize:vertical;min-height:60px;}
+.edit-panel label{font-size:.82em;color:#999;margin-bottom:3px;display:block;}
+.edit-btns{display:flex;gap:10px;margin-top:16px;justify-content:flex-end;}
+.edit-btns button{padding:8px 18px;border-radius:4px;cursor:pointer;font-weight:600;border:1px solid #3a4a6a;}
+.edit-btns .btn-save{background:#3a6a9a;color:#fff;border-color:#5a8aca;}
+.edit-btns .btn-cancel{background:#2a3a4a;color:#ccc;}
 
 /* ── Responsive ── */
 @media(max-width:900px){.board{flex-direction:column;}.board-col{flex:none;width:100%;max-height:none;}}
@@ -1677,17 +1691,18 @@ a:hover{text-decoration:underline;}
 <div class="board-wrapper">
   <div class="board" id="board"></div>
 </div>
+<div id="editRoot"></div>
 
 <script>
 let _shipments=[];
-const STATUSES=['requested','approved','packed','shipped','delivered'];
+const STATUSES=['requested','approved','packed','shipped'];
 const STATUS_CFG={
   requested:{icon:'📝',label:'Requested'},
   approved:{icon:'✅',label:'Approved'},
   packed:{icon:'📦',label:'Packed'},
-  shipped:{icon:'🚚',label:'Shipped'},
-  delivered:{icon:'🏁',label:'Delivered'}
+  shipped:{icon:'🚚',label:'Shipped'}
 };
+const CARRIERS=['','FedEx','UPS','USPS','Freight/LTL','Will Call/Pickup','Other'];
 
 function toggleForm(){
   document.getElementById('reqForm').classList.toggle('open');
@@ -1749,6 +1764,60 @@ function deleteRequest(id){
   }).catch(e=>alert('Error: '+e));
 }
 
+function openEdit(id){
+  const s=_shipments.find(x=>x.id===id);
+  if(!s)return;
+  const carrierOpts=CARRIERS.map(c=>`<option value="${c}"${c===s.carrier?' selected':''}>${c||'— Select —'}</option>`).join('');
+  document.getElementById('editRoot').innerHTML=`
+  <div class="edit-overlay" onclick="if(event.target===this)closeEdit()">
+    <div class="edit-panel">
+      <h3>✏️ Edit Shipment — ${s.job}</h3>
+      <div class="form-grid">
+        <div><label>Job / Order #</label><input id="ef-job" value="${s.job||''}"></div>
+        <div><label>Client</label><input id="ef-client" value="${s.client||''}"></div>
+        <div class="full"><label>Items Requested</label><textarea id="ef-items">${s.items_requested||''}</textarea></div>
+        <div class="full"><label>Ship To Address</label><textarea id="ef-address" style="min-height:50px">${s.ship_to||''}</textarea></div>
+        <div><label>Ship Date</label><input type="date" id="ef-date" value="${s.ship_date||''}"></div>
+        <div><label>Carrier</label><select id="ef-carrier">${carrierOpts}</select></div>
+        <div><label>Tracking #</label><input id="ef-tracking" value="${s.tracking||''}"></div>
+        <div><label># Packages</label><input type="number" id="ef-packages" min="1" value="${s.packages||1}"></div>
+        <div><label>Weight</label><input id="ef-weight" value="${s.weight||''}"></div>
+        <div class="full"><label>Special Instructions</label><textarea id="ef-instructions" style="min-height:50px">${s.instructions||''}</textarea></div>
+      </div>
+      <div class="edit-btns">
+        <button class="btn-cancel" onclick="closeEdit()">Cancel</button>
+        <button class="btn-save" onclick="saveEdit(${s.id})">Save Changes</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function closeEdit(){document.getElementById('editRoot').innerHTML='';}
+
+function saveEdit(id){
+  const payload={
+    id,
+    job:document.getElementById('ef-job').value.trim(),
+    client:document.getElementById('ef-client').value.trim(),
+    items_requested:document.getElementById('ef-items').value.trim(),
+    ship_to:document.getElementById('ef-address').value.trim(),
+    ship_date:document.getElementById('ef-date').value,
+    carrier:document.getElementById('ef-carrier').value,
+    tracking:document.getElementById('ef-tracking').value.trim(),
+    packages:parseInt(document.getElementById('ef-packages').value)||1,
+    weight:document.getElementById('ef-weight').value.trim(),
+    instructions:document.getElementById('ef-instructions').value.trim()
+  };
+  fetch('/api/shipping/edit',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload)
+  }).then(r=>r.json()).then(d=>{
+    if(d.ok){closeEdit();loadShipments();}
+    else alert('Error: '+d.error);
+  }).catch(e=>alert('Error: '+e));
+}
+
 function renderBoard(){
   const board=document.getElementById('board');
   let html='';
@@ -1776,7 +1845,8 @@ function renderBoard(){
             <select onchange="updateStatus(${s.id},this.value)">
               ${STATUSES.map(o=>`<option value="${o}"${o===st?' selected':''}>${STATUS_CFG[o].icon} ${STATUS_CFG[o].label}</option>`).join('')}
             </select>
-            <button onclick="deleteRequest(${s.id})">✕</button>
+            <button class="btn-edit" onclick="openEdit(${s.id})">✏️</button>
+            <button class="btn-del" onclick="deleteRequest(${s.id})">✕</button>
           </div>
         </div>`;
       });
@@ -2226,6 +2296,32 @@ def ship_update_status():
         return jsonify({'ok': True, 'id': ship_id, 'status': status})
     except Exception as e:
         log.error(f'Shipping status update failed: {e}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/shipping/edit', methods=['POST'])
+def ship_edit():
+    try:
+        body = request.get_json(force=True)
+        ship_id = int(body.get('id', -1))
+        with _lock:
+            shipments = _ship_data.get('shipments', [])
+            shipment = next((s for s in shipments if s['id'] == ship_id), None)
+            if not shipment:
+                return jsonify({'error': 'shipment not found'}), 404
+            editable = ['job','client','items_requested','ship_to','carrier','tracking','ship_date','packages','weight','instructions']
+            for field in editable:
+                if field in body:
+                    val = body[field]
+                    if field == 'packages':
+                        val = int(val) if val else 1
+                    else:
+                        val = str(val).strip() if val is not None else ''
+                    shipment[field] = val
+        _save_shipping()
+        log.info(f'Shipment #{ship_id} edited')
+        return jsonify({'ok': True, 'id': ship_id})
+    except Exception as e:
+        log.error(f'Shipping edit failed: {e}')
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/shipping/delete', methods=['POST'])
