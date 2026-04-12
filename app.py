@@ -27,6 +27,7 @@ KPI_FILE             = '/tmp/kpi_data.json'
 KPI_PIN              = os.getenv('KPI_PIN', '1977')
 MAINTENANCE_FILE     = '/tmp/maintenance_data.json'
 SHIPPING_FILE        = '/tmp/shipping_data.json'
+SCHEDULE_FILE        = '/tmp/schedule_data.json'
 
 # ── Status → Stage mapping ─────────────────────────────────────────────────────
 STATUS_MAP = {
@@ -50,6 +51,7 @@ _priority_overrides = {}          # job → 1 (urgent) | 2 (high) | 0 (normal/de
 _kpi_data           = {'week_start': '', 'entries': [], 'history': []}
 _maint_data         = {'requests': [], 'next_id': 1}
 _ship_data          = {'shipments': [], 'next_id': 1}
+_schedule_data      = {'assignments': {}}  # job → {week:'YYYY-MM-DD', carryover:bool, original_week:'YYYY-MM-DD'}
 _lock            = threading.Lock()
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s  %(message)s', datefmt='%H:%M:%S')
@@ -187,12 +189,53 @@ def _save_shipping():
     except Exception as e:
         log.warning(f'Could not save shipping data: {e}')
 
+def _load_schedule():
+    global _schedule_data
+    try:
+        with open(SCHEDULE_FILE) as f:
+            _schedule_data = json.load(f)
+        log.info(f'Loaded {len(_schedule_data.get("assignments", {}))} schedule assignment(s) from disk.')
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        log.warning(f'Could not load schedule data: {e}')
+
+def _save_schedule():
+    try:
+        with open(SCHEDULE_FILE, 'w') as f:
+            json.dump(_schedule_data, f)
+    except Exception as e:
+        log.warning(f'Could not save schedule data: {e}')
+
+def _get_week_monday(dt=None):
+    if dt is None:
+        dt = datetime.now()
+    monday = dt - timedelta(days=dt.weekday())
+    return monday.strftime('%Y-%m-%d')
+
+def _auto_rollover():
+    today_monday = _get_week_monday()
+    assignments = _schedule_data.get('assignments', {})
+    changed = False
+    for job, info in list(assignments.items()):
+        if not info.get('week'):
+            continue
+        if info['week'] < today_monday and not info.get('done'):
+            if not info.get('carryover'):
+                info['original_week'] = info.get('original_week') or info['week']
+            info['week'] = today_monday
+            info['carryover'] = True
+            changed = True
+    if changed:
+        _save_schedule()
+
 _load_overrides()
 _load_stage_overrides()
 _load_priority_overrides()
 _load_kpi()
 _load_maintenance()
 _load_shipping()
+_load_schedule()
 
 # ── Transform raw API rows → internal format ───────────────────────────────────
 def transform_rows(raw):
@@ -378,6 +421,7 @@ table.wdt tr:hover td{background:#1e2130}
     <h1>PRODUCTION STATUS BOARD<span>Work In Progress — Click any department to drill down</span></h1>
   </div>
   <div style="display:flex;align-items:center;gap:12px">
+    <a href="/schedule" style="display:inline-flex;align-items:center;gap:5px;background:#1e2a3a;border:1px solid #3a4a6a;color:#5ae8a8;text-decoration:none;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;letter-spacing:.5px">📅 Schedule</a>
     <a href="/kpi" style="display:inline-flex;align-items:center;gap:5px;background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;text-decoration:none;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;letter-spacing:.5px">📊 KPI</a>
     <a href="/maintenance" style="display:inline-flex;align-items:center;gap:5px;background:#1e2a3a;border:1px solid #3a4a6a;color:#e8a838;text-decoration:none;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;letter-spacing:.5px">🔧 Maintenance</a>
     <a href="/shipping" style="display:inline-flex;align-items:center;gap:5px;background:#1e2a3a;border:1px solid #3a4a6a;color:#7aa8e8;text-decoration:none;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;letter-spacing:.5px">📦 Shipping</a>
@@ -440,7 +484,20 @@ const STAGE_HRS={
 
 const fmt=v=>v?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(v):'—';
 const fmtH=h=>h>0?h.toLocaleString('en-US',{maximumFractionDigits:1})+' hrs bid':'';
-let _items=[], _drillStage=null, _drillSort='due', _metalOverrides={}, _stageOverrides={}, _priorityOverrides={};
+let _items=[], _drillStage=null, _drillSort='due', _metalOverrides={}, _stageOverrides={}, _priorityOverrides={}, _scheduleData={};
+function getMonday(d){const dt=new Date(d);const day=dt.getDay();const diff=dt.getDate()-day+(day===0?-6:1);dt.setDate(diff);return dt.toISOString().slice(0,10);}
+function schedBadge(job){
+  const a=_scheduleData[job];if(!a||!a.week)return'';
+  const today=getMonday(new Date().toISOString().slice(0,10));
+  const w=a.week;
+  let label,color;
+  if(w===today){label='THIS WEEK';color='#4db8b8';}
+  else if(w>today){const diff=Math.round((new Date(w)-new Date(today))/(7*86400000));label=diff===1?'NEXT WEEK':'+'+diff+'W';color='#5ae8a8';}
+  else{label='PAST';color='#888';}
+  if(a.carryover){label='⚠ CARRY';color='#e8a838';}
+  if(a.done){label='✓ SCHED';color='#5a9e5a';}
+  return'<span style="font-size:.6em;font-weight:700;padding:1px 4px;border-radius:3px;background:'+color+'22;color:'+color+';margin-left:3px">'+label+'</span>';
+}
 
 function daysDiff(d){if(!d)return null;return Math.floor((new Date(d)-new Date())/(86400000));}
 function dueLabel(d){
@@ -645,7 +702,7 @@ function renderBoard(){
           const priCls=pri===1?' pri-1':pri===2?' pri-2':'';
           return `<div class="wcard${priCls}" style="border-left-color:${pri?'':s.c}" oncontextmenu="cyclePri('${item.job}',event)">
             ${priLabel(item.job)}
-            <div class="wctitle">#${item.job} ${item.name}${item.monument?'<span class="wcmon">MON</span>':''}</div>
+            <div class="wctitle">#${item.job} ${item.name}${item.monument?'<span class="wcmon">MON</span>':''}${schedBadge(item.job)}</div>
             <div class="wclient">${item.customer||''}</div>
             <div class="wcmeta">
               ${item.edition?`<span style="color:#666;font-size:.85em">Ed.${item.edition}</span>`:''}
@@ -887,6 +944,7 @@ function loadData(){
     if(d.metal_overrides)Object.assign(_metalOverrides,d.metal_overrides);
     if(d.stage_overrides)Object.assign(_stageOverrides,d.stage_overrides);
     if(d.priority_overrides)Object.assign(_priorityOverrides,d.priority_overrides);
+    if(d.schedule)Object.assign(_scheduleData,d.schedule);
     if(d.items&&d.items.length){
       _items=d.items;
       renderBoard();
@@ -1900,6 +1958,7 @@ def api_wip():
             'metal_overrides':     dict(_metal_overrides),
             'stage_overrides':     dict(_stage_overrides),
             'priority_overrides':  dict(_priority_overrides),
+            'schedule':            dict(_schedule_data.get('assignments', {})),
         })
 
 @app.route('/api/metal-override', methods=['POST'])
@@ -2352,6 +2411,413 @@ def ship_delete():
     except Exception as e:
         log.error(f'Shipping delete failed: {e}')
         return jsonify({'error': str(e)}), 500
+
+SCHEDULE_HTML = r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Production Schedule â Pyrology</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'Segoe UI',Arial,sans-serif}
+.top-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:#1a1d27;border-bottom:1px solid #2a2d3a}
+.top-bar h1{font-size:1.3em;font-weight:700;letter-spacing:1px;color:#fff}
+.top-bar h1 span{font-size:.65em;font-weight:400;color:#888;display:block;letter-spacing:.5px}
+.nav-links{display:flex;gap:8px;align-items:center}
+.nav-links a{display:inline-flex;align-items:center;gap:5px;background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;text-decoration:none;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;letter-spacing:.5px}
+.nav-links a.active{background:#4db8b8;color:#000;border-color:#4db8b8}
+.summary-bar{display:flex;gap:18px;padding:8px 16px;background:#141620;border-bottom:1px solid #2a2d3a;align-items:center;flex-wrap:wrap}
+.sstat{font-size:.78em;color:#aaa}.sstat strong{color:#fff;font-size:1.1em}
+.sstat.teal strong{color:#4db8b8}.sstat.red strong{color:#e05555}
+.sstat.gold strong{color:#e8a838}.sstat.green strong{color:#5a9e5a}
+.schedule-body{padding:16px;overflow-y:auto;height:calc(100vh - 110px)}
+.week-section{margin-bottom:20px;background:#1a1d27;border-radius:8px;border:1px solid #2a2d3a;overflow:hidden}
+.week-section.current{border-color:#4db8b8}
+.week-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;cursor:pointer;user-select:none}
+.week-header:hover{background:#1e2130}
+.week-title{font-size:1.05em;font-weight:700;letter-spacing:.5px}
+.week-title .label{color:#4db8b8}.week-title .dates{color:#888;font-size:.85em;font-weight:400;margin-left:8px}
+.week-stats{display:flex;gap:14px;font-size:.78em;color:#aaa}
+.week-stats strong{color:#fff}
+.week-body{padding:0 12px 12px}
+.week-body.collapsed{display:none}
+.carryover-banner{background:#3d2e10;border:1px solid #5a4a1a;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:.82em;color:#ffaa44;display:flex;align-items:center;gap:8px}
+.carryover-banner strong{color:#ffd580}
+.scard{display:flex;align-items:center;gap:12px;background:#0f1117;border-radius:6px;padding:10px 14px;margin-bottom:6px;border-left:4px solid #333;transition:border-color .2s}
+.scard:hover{border-left-color:#4db8b8}
+.scard.carryover{border-left-color:#e8a838;background:#1a160f}
+.scard.carryover .co-badge{display:inline-block;background:#e8a838;color:#000;font-size:.65em;font-weight:800;padding:1px 6px;border-radius:3px;margin-left:6px;letter-spacing:.3px}
+.scard .job-info{flex:1;min-width:0}
+.scard .job-title{font-weight:700;font-size:.9em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scard .job-meta{display:flex;gap:12px;font-size:.78em;color:#888;margin-top:3px;flex-wrap:wrap}
+.scard .job-meta .stage-badge{padding:1px 6px;border-radius:3px;font-size:.85em;font-weight:600}
+.scard .job-meta .due-over{color:#ff6b6b;font-weight:600}
+.scard .job-meta .due-warn{color:#ffaa44}
+.scard .job-meta .due-ok{color:#5a9e5a}
+.scard .job-actions{display:flex;gap:6px;align-items:center;flex-shrink:0}
+.week-picker{background:#0f1117;border:1px solid #3a3d4a;color:#e8e8e8;padding:4px 8px;border-radius:4px;font-size:.78em;cursor:pointer}
+.week-picker option{background:#1a1d27;color:#e8e8e8}
+.btn-sm{background:#2a2d3a;border:1px solid #3a3d4a;color:#aaa;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:.75em;font-weight:600;transition:all .15s}
+.btn-sm:hover{background:#3a3d4a;color:#fff}
+.btn-sm.done{background:#1e3a1e;border-color:#3a7a3a;color:#5a9e5a}
+.btn-sm.done:hover{background:#2a5a2a;color:#7acc7a}
+.btn-sm.done.active{background:#5a9e5a;color:#fff}
+.btn-sm.remove{color:#ff6b6b;border-color:#3d1515}
+.btn-sm.remove:hover{background:#3d1515}
+.unscheduled-section{margin-top:24px}
+.unscheduled-section h2{font-size:1em;font-weight:700;color:#888;letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;padding-left:4px}
+.filter-bar{display:flex;gap:8px;padding:0 16px 0;margin-bottom:-8px;flex-wrap:wrap;align-items:center}
+.filter-bar select,.filter-bar input{background:#0f1117;border:1px solid #3a3d4a;color:#e8e8e8;padding:5px 10px;border-radius:4px;font-size:.82em}
+.filter-bar input{width:220px}
+.empty-week{text-align:center;padding:20px;color:#555;font-size:.85em}
+.pri-badge{font-size:.65em;font-weight:800;padding:1px 5px;border-radius:3px;margin-left:6px}
+.pri-badge.p1{background:#ff4444;color:#fff}
+.pri-badge.p2{background:#e8a838;color:#000}
+</style>
+</head>
+<body>
+<div class="top-bar">
+  <div style="display:flex;align-items:center;gap:10px">
+    <div style="font-size:1.6em">ð</div>
+    <h1>PRODUCTION SCHEDULE<span>Weekly Production Planning â Assign items to weeks</span></h1>
+  </div>
+  <div class="nav-links">
+    <a href="/">ð­ Dashboard</a>
+    <a href="/kpi">ð KPI</a>
+    <a href="/maintenance">ð§ Maintenance</a>
+    <a href="/shipping">ð¦ Shipping</a>
+  </div>
+</div>
+<div class="summary-bar" id="summary-bar"></div>
+<div class="filter-bar" style="padding-top:10px">
+  <input type="text" id="search" placeholder="Search by job #, name, or client...">
+  <select id="stage-filter"><option value="">All Stages</option></select>
+  <select id="week-jump"><option value="">Jump to week...</option></select>
+</div>
+<div class="schedule-body" id="schedule-body"></div>
+
+<script>
+const STAGES=[
+  {k:'molds',c:'#4a6fa5',l:'Molds'},{k:'creation',c:'#7b5ea7',l:'Creation'},
+  {k:'waxpull',c:'#e8a838',l:'Wax Pull'},{k:'waxchase',c:'#d4763b',l:'Wax Chase'},
+  {k:'shell',c:'#5a9e6f',l:'Shell'},{k:'metal',c:'#8b9dc3',l:'Metal'},
+  {k:'patina',c:'#c45c8a',l:'Patina'},{k:'base',c:'#4db8b8',l:'Base'},
+  {k:'ready',c:'#5a9e5a',l:'Ready'}
+];
+const STAGE_MAP=Object.fromEntries(STAGES.map(s=>[s.k,s]));
+const fmt=v=>v?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(v):'â';
+
+let _items=[], _assignments={}, _priorities={}, _stageOverrides={};
+let _filter='', _stageFilter='';
+
+function getMonday(d){const dt=new Date(d);const day=dt.getDay();const diff=dt.getDate()-day+(day===0?-6:1);dt.setDate(diff);return dt.toISOString().slice(0,10);}
+function addWeeks(monday,n){const d=new Date(monday+'T00:00:00');d.setDate(d.getDate()+n*7);return d.toISOString().slice(0,10);}
+function fmtWeekRange(monday){
+  const d=new Date(monday+'T00:00:00');
+  const end=new Date(d);end.setDate(end.getDate()+6);
+  const mo={month:'short',day:'numeric'};
+  return d.toLocaleDateString('en-US',mo)+' â '+end.toLocaleDateString('en-US',mo);
+}
+function weekLabel(monday){
+  const today=getMonday(new Date().toISOString().slice(0,10));
+  if(monday===today)return'This Week';
+  if(monday===addWeeks(today,1))return'Next Week';
+  if(monday===addWeeks(today,-1))return'Last Week';
+  const diff=Math.round((new Date(monday)-new Date(today))/(7*86400000));
+  if(diff>0)return`${diff} Weeks Out`;
+  return`${Math.abs(diff)} Weeks Ago`;
+}
+
+function daysDiff(d){if(!d)return null;return Math.floor((new Date(d)-new Date())/(86400000));}
+function dueTag(d){
+  const diff=daysDiff(d);if(diff===null)return'';
+  if(diff<0)return`<span class="due-over">OVERDUE ${Math.abs(diff)}D</span>`;
+  if(diff<=7)return`<span class="due-warn">Due ${d}</span>`;
+  return`<span class="due-ok">${d}</span>`;
+}
+
+function priTag(job){
+  const p=_priorities[job]||0;
+  if(p===1)return'<span class="pri-badge p1">URGENT</span>';
+  if(p===2)return'<span class="pri-badge p2">HIGH</span>';
+  return'';
+}
+
+function stageTag(stage){
+  const s=STAGE_MAP[stage];
+  if(!s)return'';
+  return`<span class="stage-badge" style="background:${s.c}22;color:${s.c}">${s.l}</span>`;
+}
+
+function getWeeks(){
+  const today=getMonday(new Date().toISOString().slice(0,10));
+  const weeks=new Set();
+  // Always include current week + 3 future weeks
+  for(let i=0;i<4;i++)weeks.add(addWeeks(today,i));
+  // Add weeks from assignments
+  Object.values(_assignments).forEach(a=>{if(a.week)weeks.add(a.week);});
+  return Array.from(weeks).sort();
+}
+
+function buildWeekOptions(){
+  const today=getMonday(new Date().toISOString().slice(0,10));
+  let html='<option value="">â Unschedule â</option>';
+  for(let i=0;i<8;i++){
+    const w=addWeeks(today,i);
+    html+=`<option value="${w}">${weekLabel(w)} (${fmtWeekRange(w)})</option>`;
+  }
+  return html;
+}
+
+function assignWeek(job,week){
+  const a=_assignments[job]||{};
+  if(!week){
+    delete _assignments[job];
+  } else {
+    _assignments[job]={week, carryover:a.carryover||false, original_week:a.original_week||null, done:a.done||false};
+  }
+  fetch('/api/schedule/assign',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({job,week:week||''})}).catch(e=>console.error('assign failed',e));
+  render();
+}
+
+function toggleDone(job){
+  const a=_assignments[job];
+  if(!a)return;
+  a.done=!a.done;
+  fetch('/api/schedule/mark-done',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({job,done:a.done})}).catch(e=>console.error('mark-done failed',e));
+  render();
+}
+
+function filterItems(items){
+  let f=items;
+  if(_filter){
+    const q=_filter.toLowerCase();
+    f=f.filter(i=>(i.job+' '+i.name+' '+(i.customer||'')).toLowerCase().includes(q));
+  }
+  if(_stageFilter)f=f.filter(i=>i.stage===_stageFilter);
+  return f;
+}
+
+function render(){
+  const today=getMonday(new Date().toISOString().slice(0,10));
+  const weeks=getWeeks();
+  const allFiltered=filterItems(_items);
+
+  // Summary stats
+  const scheduled=allFiltered.filter(i=>_assignments[i.job]?.week);
+  const unscheduled=allFiltered.filter(i=>!_assignments[i.job]?.week);
+  const carryovers=scheduled.filter(i=>_assignments[i.job]?.carryover);
+  const thisWeekItems=scheduled.filter(i=>_assignments[i.job]?.week===today);
+  document.getElementById('summary-bar').innerHTML=
+    `<div class="sstat">â TOTAL ITEMS <strong>${allFiltered.length}</strong></div>`+
+    `<div class="sstat teal">â SCHEDULED <strong>${scheduled.length}</strong></div>`+
+    `<div class="sstat gold">â UNSCHEDULED <strong>${unscheduled.length}</strong></div>`+
+    `<div class="sstat green">â THIS WEEK <strong>${thisWeekItems.length}</strong></div>`+
+    `<div class="sstat red">â CARRYOVER <strong>${carryovers.length}</strong></div>`;
+
+  // Week jump dropdown
+  const jumpEl=document.getElementById('week-jump');
+  const curJump=jumpEl.value;
+  jumpEl.innerHTML='<option value="">Jump to week...</option>'+weeks.map(w=>
+    `<option value="${w}"${w===curJump?' selected':''}>${weekLabel(w)} (${fmtWeekRange(w)})</option>`).join('');
+
+  // Stage filter
+  const stgEl=document.getElementById('stage-filter');
+  const curStg=stgEl.value;
+  stgEl.innerHTML='<option value="">All Stages</option>'+STAGES.map(s=>
+    `<option value="${s.k}"${s.k===curStg?' selected':''}>${s.l}</option>`).join('');
+
+  const weekOpts=buildWeekOptions();
+  let html='';
+
+  // Render each week
+  weeks.forEach(w=>{
+    const isCurrent=w===today;
+    const isPast=w<today;
+    const weekItems=allFiltered.filter(i=>_assignments[i.job]?.week===w);
+    const carries=weekItems.filter(i=>_assignments[i.job]?.carryover);
+    const normals=weekItems.filter(i=>!_assignments[i.job]?.carryover);
+
+    // Sort: carryovers first, then by priority, then due date
+    const sortFn=(a,b)=>{
+      const pa=_priorities[a.job]||0, pb=_priorities[b.job]||0;
+      const wa=pa===1?0:pa===2?1:2, wb=pb===1?0:pb===2?1:2;
+      if(wa!==wb)return wa-wb;
+      if(!a.due&&!b.due)return 0;if(!a.due)return 1;if(!b.due)return-1;
+      return a.due.localeCompare(b.due);
+    };
+    carries.sort(sortFn);
+    normals.sort(sortFn);
+    const sorted=[...carries,...normals];
+
+    const totalVal=weekItems.reduce((a,i)=>a+(i.price||0),0);
+    const doneCount=weekItems.filter(i=>_assignments[i.job]?.done).length;
+
+    html+=`<div class="week-section${isCurrent?' current':''}" id="week-${w}">
+      <div class="week-header" onclick="toggleWeek('${w}')">
+        <div class="week-title">
+          <span class="label">${weekLabel(w)}</span>
+          <span class="dates">${fmtWeekRange(w)}</span>
+          ${carries.length?`<span style="color:#e8a838;font-size:.75em;margin-left:8px">â  ${carries.length} carryover</span>`:''}
+        </div>
+        <div class="week-stats">
+          <span>Items: <strong>${weekItems.length}</strong></span>
+          <span>Value: <strong style="color:#4db8b8">${fmt(totalVal)}</strong></span>
+          <span>Done: <strong style="color:#5a9e5a">${doneCount}/${weekItems.length}</strong></span>
+        </div>
+      </div>
+      <div class="week-body${isPast&&!isCurrent?' collapsed':''}" id="wb-${w}">
+        ${carries.length?`<div class="carryover-banner">â  <strong>${carries.length} item${carries.length>1?'s':''}</strong> carried over from previous week${carries.length>1?'s':''} â these are priorities</div>`:''}
+        ${sorted.length?sorted.map(i=>renderCard(i,weekOpts,w)).join(''):`<div class="empty-week">No items scheduled for this week</div>`}
+      </div>
+    </div>`;
+  });
+
+  // Unscheduled items
+  const unsched=allFiltered.filter(i=>!_assignments[i.job]?.week);
+  if(unsched.length){
+    unsched.sort((a,b)=>{
+      const pa=_priorities[a.job]||0, pb=_priorities[b.job]||0;
+      const wa=pa===1?0:pa===2?1:2, wb=pb===1?0:pb===2?1:2;
+      if(wa!==wb)return wa-wb;
+      if(!a.due&&!b.due)return 0;if(!a.due)return 1;if(!b.due)return-1;
+      return a.due.localeCompare(b.due);
+    });
+    html+=`<div class="unscheduled-section">
+      <h2>ð Unscheduled Items (${unsched.length})</h2>
+      ${unsched.map(i=>renderCard(i,weekOpts,'')).join('')}
+    </div>`;
+  }
+
+  document.getElementById('schedule-body').innerHTML=html;
+}
+
+function renderCard(item,weekOpts,currentWeek){
+  const a=_assignments[item.job]||{};
+  const isCarry=a.carryover;
+  const isDone=a.done;
+  const stg=STAGE_MAP[item.stage];
+  const borderColor=isCarry?'#e8a838':isDone?'#5a9e5a':(stg?stg.c:'#333');
+  return`<div class="scard${isCarry?' carryover':''}" style="border-left-color:${borderColor};${isDone?'opacity:.6':''}">
+    <div class="job-info">
+      <div class="job-title">
+        #${item.job} ${item.name}${item.monument?'<span style="background:#7b5ea7;color:#fff;font-size:.65em;padding:1px 4px;border-radius:3px;margin-left:4px">MON</span>':''}
+        ${isCarry?'<span class="co-badge">CARRYOVER</span>':''}
+        ${priTag(item.job)}
+        ${isDone?'<span style="color:#5a9e5a;font-size:.75em;margin-left:6px">â DONE</span>':''}
+      </div>
+      <div class="job-meta">
+        <span>${item.customer||'â'}</span>
+        ${stageTag(item.stage)}
+        ${dueTag(item.due)}
+        ${item.price?`<span style="color:#4db8b8;font-weight:600">${fmt(item.price)}</span>`:''}
+        ${a.original_week?`<span style="color:#888;font-size:.85em">Originally: ${fmtWeekRange(a.original_week)}</span>`:''}
+      </div>
+    </div>
+    <div class="job-actions">
+      <select class="week-picker" onchange="assignWeek('${item.job}',this.value)" title="Assign to week">
+        ${weekOpts.replace(`value="${currentWeek}"`,`value="${currentWeek}" selected`)}
+      </select>
+      <button class="btn-sm done${isDone?' active':''}" onclick="toggleDone('${item.job}')" title="${isDone?'Mark incomplete':'Mark done'}">${isDone?'â Done':'â'}</button>
+    </div>
+  </div>`;
+}
+
+function toggleWeek(w){
+  const el=document.getElementById('wb-'+w);
+  if(el)el.classList.toggle('collapsed');
+}
+
+document.getElementById('search').oninput=function(){_filter=this.value;render();};
+document.getElementById('stage-filter').onchange=function(){_stageFilter=this.value;render();};
+document.getElementById('week-jump').onchange=function(){
+  if(this.value){const el=document.getElementById('week-'+this.value);if(el)el.scrollIntoView({behavior:'smooth',block:'start'});}
+};
+
+function loadData(){
+  Promise.all([
+    fetch('/api/wip').then(r=>r.json()),
+    fetch('/api/schedule').then(r=>r.json())
+  ]).then(([wip,sched])=>{
+    if(wip.items)_items=wip.items;
+    if(wip.priority_overrides)_priorities=wip.priority_overrides;
+    if(wip.stage_overrides)_stageOverrides=wip.stage_overrides;
+    if(sched.assignments)_assignments=sched.assignments;
+    render();
+  }).catch(e=>console.error('load failed',e));
+}
+loadData();
+setInterval(loadData,60000);
+</script>
+</body>
+</html>"""
+
+@app.route('/schedule')
+def schedule_page():
+    return Response(SCHEDULE_HTML, mimetype='text/html; charset=utf-8')
+
+@app.route('/api/schedule')
+def api_schedule():
+    with _lock:
+        _auto_rollover()
+        return jsonify({
+            'assignments': dict(_schedule_data.get('assignments', {})),
+        })
+
+@app.route('/api/schedule/assign', methods=['POST'])
+def schedule_assign():
+    try:
+        body = request.get_json(force=True)
+        job  = str(body.get('job', '')).strip()
+        week = str(body.get('week', '')).strip()
+        if not job:
+            return jsonify({'error': 'missing job'}), 400
+        with _lock:
+            assignments = _schedule_data.setdefault('assignments', {})
+            if not week:
+                assignments.pop(job, None)
+                log.info(f'Schedule: unassigned job={job}')
+            else:
+                existing = assignments.get(job, {})
+                assignments[job] = {
+                    'week': week,
+                    'carryover': existing.get('carryover', False),
+                    'original_week': existing.get('original_week'),
+                    'done': existing.get('done', False),
+                }
+                log.info(f'Schedule: assigned job={job} to week={week}')
+        _save_schedule()
+        return jsonify({'ok': True, 'job': job, 'week': week})
+    except Exception as e:
+        log.error(f'Schedule assign failed: {e}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/schedule/mark-done', methods=['POST'])
+def schedule_mark_done():
+    try:
+        body = request.get_json(force=True)
+        job  = str(body.get('job', '')).strip()
+        done = bool(body.get('done', False))
+        if not job:
+            return jsonify({'error': 'missing job'}), 400
+        with _lock:
+            assignments = _schedule_data.setdefault('assignments', {})
+            if job in assignments:
+                assignments[job]['done'] = done
+                if done:
+                    assignments[job]['carryover'] = False
+                log.info(f'Schedule: job={job} done={done}')
+            else:
+                return jsonify({'error': 'job not scheduled'}), 404
+        _save_schedule()
+        return jsonify({'ok': True, 'job': job, 'done': done})
+    except Exception as e:
+        log.error(f'Schedule mark-done failed: {e}')
+        return jsonify({'error': str(e)}), 500
+
 
 # ── Startup ────────────────────────────────────────────────────────────────────
 if SESSION_COOKIE:
