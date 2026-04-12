@@ -2444,6 +2444,13 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
 .week-body.collapsed{display:none}
 .carryover-banner{background:#3d2e10;border:1px solid #5a4a1a;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:.82em;color:#ffaa44;display:flex;align-items:center;gap:8px}
 .carryover-banner strong{color:#ffd580}
+.dept-group{margin-bottom:10px}
+.dept-header{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:5px;margin-bottom:4px;cursor:pointer;user-select:none}
+.dept-header:hover{opacity:.9}
+.dept-header .dept-name{font-weight:700;font-size:.88em;letter-spacing:.5px}
+.dept-header .dept-count{font-size:.72em;color:#fff;opacity:.7}
+.dept-header .dept-value{font-size:.72em;margin-left:auto;font-weight:600}
+.dept-body.collapsed{display:none}
 .scard{display:flex;align-items:center;gap:12px;background:#0f1117;border-radius:6px;padding:10px 14px;margin-bottom:6px;border-left:4px solid #333;transition:border-color .2s}
 .scard:hover{border-left-color:#4db8b8}
 .scard.carryover{border-left-color:#e8a838;background:#1a160f}
@@ -2575,10 +2582,20 @@ function assignWeek(job,week){
   if(!week){
     delete _assignments[job];
   } else {
-    _assignments[job]={week, carryover:a.carryover||false, original_week:a.original_week||null, done:a.done||false};
+    _assignments[job]={week, carryover:a.carryover||false, original_week:a.original_week||null, done:a.done||false, auto:false};
   }
   fetch('/api/schedule/assign',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({job,week:week||''})}).catch(e=>console.error('assign failed',e));
+  render();
+}
+
+function bulkAssignDept(stage,week){
+  const items=_items.filter(i=>i.stage===stage&&(!_assignments[i.job]||_assignments[i.job].auto));
+  items.forEach(i=>{
+    _assignments[i.job]={week,carryover:false,original_week:null,done:false,auto:false};
+    fetch('/api/schedule/assign',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({job:i.job,week})}).catch(e=>console.error('bulk assign failed',e));
+  });
   render();
 }
 
@@ -2606,17 +2623,26 @@ function render(){
   const weeks=getWeeks();
   const allFiltered=filterItems(_items);
 
+  // Auto-assign: items with no assignment default to this week
+  allFiltered.forEach(i=>{
+    if(!_assignments[i.job]||!_assignments[i.job].week){
+      _assignments[i.job]={week:today,carryover:false,original_week:null,done:false,auto:true};
+    }
+  });
+
   // Summary stats
   const scheduled=allFiltered.filter(i=>_assignments[i.job]?.week);
-  const unscheduled=allFiltered.filter(i=>!_assignments[i.job]?.week);
   const carryovers=scheduled.filter(i=>_assignments[i.job]?.carryover);
   const thisWeekItems=scheduled.filter(i=>_assignments[i.job]?.week===today);
+  const deptCounts={};
+  STAGES.forEach(s=>{deptCounts[s.l]=thisWeekItems.filter(i=>i.stage===s.k).length;});
+  const deptSummary=Object.entries(deptCounts).filter(([,c])=>c>0).map(([d,c])=>`${d}: ${c}`).join(' Â· ');
   document.getElementById('summary-bar').innerHTML=
     `<div class="sstat">â TOTAL ITEMS <strong>${allFiltered.length}</strong></div>`+
     `<div class="sstat teal">â SCHEDULED <strong>${scheduled.length}</strong></div>`+
-    `<div class="sstat gold">â UNSCHEDULED <strong>${unscheduled.length}</strong></div>`+
     `<div class="sstat green">â THIS WEEK <strong>${thisWeekItems.length}</strong></div>`+
-    `<div class="sstat red">â CARRYOVER <strong>${carryovers.length}</strong></div>`;
+    `<div class="sstat red">â CARRYOVER <strong>${carryovers.length}</strong></div>`+
+    `<div class="sstat" style="font-size:.72em;color:#888;margin-left:8px">${deptSummary}</div>`;
 
   // Week jump dropdown
   const jumpEl=document.getElementById('week-jump');
@@ -2633,66 +2659,36 @@ function render(){
   const weekOpts=buildWeekOptions();
   let html='';
 
-  // Render each week
-  weeks.forEach(w=>{
-    const isCurrent=w===today;
-    const isPast=w<today;
-    const weekItems=allFiltered.filter(i=>_assignments[i.job]?.week===w);
-    const carries=weekItems.filter(i=>_assignments[i.job]?.carryover);
-    const normals=weekItems.filter(i=>!_assignments[i.job]?.carryover);
+  const sortFn=(a,b)=>{
+    const ca=_assignments[a.job]?.carryover?0:1, cb=_assignments[b.job]?.carryover?0:1;
+    if(ca!==cb)return ca-cb;
+    const pa=_priorities[a.job]||0, pb=_priorities[b.job]||0;
+    const wa=pa===1?0:pa===2?1:2, wb=pb===1?0:pb===2?1:2;
+    if(wa!==wb)return wa-wb;
+    if(!a.due&&!b.due)return 0;if(!a.due)return 1;if(!b.due)return-1;
+    return a.due.localeCompare(b.due);
+  };
 
-    // Sort: carryovers first, then by priority, then due date
-    const sortFn=(a,b)=>{
-      const pa=_priorities[a.job]||0, pb=_priorities[b.job]||0;
-      const wa=pa===1?0:pa===2?1:2, wb=pb===1?0:pb===2?1:2;
-      if(wa!==wb)return wa-wb;
-      if(!a.due&&!b.due)return 0;if(!a.due)return 1;if(!b.due)return-1;
-      return a.due.localeCompare(b.due);
-    };
-    carries.sort(sortFn);
-    normals.sort(sortFn);
-    const sorted=[...carries,...normals];
-
-    const totalVal=weekItems.reduce((a,i)=>a+(i.price||0),0);
-    const doneCount=weekItems.filter(i=>_assignments[i.job]?.done).length;
-
-    html+=`<div class="week-section${isCurrent?' current':''}" id="week-${w}">
-      <div class="week-header" onclick="toggleWeek('${w}')">
-        <div class="week-title">
-          <span class="label">${weekLabel(w)}</span>
-          <span class="dates">${fmtWeekRange(w)}</span>
-          ${carries.length?`<span style="color:#e8a838;font-size:.75em;margin-left:8px">â  ${carries.length} carryover</span>`:''}
-        </div>
-        <div class="week-stats">
-          <span>Items: <strong>${weekItems.length}</strong></span>
-          <span>Value: <strong style="color:#4db8b8">${fmt(totalVal)}</strong></span>
-          <span>Done: <strong style="color:#5a9e5a">${doneCount}/${weekItems.length}</strong></span>
-        </div>
-      </div>
-      <div class="week-body${isPast&&!isCurrent?' collapsed':''}" id="wb-${w}">
-        ${carries.length?`<div class="carryover-banner">â  <strong>${carries.length} item${carries.length>1?'s':''}</strong> carried over from previous week${carries.length>1?'s':''} â these are priorities</div>`:''}
-        ${sorted.length?sorted.map(i=>renderCard(i,weekOpts,w)).join(''):`<div class="empty-week">No items scheduled for this week</div>`}
-      </div>
-    </div>`;
-  });
-
-  // Unscheduled items
-  const unsched=allFiltered.filter(i=>!_assignments[i.job]?.week);
-  if(unsched.length){
-    unsched.sort((a,b)=>{
-      const pa=_priorities[a.job]||0, pb=_priorities[b.job]||0;
-      const wa=pa===1?0:pa===2?1:2, wb=pb===1?0:pb===2?1:2;
-      if(wa!==wb)return wa-wb;
-      if(!a.due&&!b.due)return 0;if(!a.due)return 1;if(!b.due)return-1;
-      return a.due.localeCompare(b.due);
-    });
-    html+=`<div class="unscheduled-section">
-      <h2>ð Unscheduled Items (${unsched.length})</h2>
-      ${unsched.map(i=>renderCard(i,weekOpts,'')).join('')}
-    </div>`;
+  function groupByDept(items){
+    const groups={};
+    STAGES.forEach(s=>{const g=items.filter(i=>i.stage===s.k);if(g.length)groups[s.k]=g;});
+    const noStage=items.filter(i=>!STAGE_MAP[i.stage]);
+    if(noStage.length)groups['_other']=noStage;
+    return groups;
   }
 
-  document.getElementById('schedule-body').innerHTML=html;
+  function renderDeptGroups(items,weekOpts,weekKey){
+    const groups=groupByDept(items);
+    const stageKeys=STAGES.map(s=>s.k).concat(['_other']);
+    let out='';
+    stageKeys.forEach(sk=>{
+      const g=groups[sk];if(!g||!g.length)return;
+      g.sort(sortFn);
+      const s=STAGE_MAP[sk];
+      const deptColor=s?s.c:'#888';
+      const deptName=s?s.l:'Other';
+      const deptVal=g.reduce((a,i)=>a+(i.price||0),0);
+      const doneCount=g.filter(i=>_assignvæÖVçG5¶æ¦ö%ÓòæFöæRæÆVæwF°¢6öç7B6'&W3ÖræfÇFW"Óåö76væÖVçG5¶æ¦ö%Óòæ6''÷fW"æÆVæwF°¢÷WB³ÖÆFb6Æ73Ò&FWBÖw&÷W#à¢ÆFb6Æ73Ò&FWBÖVFW""7GÆSÒ&&6¶w&÷VæC¢G¶FWD6öÆ÷'Ó¶&÷&FW"ÖÆVgC£76öÆBG¶FWD6öÆ÷'Ò"öæ6Æ6³Ò'F2ææWDVÆVÖVçE6&Ææræ6Æ74Æ7BçFövvÆRv6öÆÆ6VBr#à¢Ç7â6Æ73Ò&FWBÖæÖR"7GÆSÒ&6öÆ÷#¢G¶FWD6öÆ÷'Ò#âG¶FWDæÖWÓÂ÷7ãà¢Ç7â6Æ73Ò&FWBÖ6÷VçB#âG¶ræÆVæwFÒFVÒG¶ræÆVæwFãòw2s¢rwÓÂ÷7ãà¢G¶6'&W3öÇ7â7GÆSÒ&6öÆ÷#¢6S3¶föçB×6¦S¢ãs&VÒ#î)ªG¶6'&W7Ò6''÷fW#Â÷7ãæ¢rwÐ¢Ç7â7GÆSÒ&6öÆ÷#¢3VSV¶föçB×6¦S¢ãs&VÒ#âG¶FöæT6÷VçGÒòG¶ræÆVæwFÒFöæSÂ÷7ãà¢Ç7â6Æ73Ò&FWB×fÇVR"7GÆSÒ&6öÆ÷#¢G¶FWD6öÆ÷'Ò#âG¶f×BFWEfÂÓÂ÷7ãà¢ÂöFcà¢ÆFb6Æ73Ò&FWBÖ&öG#âG¶ræÖÓç&VæFW$6&BÇvVV´÷G2ÇvVV´¶Wæ¦öârrÓÂöFcà¢ÂöFcæ°¢Ò°¢&WGW&â÷WC°¢Ð ¢òò&VæFW"V6vVV°¢vVV·2æf÷$V6sÓç°¢6öç7B47W'&VçC×sÓÓ×FöF°¢6öç7B57C×sÇFöF°¢6öç7BvVV´FV×3ÖÆÄfÇFW&VBæfÇFW"Óåö76væÖVçG5¶æ¦ö%ÓòçvVV³ÓÓ×r°¢6öç7B6'&W3×vVV´FV×2æfÇFW"Óåö76væÖVçG5¶æ¦ö%Óòæ6''÷fW"° ¢6öç7BF÷FÅfÃ×vVV´FV×2ç&VGV6RÆÓæ²ç&6WÇÃÃ°¢6öç7BFöæT6÷VçC×vVV´FV×2æfÇFW"Óåö76væÖVçG5¶æ¦ö%ÓòæFöæRæÆVæwF°¢6öç7BFWD6÷VçCÖæWr6WBvVV´FV×2æÖÓæç7FvRç6¦S° ¢FÖÂ³ÖÆFb6Æ73Ò'vVV²×6V7FöâG¶47W'&VçCòr7W'&VçBs¢rwÒ"CÒ'vVV²ÒG·wÒ#à¢ÆFb6Æ73Ò'vVV²ÖVFW""öæ6Æ6³Ò'FövvÆUvVV²rG·wÒr#à¢ÆFb6Æ73Ò'vVV²×FFÆR#à¢Ç7â6Æ73Ò&Æ&VÂ#âG·vVV´Æ&VÂrÓÂ÷7ãà¢Ç7â6Æ73Ò&FFW2#âG¶f×EvVVµ&ævRrÓÂ÷7ãà¢G¶6'&W2æÆVæwFöÇ7â7GÆSÒ&6öÆ÷#¢6S3¶föçB×6¦S¢ãsVVÓ¶Ö&vâÖÆVgC£#î)ªG¶6'&W2æÆVæwFÒ6''÷fW#Â÷7ãæ¢rwÐ¢ÂöFcà¢ÆFb6Æ73Ò'vVV²×7FG2#à¢Ç7ãäFV×3¢Ç7G&öæsâG·vVV´FV×2æÆVæwFÓÂ÷7G&öæsãÂ÷7ãà¢Ç7ãäFWG3¢Ç7G&öæsâG¶FWD6÷VçGÓÂ÷7G&öæsãÂ÷7ãà¢Ç7ãåfÇVS¢Ç7G&öær7GÆSÒ&6öÆ÷#¢3FF###âG¶f×BF÷FÅfÂÓÂ÷7G&öæsãÂ÷7ãà¢Ç7ãäFöæS¢Ç7G&öær7GÆSÒ&6öÆ÷#¢3VSV#âG¶FöæT6÷VçGÒòG·vVV´FV×2æÆVæwFÓÂ÷7G&öæsãÂ÷7ãà¢ÂöFcà¢ÂöFcà¢ÆFb6Æ73Ò'vVV²Ö&öGG¶57Bbb47W'&VçCòr6öÆÆ6VBs¢rwÒ"CÒ'v"ÒG·wÒ#à¢G¶6'&W2æÆVæwFöÆFb6Æ73Ò&6''÷fW"Ö&ææW"#î)ªÇ7G&öæsâG¶6'&W2æÆVæwFÒFVÒG¶6'&W2æÆVæwFãòw2s¢rwÓÂ÷7G&öæsâ6'&VB÷fW"g&öÒ&Wf÷W2vVV²G¶6'&W2æÆVæwFãòw2s¢rwÒ(	BFW6R&R&÷&FW3ÂöFcæ¢rwÐ¢G·vVV´FV×2æÆVæwF÷&VæFW$FWDw&÷W2vVV´FV×2ÇvVV´÷G2Çr¦ÆFb6Æ73Ò&V×G×vVV²#äæòFV×266VGVÆVBf÷"F2vVV³ÂöFcæÐ¢ÂöFcà¢ÂöFcæ°¢Ò° ¢òòVç66VGVÆVBFV×2w&÷WVB'FW'FÖVç@¢6öç7BVç66VCÖÆÄfÇFW&VBæfÇFW"Óâö76væÖVçG5¶æ¦ö%ÓòçvVV²°¢bVç66VBæÆVæwF°¢FÖÂ³ÖÆFb6Æ73Ò'Vç66VGVÆVB×6V7Föâ#à¢Æ#ï	ù8²Vç66VGVÆVBFV×2G·Vç66VBæÆVæwFÒÂö#à¢G·&VæFW$FWDw&÷W2Vç66VBÇvVV´÷G2ÂrrÐ¢ÂöFcæ°¢Ð ¢Fö7VÖVçBævWDVÆVÖVçD'Bw66VGVÆRÖ&öGræææW$DÔÃÖFÖÃ
 }
 
 function renderCard(item,weekOpts,currentWeek){
@@ -2745,7 +2741,13 @@ function loadData(){
     if(wip.items)_items=wip.items;
     if(wip.priority_overrides)_priorities=wip.priority_overrides;
     if(wip.stage_overrides)_stageOverrides=wip.stage_overrides;
-    if(sched.assignments)_assignments=sched.assignments;
+    if(sched.assignments){
+      // Mark server-persisted assignments as non-auto
+      _assignments={};
+      Object.entries(sched.assignments).forEach(([job,a])=>{
+        _assignments[job]={...a, auto:false};
+      });
+    }
     render();
   }).catch(e=>console.error('load failed',e));
 }
