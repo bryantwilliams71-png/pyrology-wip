@@ -2487,6 +2487,63 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
 .lock-icon{font-size:.9em;margin-right:3px}
 .toast{position:fixed;bottom:20px;right:20px;background:#1e2a3a;border:1px solid #4db8b8;color:#fff;padding:10px 16px;border-radius:6px;font-size:.85em;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
 .toast.show{opacity:1}
+/* Schedule Drill-Down */
+#sdrillbg{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.92);z-index:500;overflow:auto;padding:16px}
+#sdrill{max-width:1400px;margin:0 auto;background:#141620;border:1px solid #2a2d3a;border-radius:8px;padding:16px}
+#sdhdr{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:16px;flex-wrap:wrap}
+#sdhdr>div:first-child{flex:1}
+#sdhdr h2{color:#fff;font-size:1.3em;margin-bottom:8px}
+#sdstats{display:flex;gap:16px;font-size:.85em;flex-wrap:wrap}
+.sdstat{color:#aaa}.sdstat strong{color:#fff;font-weight:700}
+#sdtools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+#sdsearch{background:#0f1117;border:1px solid #3a4a6a;color:#e8e8e8;padding:8px 12px;border-radius:5px;font-size:.85em;width:200px;outline:none}
+#sdsearch:focus{border-color:#4db8b8}
+.wdbtn{background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;padding:6px 12px;border-radius:5px;cursor:pointer;font-size:.75em;font-weight:700;transition:all .15s}
+.wdbtn:hover{background:#2a3a4a;color:#6dd8d8}
+.wdbtn.active{background:#4db8b8;color:#000;border-color:#4db8b8}
+#sdback{background:#3a1e1e;border:1px solid #6a3a3a;color:#e05555;padding:6px 16px;border-radius:5px;cursor:pointer;font-weight:700;transition:all .15s}
+#sdback:hover{background:#4a2a2a;color:#ff7777}
+#sdtable{overflow-x:auto}
+.wdt{width:100%;border-collapse:collapse;font-size:.8em}
+.wdt th{background:#1a1d27;color:#4db8b8;padding:8px;text-align:left;border-bottom:1px solid #3a4a6a;font-weight:700;white-space:nowrap}
+.wdt td{padding:8px;border-bottom:1px solid #2a2d3a;color:#e8e8e8}
+.wdt tr:hover{background:#1a2130}
+.wdt .tdpri{width:60px;text-align:center}
+.wdt .tdpieces{width:70px}
+.wdt .tddesc{min-width:180px;max-width:300px;word-break:break-word}
+.wdt .tdclient{width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wdt .tdedition{width:80px;text-align:center}
+.wdt .tddue{width:90px;text-align:center}
+.wdt .tdval{width:80px;text-align:right;color:#4db8b8;font-weight:600}
+.wdt .tdhrs{width:70px;text-align:right;color:#ffd580;font-weight:600}
+.wdt .tdprog{width:140px;min-width:140px}
+.wdt .tddone{width:80px;text-align:center}
+.tdover{background:#3d1515;color:#ff6b6b}
+.tdwarn{background:#3d2e10;color:#ffaa44}
+.tdok{color:#aaa}
+.prog-wrap{position:relative;width:100%;height:24px;background:#0f1117;border-radius:4px;overflow:hidden;border:1px solid #2a2d3a}
+.prog-bar-bg{width:100%;height:100%;display:flex;align-items:center;justify-content:center;position:relative}
+.prog-bar-fill{height:100%;background:linear-gradient(90deg,#4db8b8,#3da8a8);transition:width .3s ease;position:absolute;left:0;top:0}
+.prog-text{position:relative;z-index:2;font-size:.75em;font-weight:700;color:#fff}
+.pct-btn{display:inline-block;background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:.7em;font-weight:700;margin:0 2px;transition:all .15s}
+.pct-btn:hover{background:#2a3a4a;color:#6dd8d8}
+.pct-btn.active{background:#4db8b8;color:#000;border-color:#4db8b8}
+.pri-btn{display:inline-block;background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:.7em;font-weight:700;margin:0 2px;transition:all .15s}
+.pri-btn.p0{color:#aaa;border-color:#3a3d4a}
+.pri-btn.p1{color:#ff4444;border-color:#6a2222;background:#3d1515}
+.pri-btn.p2{color:#ffaa44;border-color:#6a4a2a;background:#3d2e10}
+.pri-btn:hover{background:#2a3a4a}
+.pri-btn.p1:hover{background:#4a1a1a}
+.pri-btn.p2:hover{background:#4a3a1a}
+.btn-complete{background:#5a9e5a;border:1px solid #7ebe7e;color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:.75em;font-weight:700;transition:all .15s}
+.btn-complete:hover{background:#7ebe7e}
+/* Weekly Scoreboard */
+.wb-score{display:flex;gap:12px;margin:6px 0 8px 0;padding:6px 8px;background:#0f1117;border-radius:4px;font-size:.75em;align-items:center}
+.score-item{display:flex;align-items:center;gap:6px;min-width:150px}
+.score-label{color:#888;font-weight:600}
+.score-bar{flex:1;min-width:100px;height:18px;background:#1a1d27;border-radius:3px;overflow:hidden;border:1px solid #2a2d3a;position:relative}
+.score-fill{height:100%;background:linear-gradient(90deg,#4db8b8,#3da8a8);transition:width .3s ease;display:flex;align-items:center;justify-content:center}
+.score-text{font-size:.85em;font-weight:700;color:#fff;z-index:2;padding:0 4px}
 /* PIN Modal */
 .modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center}
 .modal-overlay.active{display:flex}
@@ -2540,6 +2597,28 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
   </div>
 </div>
 
+<!-- Schedule Drill-Down Overlay -->
+<div id="sdrillbg" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.92);z-index:500;overflow:auto;padding:16px">
+  <div id="sdrill" style="max-width:1400px;margin:0 auto">
+    <div id="sdhdr">
+      <div>
+        <h2 id="sdtitle"></h2>
+        <div id="sdstats"></div>
+      </div>
+      <div id="sdtools">
+        <input id="sdsearch" placeholder="Search pieces..." type="text"/>
+        <button class="wdbtn active" id="sdsortdue">Sort: Due Date</button>
+        <button class="wdbtn" id="sdsorttier" style="display:none">Sort: Tier</button>
+        <button class="wdbtn" id="sdsortval">Sort: Value ↓</button>
+        <button class="wdbtn" id="sdsortname">Sort: Name</button>
+        <button class="wdbtn" id="sdsortpri">Sort: Priority</button>
+        <button id="sdback" style="background:#3a1e1e;border:1px solid #6a3a3a;color:#e05555;padding:6px 16px;border-radius:5px;cursor:pointer;font-weight:700">← Back</button>
+      </div>
+    </div>
+    <div id="sdtable"></div>
+  </div>
+</div>
+
 <script>
 const STAGES=[
   {k:'molds',c:'#4a6fa5',l:'Molds',hKey:['hWax']},
@@ -2557,10 +2636,238 @@ const fmt=v=>v?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',ma
 const fmtHrs=h=>h?h.toFixed(1)+'h':'—';
 
 let _items=[], _assignments={}, _priorities={};
+let _metalOverrides={}, _stageOverrides={}; // from /api/wip
 let _lockedWeeks={}; // 'dept-week' => true
 let _selected=new Set(); // selected job ids (for multi-select in locked weeks)
 let _dragJob=null;
 let _pendingAction=null; // {type:'lock'|'unlock'|'move', dept, week, jobs:[]}
+let _drillStage=null, _drillSort='due'; // drill-down state
+const TIER_STAGES=['waxpull','waxchase','metal','patina'];
+
+// ========== DRILL-DOWN HELPERS ==========
+function dueLabel(d){
+  if(!d)return{t:'—',c:''};
+  const diff=daysDiff(d);
+  if(diff<0)return{t:'OD '+Math.abs(diff)+'d',c:'tdover'};
+  if(diff<=7)return{t:d.slice(5),c:'tdwarn'};
+  return{t:d.slice(5),c:'tdok'};
+}
+function getPri(job){return _priorities[job]||0;}
+function cyclePriTo(job,newVal){
+  const current=getPri(job);
+  if(newVal!==undefined){_priorities[job]=newVal;}
+  else{_priorities[job]=(current+1)%3;}
+  fetch('/api/priority-override',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({job,priority:_priorities[job]})}).catch(e=>console.error('priority-override failed',e));
+  renderDrill();
+}
+function priBtns(job){
+  const p=getPri(job);
+  return'<div style="display:flex;gap:2px">'+
+    '<button class="pri-btn p0'+(p===0?' active':'')+'" onclick="event.stopPropagation();cyclePriTo(\''+job+'\',0)">—</button>'+
+    '<button class="pri-btn p1'+(p===1?' active':'')+'" onclick="event.stopPropagation();cyclePriTo(\''+job+'\',1)">URG</button>'+
+    '<button class="pri-btn p2'+(p===2?' active':'')+'" onclick="event.stopPropagation();cyclePriTo(\''+job+'\',2)">HI</button>'+
+  '</div>';
+}
+function metalPct(item){
+  const o=_metalOverrides[item.job];
+  if(o!==undefined)return o;
+  if(item.metalwt&&item.metalwt>0){
+    const small=(item.metalwt||0)*0.5, mon=(item.monument?item.metalwt||0:0);
+    if(mon+small===0)return 0;
+    const done=(item.metal_done_small||0)+(item.metal_done_mon||0);
+    return Math.round((done/(small+mon))*100);
+  }
+  return 0;
+}
+function stagePct(item){
+  const o=_stageOverrides[item.job];
+  if(o!==undefined)return o;
+  if(!item.stage)return 0;
+  const stages=['molds','creation','waxpull','waxchase','shell','metal','patina','base','ready'];
+  const idx=stages.indexOf(item.stage);
+  if(idx<0)return 0;
+  return Math.round((idx/8)*100);
+}
+function setPct(job,pct){
+  _metalOverrides[job]=pct;
+  fetch('/api/metal-override',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({job,pct})}).catch(e=>console.error('metal-override failed',e));
+  renderDrill();
+}
+function setStgPct(job,pct){
+  _stageOverrides[job]=pct;
+  fetch('/api/stage-override',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({job,pct})}).catch(e=>console.error('stage-override failed',e));
+  renderDrill();
+}
+function pctBars(item){
+  const pct=metalPct(item);
+  const opts=[0,25,50,75,100];
+  return'<div>'+
+    '<div style="display:flex;gap:2px;margin-bottom:3px">'+
+      opts.map(p=>'<button class="pct-btn'+(pct===p?' active':'')+'" onclick="event.stopPropagation();setPct(\''+item.job+'\','+p+')">'+p+'%</button>').join('')+
+    '</div>'+
+    '<div class="prog-wrap"><div class="prog-bar-bg"><div class="prog-bar-fill" style="width:'+pct+'%"></div><span class="prog-text">'+pct+'%</span></div></div>'+
+  '</div>';
+}
+function stgPctBar(item){
+  const pct=stagePct(item);
+  return'<div class="prog-wrap"><div class="prog-bar-bg"><div class="prog-bar-fill" style="width:'+pct+'%"></div><span class="prog-text">'+pct+'%</span></div></div>';
+}
+function stgSummaryBar(items,color){
+  if(!items.length)return'—';
+  const done=items.filter(i=>_assignments[i.job]&&_assignments[i.job].done).length;
+  const pct=Math.round((done/items.length)*100);
+  return'<div class="prog-wrap"><div class="prog-bar-bg"><div class="prog-bar-fill" style="width:'+pct+'%;background:'+color+'"></div><span class="prog-text">'+done+'/'+items.length+'</span></div></div>';
+}
+function sortDrillItems(items){
+  const search=document.getElementById('sdsearch')?document.getElementById('sdsearch').value.toLowerCase():'';
+  let filtered=items.filter(i=>!search||(i.name.toLowerCase().includes(search)||i.job.includes(search)||i.customer.toLowerCase().includes(search)));
+
+  filtered.sort((a,b)=>{
+    if(_drillSort==='due'){
+      if(!a.due&&!b.due)return a.job.localeCompare(b.job);
+      if(!a.due)return 1;
+      if(!b.due)return-1;
+      return a.due.localeCompare(b.due);
+    }else if(_drillSort==='tier'){
+      const ta=TIER_STAGES.indexOf(a.stage), tb=TIER_STAGES.indexOf(b.stage);
+      if(ta!==tb)return ta-tb;
+      return(b.price||0)-(a.price||0);
+    }else if(_drillSort==='val'){
+      return(b.price||0)-(a.price||0);
+    }else if(_drillSort==='name'){
+      return a.name.localeCompare(b.name);
+    }else if(_drillSort==='pri'){
+      const pa=getPri(a.job), pb=getPri(b.job);
+      if(pa!==pb)return pb-pa;
+      return(a.job||'').localeCompare(b.job||'');
+    }
+    return 0;
+  });
+  return filtered;
+}
+function renderDrillMetal(items){
+  const small=[], mon=[];
+  items.forEach(i=>{
+    if(i.monument)mon.push(i);
+    else small.push(i);
+  });
+
+  let html='<table class="wdt"><thead><tr><th style="width:100px">Priority</th><th style="width:70px">Piece #</th><th style="min-width:180px">Description</th><th style="width:120px">Client</th><th style="width:80px">Edition</th><th style="width:90px">Due</th><th style="width:80px" class="tdval">Value</th><th style="width:70px" class="tdhrs">Hrs Bid</th><th style="width:200px">Progress</th><th style="width:80px">Done</th></tr></thead><tbody>';
+
+  if(small.length){
+    html+='<tr style="background:#0a0f15"><td colspan="10" style="padding:6px 8px;color:#4db8b8;font-weight:700;font-size:.9em">Small / Regular</td></tr>';
+    small.forEach(i=>{
+      const due=dueLabel(i.due);
+      const hrs=itemHours(i);
+      const a=_assignments[i.job]||{};
+      html+='<tr><td class="tdpri">'+priBtns(i.job)+'</td><td class="tdpieces">#'+i.job+'</td><td class="tddesc">'+i.name+'</td><td class="tdclient">'+i.customer+'</td><td class="tdedition">'+((i.edition||'1')+' ed')+'</td><td class="tddue '+due.c+'">'+due.t+'</td><td class="tdval">'+fmt(i.price)+'</td><td class="tdhrs">'+fmtHrs(hrs)+'</td><td class="tdprog">'+pctBars(i)+'</td><td class="tddone"><button class="btn-complete'+(a.done?' active':'')+'" onclick="event.stopPropagation();toggleDoneMetalItem(\''+i.job+'\')">'+
+        (a.done?'✓ Done':'Done')+'</button></td></tr>';
+    });
+  }
+
+  if(mon.length){
+    html+='<tr style="background:#0a0f15"><td colspan="10" style="padding:6px 8px;color:#c45c8a;font-weight:700;font-size:.9em">Monuments</td></tr>';
+    mon.forEach(i=>{
+      const due=dueLabel(i.due);
+      const hrs=itemHours(i);
+      const a=_assignments[i.job]||{};
+      html+='<tr><td class="tdpri">'+priBtns(i.job)+'</td><td class="tdpieces">#'+i.job+'</td><td class="tddesc">'+i.name+'</td><td class="tdclient">'+i.customer+'</td><td class="tdedition">'+((i.edition||'1')+' ed')+'</td><td class="tddue '+due.c+'">'+due.t+'</td><td class="tdval">'+fmt(i.price)+'</td><td class="tdhrs">'+fmtHrs(hrs)+'</td><td class="tdprog">'+pctBars(i)+'</td><td class="tddone"><button class="btn-complete'+(a.done?' active':'')+'" onclick="event.stopPropagation();toggleDoneMetalItem(\''+i.job+'\')">'+
+        (a.done?'✓ Done':'Done')+'</button></td></tr>';
+    });
+  }
+
+  html+='</tbody></table>';
+  return html;
+}
+function renderDrill(){
+  if(!_drillStage)return;
+  const stg=STAGE_MAP[_drillStage];
+  if(!stg)return;
+
+  const deptItems=_items.filter(i=>i.stage===_drillStage);
+  const sorted=sortDrillItems(deptItems);
+
+  const doneCount=sorted.filter(i=>_assignments[i.job]&&_assignments[i.job].done).length;
+  const totalHrs=sorted.reduce((a,i)=>a+itemHours(i),0);
+  const doneHrs=sorted.filter(i=>_assignments[i.job]&&_assignments[i.job].done).reduce((a,i)=>a+itemHours(i),0);
+  const totalVal=sorted.reduce((a,i)=>a+(i.price||0),0);
+  const doneVal=sorted.filter(i=>_assignments[i.job]&&_assignments[i.job].done).reduce((a,i)=>a+(i.price||0),0);
+
+  document.getElementById('sdtitle').textContent=stg.l;
+  document.getElementById('sdstats').innerHTML=
+    '<div class="sdstat">Items: <strong>'+doneCount+'/'+sorted.length+'</strong></div>'+
+    '<div class="sdstat">Hours: <strong>'+fmtHrs(doneHrs)+'/'+fmtHrs(totalHrs)+'</strong></div>'+
+    '<div class="sdstat">Value: <strong>'+fmt(doneVal)+'/'+fmt(totalVal)+'</strong></div>';
+
+  // Update sort buttons
+  document.querySelectorAll('#sdtools .wdbtn').forEach(b=>{
+    b.classList.remove('active');
+    if(b.id==='sdsortdue'&&_drillSort==='due')b.classList.add('active');
+    if(b.id==='sdsorttier'&&_drillSort==='tier')b.classList.add('active');
+    if(b.id==='sdsortval'&&_drillSort==='val')b.classList.add('active');
+    if(b.id==='sdsortname'&&_drillSort==='name')b.classList.add('active');
+    if(b.id==='sdsortpri'&&_drillSort==='pri')b.classList.add('active');
+  });
+
+  if(_drillStage==='metal'){
+    document.getElementById('sdtable').innerHTML=renderDrillMetal(sorted);
+  } else {
+    let html='<table class="wdt"><thead><tr><th style="width:100px">Priority</th><th style="width:70px">Piece #</th><th style="min-width:180px">Description</th><th style="width:120px">Client</th><th style="width:80px">Edition</th><th style="width:90px">Due</th><th style="width:80px" class="tdval">Value</th><th style="width:70px" class="tdhrs">Hrs Bid</th><th style="width:200px">Progress</th><th style="width:80px">Done</th></tr></thead><tbody>';
+    sorted.forEach(i=>{
+      const due=dueLabel(i.due);
+      const hrs=itemHours(i);
+      const a=_assignments[i.job]||{};
+      html+='<tr><td class="tdpri">'+priBtns(i.job)+'</td><td class="tdpieces">#'+i.job+'</td><td class="tddesc">'+i.name+'</td><td class="tdclient">'+i.customer+'</td><td class="tdedition">'+((i.edition||'1')+' ed')+'</td><td class="tddue '+due.c+'">'+due.t+'</td><td class="tdval">'+fmt(i.price)+'</td><td class="tdhrs">'+fmtHrs(hrs)+'</td><td class="tdprog">'+stgPctBar(i)+'</td><td class="tddone"><button class="btn-complete'+(a.done?' active':'')+'" onclick="event.stopPropagation();toggleDoneNormalItem(\''+i.job+'\')">'+
+        (a.done?'✓ Done':'Done')+'</button></td></tr>';
+    });
+    html+='</tbody></table>';
+    document.getElementById('sdtable').innerHTML=html;
+  }
+}
+function openDrill(stgKey,stgLabel,stgColor){
+  _drillStage=stgKey;
+  _drillSort='due';
+  document.getElementById('sdsearch').value='';
+  renderDrill();
+  document.getElementById('sdrillbg').style.display='block';
+  // Wire up event handlers
+  document.getElementById('sdsearch').addEventListener('input',renderDrill);
+  document.getElementById('sdsortdue').onclick=()=>{_drillSort='due';renderDrill();};
+  document.getElementById('sdsorttier').onclick=()=>{_drillSort='tier';renderDrill();};
+  document.getElementById('sdsortval').onclick=()=>{_drillSort='val';renderDrill();};
+  document.getElementById('sdsortname').onclick=()=>{_drillSort='name';renderDrill();};
+  document.getElementById('sdsortpri').onclick=()=>{_drillSort='pri';renderDrill();};
+  document.getElementById('sdback').onclick=closeDrill;
+}
+function closeDrill(){
+  _drillStage=null;
+  document.getElementById('sdrillbg').style.display='none';
+  render();
+}
+function toggleDoneMetalItem(job){
+  const a=_assignments[job];if(!a)return;
+  a.done=!a.done;
+  const item=_items.find(i=>i.job===job);
+  fetch('/api/schedule/mark-done',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({job,done:a.done})}).catch(e=>console.error('mark-done failed',e));
+  if(a.done){
+    setStgPct(job,100);
+  }
+  renderDrill();
+}
+function toggleDoneNormalItem(job){
+  const a=_assignments[job];if(!a)return;
+  a.done=!a.done;
+  fetch('/api/schedule/mark-done',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({job,done:a.done})}).catch(e=>console.error('mark-done failed',e));
+  if(a.done){
+    setStgPct(job,100);
+  }
+  renderDrill();
+}
 
 function showToast(msg){
   const t=document.getElementById('toast');
@@ -2773,8 +3080,29 @@ function rushToThisWeek(job){assignWeek(job,getMonday(new Date().toISOString().s
 function toggleDone(job){
   const a=_assignments[job];if(!a)return;
   a.done=!a.done;
+  const item=_items.find(i=>i.job===job);
   fetch('/api/schedule/mark-done',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({job,done:a.done})}).catch(e=>console.error('mark-done failed',e));
+  // Also sync stage/metal override
+  if(item){
+    if(a.done){
+      if(item.stage==='metal'){
+        fetch('/api/metal-override',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({job,pct:100})}).catch(e=>console.error('metal-override failed',e));
+      } else {
+        fetch('/api/stage-override',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({job,pct:100})}).catch(e=>console.error('stage-override failed',e));
+      }
+    } else {
+      if(item.stage==='metal'){
+        fetch('/api/metal-override',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({job,pct:0})}).catch(e=>console.error('metal-override failed',e));
+      } else {
+        fetch('/api/stage-override',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({job,pct:0})}).catch(e=>console.error('stage-override failed',e));
+      }
+    }
+  }
   showToast('#'+job+(a.done?' marked done':' unmarked'));
   render();
 }
@@ -2865,6 +3193,8 @@ function render(){
       });
 
       const wbId='wb-'+stg.k+'-'+w;
+      const doneHrsWeek=wItems.filter(i=>_assignments[i.job]&&_assignments[i.job].done).reduce((a,i)=>a+itemHours(i),0);
+      const doneValWeek=wItems.filter(i=>_assignments[i.job]&&_assignments[i.job].done).reduce((a,i)=>a+(i.price||0),0);
       body+='<div class="week-block'+(isCurrent?' current':'')+(wLocked?' locked':'')+'" '+
         'ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event,\''+stg.k+'\',\''+w+'\')">' +
         '<div class="wb-hdr" onclick="toggleWb(\''+wbId+'\')">'+
@@ -2872,6 +3202,11 @@ function render(){
             '<span class="wlabel">'+weekLabel(w)+'</span><span class="wdates"> '+fmtWeekRange(w)+'</span></span>'+
           '<span class="wstats"><strong>'+wItems.length+'</strong> · '+fmtHrs(wHrs)+' · '+fmt(wVal)+
             (doneCount?' · <span style="color:#5a9e5a">'+doneCount+'✓</span>':'')+'</span>'+
+        '</div>'+
+        '<div class="wb-score">'+
+          '<div class="score-item"><span class="score-label">Progress:</span><div class="score-bar"><div class="score-fill" style="width:'+(wItems.length?Math.round((doneCount/wItems.length)*100):0)+'%"><span class="score-text">'+doneCount+'/'+wItems.length+'</span></div></div></div>'+
+          '<div class="score-item"><span class="score-label">Value:</span><div class="score-bar"><div class="score-fill" style="width:'+(wVal?Math.round((doneValWeek/wVal)*100):0)+'%;background:linear-gradient(90deg,#4db8b8,#3da8a8)"><span class="score-text">'+fmt(doneValWeek)+'</span></div></div></div>'+
+          '<div class="score-item"><span class="score-label">Hours:</span><div class="score-bar"><div class="score-fill" style="width:'+(wHrs?Math.round((doneHrsWeek/wHrs)*100):0)+'%;background:linear-gradient(90deg,#ffd580,#ffb840)"><span class="score-text">'+fmtHrs(doneHrsWeek)+'</span></div></div></div>'+
         '</div>'+
         '<div class="wb-body" id="'+wbId+'">'+
           (wItems.length===0?'<div style="text-align:center;padding:10px;color:#444;font-size:.7em">'+(wLocked?'Locked':'Drop items here')+'</div>':'')+
@@ -2927,7 +3262,7 @@ function render(){
     if(!body)body='<div style="text-align:center;padding:20px;color:#555;font-size:.75em">No items</div>';
 
     grid+='<div class="dept-col">'+
-      '<div class="dept-hdr" style="background:'+stg.c+'22">'+
+      '<div class="dept-hdr" style="background:'+stg.c+'22;cursor:pointer;transition:background .15s" onclick="openDrill(\''+stg.k+'\',\''+stg.l+'\',\''+stg.c+'\')" onmouseover="this.style.background=\''+stg.c+'33\'" onmouseout="this.style.background=\''+stg.c+'22\'">'+
         '<div class="dept-label" style="color:'+stg.c+'">'+stg.l+'</div>'+
         '<div class="dept-count">'+deptItems.length+'</div>'+
         '<div class="dept-sub">ITEMS</div>'+
@@ -2950,6 +3285,8 @@ function loadData(){
   ]).then(([wip,sched])=>{
     if(wip.items)_items=wip.items;
     if(wip.priority_overrides)_priorities=wip.priority_overrides;
+    if(wip.metal_overrides)_metalOverrides=wip.metal_overrides;
+    if(wip.stage_overrides)_stageOverrides=wip.stage_overrides;
     if(sched.assignments){
       _assignments={};
       Object.entries(sched.assignments).forEach(([job,a])=>{
@@ -2960,6 +3297,15 @@ function loadData(){
       _lockedWeeks={};
       sched.locked_weeks.forEach(k=>{_lockedWeeks[k]=true;});
     }
+    // Auto-mark done if stage_override=100 or metal_override=100
+    _items.forEach(i=>{
+      const a=_assignments[i.job];
+      if(a && !a.done){
+        if(_stageOverrides[i.job]===100 || _metalOverrides[i.job]===100){
+          a.done=true;
+        }
+      }
+    });
     render();
   }).catch(e=>console.error('load failed',e));
 }
