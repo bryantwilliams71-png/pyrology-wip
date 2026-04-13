@@ -52,6 +52,7 @@ _kpi_data           = {'week_start': '', 'entries': [], 'history': []}
 _maint_data         = {'requests': [], 'next_id': 1}
 _ship_data          = {'shipments': [], 'next_id': 1}
 _schedule_data      = {'assignments': {}, 'locked_weeks': []}  # job → {week:'YYYY-MM-DD', carryover:bool, original_week:'YYYY-MM-DD'}
+_dt_cookie          = ''
 _lock            = threading.Lock()
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s  %(message)s', datefmt='%H:%M:%S')
@@ -253,6 +254,7 @@ def transform_rows(raw):
         last  = (row.get('lastName')  or '').strip()
         items.append({
             'job':           str(row.get('dithPieceNo', '')),
+            'pieceId':       row.get('pieceId'),
             'name':          row.get('itemDescription', ''),
             'customer':      f'{first} {last}'.strip(),
             'edition':       str(row.get('editionNo', '')),
@@ -415,6 +417,19 @@ table.wdt tr:hover td{background:#1e2130}
 .pri-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
 .pri-dot.p1{background:#ff4444}
 .pri-dot.p2{background:#e8a838}
+.wcard.dragging{opacity:.4;transform:scale(.95)}
+.wcol.drag-over .wcbody{background:rgba(77,184,184,.08);outline:2px dashed #4db8b8;outline-offset:-4px;border-radius:6px}
+.wcard{cursor:grab}
+.wcard:active{cursor:grabbing}
+.wcard.selected-for-move{outline:2px solid #4db8b8;outline-offset:-2px;background:rgba(77,184,184,.08)!important}
+.move-toolbar{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a1d27;border:1px solid #4db8b8;border-radius:12px;padding:10px 20px;display:flex;align-items:center;gap:16px;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+.move-toolbar .count{color:#4db8b8;font-weight:700;font-size:1.1em}
+.move-toolbar select{background:#0f1117;color:#e8e8e8;border:1px solid #2a2d3a;border-radius:6px;padding:6px 12px;font-size:.9em}
+.move-toolbar button{padding:6px 16px;border-radius:6px;border:none;font-weight:600;cursor:pointer;font-size:.9em}
+.move-toolbar .btn-move{background:#4db8b8;color:#fff}
+.move-toolbar .btn-move:hover{background:#3da8a8}
+.move-toolbar .btn-cancel{background:#333;color:#ccc}
+.move-toolbar .btn-cancel:hover{background:#444}
 </style>
 </head>
 <body>
@@ -607,6 +622,7 @@ function setStgPct(job,pct){
   fetch('/api/stage-override',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job,pct})})
     .catch(e=>console.error('setStgPct failed:',e));
   renderDrill();
+  renderBoard();
 }
 function setStgPctFromClick(e,job){
   const bar=e.currentTarget;const rect=bar.getBoundingClientRect();
@@ -690,7 +706,7 @@ function renderBoard(){
     // Sort items by priority before slicing for display
     priSort(sd.items);
     const MAX=50, shown=sd.items.slice(0,MAX), extra=sd.items.length-MAX;
-    return `<div class="wcol" onclick="openDrill('${s.k}','${s.l}','${s.c}')">
+    return `<div class="wcol" data-stage="${s.k}" onclick="openDrill('${s.k}','${s.l}','${s.c}')">
       <div class="wchdr" style="background:${s.c}22;border-bottom:3px solid ${s.c}">
         <div class="wclabel" style="color:${s.c}">${s.l}</div>
         ${s.sub?`<div class="wcsub">${s.sub}</div>`:''}
@@ -703,7 +719,7 @@ function renderBoard(){
           const dl=dueLabel(item.due);
           const pri=getPri(item.job);
           const priCls=pri===1?' pri-1':pri===2?' pri-2':'';
-          return `<div class="wcard${priCls}" style="border-left-color:${pri?'':s.c}" oncontextmenu="cyclePri('${item.job}',event)">
+          return `<div class="wcard${priCls}" data-job="${item.job}" style="border-left-color:${pri?'':s.c}" oncontextmenu="cyclePri('${item.job}',event)">
             ${priLabel(item.job)}
             <div class="wctitle">#${item.job} ${item.name}${item.monument?'<span class="wcmon">MON</span>':''}${schedBadge(item.job)}</div>
             <div class="wclient">${item.customer||''}</div>
@@ -712,12 +728,105 @@ function renderBoard(){
               ${dl?`<span class="wcdue ${dl.c}">${dl.t}</span>`:''}
               ${item.price?`<span class="wcprice">${fmt(item.price)}</span>`:''}
             </div>
+            <div class="wc-progress" style="margin-top:4px">
+              <div style="height:4px;background:#2a2d3a;border-radius:2px;overflow:hidden">
+                <div style="width:${stagePct(item)}%;height:100%;background:${stagePct(item)>=100?'#5a9e5a':stagePct(item)>=50?'#e8a838':'#8b9dc3'};border-radius:2px;transition:width .3s"></div>
+              </div>
+            </div>
           </div>`;
         }).join('')}
         ${extra>0?`<div class="wmore">+${extra} more — click to see all</div>`:''}
       </div>
     </div>`;
   }).join('');
+  initDragDrop();
+}
+
+// ── Drag & Drop + Batch Move ──────────────────────────────────────────────
+let _selectedJobs = new Set();
+let _moveToolbarEl = null;
+
+// DithTracker status mapping for each Pyrology stage
+const DT_STATUS_MAP = {
+  molds: 18, creation: 47, waxpull: 2, waxchase: 55,
+  shell: 78, metal: 62, patina: 79, base: 22, ready: 7
+};
+
+function initDragDrop(){
+  document.querySelectorAll('.wcard').forEach(card => {
+    card.setAttribute('draggable', 'true');
+    card.addEventListener('dragstart', e => {
+      card.classList.add('dragging');
+      e.dataTransfer.setData('text/plain', card.dataset.job);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => card.classList.remove('dragging'));
+    // Click to select for batch move (with ctrl/cmd)
+    card.addEventListener('click', e => {
+      if(e.metaKey || e.ctrlKey){
+        e.stopPropagation();
+        e.preventDefault();
+        const job = card.dataset.job;
+        if(_selectedJobs.has(job)){_selectedJobs.delete(job);card.classList.remove('selected-for-move');}
+        else{_selectedJobs.add(job);card.classList.add('selected-for-move');}
+        updateMoveToolbar();
+      }
+    });
+  });
+  document.querySelectorAll('.wcol').forEach(col => {
+    const stageKey = col.dataset.stage;
+    col.addEventListener('dragover', e => {e.preventDefault();e.dataTransfer.dropEffect='move';col.classList.add('drag-over');});
+    col.addEventListener('dragleave', e => {if(!col.contains(e.relatedTarget))col.classList.remove('drag-over');});
+    col.addEventListener('drop', e => {
+      e.preventDefault();
+      col.classList.remove('drag-over');
+      const job = e.dataTransfer.getData('text/plain');
+      if(job && stageKey) moveItems([job], stageKey);
+    });
+  });
+}
+
+function moveItems(jobs, targetStage){
+  // Find pieceIds for the jobs
+  const pieceIds = [];
+  jobs.forEach(job => {
+    const item = _items.find(i => i.job === job);
+    if(item){
+      item.stage = targetStage; // Update locally
+      if(item.pieceId) pieceIds.push(item.pieceId);
+    }
+  });
+  // Save to Pyrology server
+  fetch('/api/move-items', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({jobs, targetStage, pieceIds, dtStatusId: DT_STATUS_MAP[targetStage] || 80})
+  }).then(r => r.json()).then(d => {
+    if(d.dtSynced) showToast(jobs.length + ' item(s) moved & synced to DithTracker');
+    else showToast(jobs.length + ' item(s) moved locally' + (d.dtError ? ' (DT sync failed: ' + d.dtError + ')' : ''));
+  }).catch(e => console.error('move failed', e));
+  _selectedJobs.clear();
+  updateMoveToolbar();
+  renderBoard();
+  if(_drillStage) renderDrill();
+}
+
+function updateMoveToolbar(){
+  if(_selectedJobs.size === 0){
+    if(_moveToolbarEl){_moveToolbarEl.remove();_moveToolbarEl=null;}
+    return;
+  }
+  if(!_moveToolbarEl){
+    _moveToolbarEl = document.createElement('div');
+    _moveToolbarEl.className = 'move-toolbar';
+    document.body.appendChild(_moveToolbarEl);
+  }
+  const opts = STAGES.map(s => '<option value="'+s.k+'">'+s.l+'</option>').join('');
+  _moveToolbarEl.innerHTML =
+    '<span class="count">'+_selectedJobs.size+' selected</span>'+
+    '<select id="moveDest">'+opts+'</select>'+
+    '<button class="btn-move" onclick="moveItems(Array.from(_selectedJobs),document.getElementById(\'moveDest\').value)">Move</button>'+
+    '<button class="btn-cancel" onclick="_selectedJobs.clear();document.querySelectorAll(\'.selected-for-move\').forEach(c=>c.classList.remove(\'selected-for-move\'));updateMoveToolbar()">Cancel</button>';
 }
 
 const TIER_STAGES=['waxpull','waxchase','metal','patina'];
@@ -1994,6 +2103,47 @@ def metal_override():
         log.error(f'Override failed: {e}')
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/move-items', methods=['POST'])
+def move_items():
+    try:
+        body = request.get_json(force=True)
+        jobs = body.get('jobs', [])
+        target_stage = body.get('targetStage', '')
+        piece_ids = body.get('pieceIds', [])
+        dt_status_id = body.get('dtStatusId')
+
+        # Update local cache
+        with _lock:
+            for item in _cache.get('items', []):
+                if item['job'] in jobs:
+                    item['stage'] = target_stage
+
+        # Try to sync to DithTracker
+        dt_synced = False
+        dt_error = None
+        if piece_ids and dt_status_id and _dt_cookie:
+            try:
+                resp = requests.post(
+                    'https://dithtracker-reporting.azurewebsites.net/api/piece/state/__bulk',
+                    json={'pieceIds': piece_ids, 'statusId': dt_status_id},
+                    cookies={'.AspNetCore.Session': _dt_cookie},
+                    headers={'User-Agent': 'Mozilla/5.0', 'Content-Type': 'application/json'},
+                    timeout=10
+                )
+                dt_synced = resp.status_code < 400
+                if not dt_synced:
+                    dt_error = f'HTTP {resp.status_code}'
+            except Exception as e:
+                dt_error = str(e)
+        elif not _dt_cookie:
+            dt_error = 'No DithTracker session cookie stored'
+
+        log.info(f'Moved {len(jobs)} items to {target_stage}. DT synced: {dt_synced}')
+        return jsonify({'ok': True, 'moved': len(jobs), 'dtSynced': dt_synced, 'dtError': dt_error})
+    except Exception as e:
+        log.error(f'Move failed: {e}')
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/stage-override', methods=['POST'])
 def stage_override():
     try:
@@ -2043,8 +2193,17 @@ def priority_override():
         log.error(f'Priority override failed: {e}')
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/dt-cookie', methods=['POST'])
+def set_dt_cookie():
+    global _dt_cookie
+    body = request.get_json(force=True)
+    _dt_cookie = body.get('cookie', '')
+    log.info(f'DithTracker cookie updated (len={len(_dt_cookie)})')
+    return jsonify({'ok': True})
+
 @app.route('/api/push-wip', methods=['POST'])
 def push_wip():
+    global _dt_cookie
     try:
         body = request.get_json(force=True)
         if body is None:
@@ -2055,6 +2214,10 @@ def push_wip():
             _cache['items']   = items
             _cache['error']   = None
             _cache['updated'] = datetime.utcnow().isoformat() + 'Z'
+        # Try to capture DT cookie from push request
+        dt_cookie = body.get('_dtCookie', '') if isinstance(body, dict) else ''
+        if dt_cookie:
+            _dt_cookie = dt_cookie
         log.info(f'Browser push received: {len(items)} items.')
         return jsonify({'ok': True, 'items': len(items)})
     except Exception as e:
