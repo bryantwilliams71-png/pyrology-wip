@@ -51,7 +51,7 @@ _priority_overrides = {}          # job → 1 (urgent) | 2 (high) | 0 (normal/de
 _kpi_data           = {'week_start': '', 'entries': [], 'history': []}
 _maint_data         = {'requests': [], 'next_id': 1}
 _ship_data          = {'shipments': [], 'next_id': 1}
-_schedule_data      = {'assignments': {}}  # job → {week:'YYYY-MM-DD', carryover:bool, original_week:'YYYY-MM-DD'}
+_schedule_data      = {'assignments': {}, 'locked_weeks': []}  # job → {week:'YYYY-MM-DD', carryover:bool, original_week:'YYYY-MM-DD'}
 _lock            = threading.Lock()
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s  %(message)s', datefmt='%H:%M:%S')
@@ -2435,50 +2435,83 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
 .sstat.teal strong{color:#4db8b8}.sstat.red strong{color:#e05555}
 .sstat.gold strong{color:#e8a838}.sstat.green strong{color:#5a9e5a}
 .dept-grid{display:flex;gap:4px;padding:6px;overflow-x:auto;height:calc(100vh - 90px)}
-.dept-col{flex:1;min-width:200px;background:#1a1d27;border-radius:6px;display:flex;flex-direction:column;border:1px solid #2a2d3a;overflow:hidden}
-.dept-hdr{padding:7px 8px 5px;text-align:center;border-radius:6px 6px 0 0;flex-shrink:0;cursor:pointer}
-.dept-hdr:hover{opacity:.9}
+.dept-col{flex:1;min-width:210px;background:#1a1d27;border-radius:6px;display:flex;flex-direction:column;border:1px solid #2a2d3a;overflow:hidden}
+.dept-hdr{padding:7px 8px 5px;text-align:center;border-radius:6px 6px 0 0;flex-shrink:0}
 .dept-label{font-size:.72em;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
 .dept-sub{font-size:.58em;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.4px}
 .dept-count{font-size:1.15em;font-weight:700;color:#fff;margin-top:2px}
 .dept-hrs{font-size:.72em;color:#ffd580;margin-top:2px;font-weight:600}
 .dept-val{font-size:.78em;color:rgba(255,255,255,.85);margin-top:1px}
 .dept-body{flex:1;overflow-y:auto;padding:4px;display:flex;flex-direction:column;gap:6px}
-.week-block{background:#141620;border-radius:5px;border:1px solid #2a2d3a;overflow:hidden}
+.week-block{background:#141620;border-radius:5px;border:1px solid #2a2d3a;overflow:hidden;transition:border-color .15s}
 .week-block.current{border-color:#4db8b8}
+.week-block.locked{border-color:#5a9e5a;background:#0f1a0f}
+.week-block.drag-over{border-color:#e8a838!important;background:#1a1a10}
 .wb-hdr{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;cursor:pointer;user-select:none;font-size:.72em;font-weight:700}
 .wb-hdr:hover{background:#1e2130}
 .wb-hdr .wlabel{color:#4db8b8}.wb-hdr .wdates{color:#888;font-weight:400;margin-left:4px}
 .wb-hdr .wstats{color:#aaa;font-weight:400}
 .wb-hdr .wstats strong{color:#fff}
-.wb-body{padding:3px}
+.locked .wb-hdr .wlabel{color:#5a9e5a}
+.wb-body{padding:3px;min-height:20px}
 .wb-body.collapsed{display:none}
-.wb-summary{display:flex;gap:10px;padding:3px 8px;font-size:.68em;color:#888;border-bottom:1px solid #1a1d27;margin-bottom:3px}
-.wb-summary .hrs{color:#ffd580;font-weight:600}.wb-summary .val{color:#4db8b8;font-weight:600}
-.scard{background:#0f1117;border-radius:4px;padding:5px 6px;margin-bottom:3px;border-left:3px solid #333;font-size:.7em}
-.scard:hover{border-left-color:#4db8b8}
+.wb-actions{display:flex;gap:4px;padding:4px 6px;border-top:1px solid #1a1d27;align-items:center;justify-content:space-between}
+.scard{background:#0f1117;border-radius:4px;padding:5px 6px;margin-bottom:3px;border-left:3px solid #333;font-size:.7em;cursor:grab;transition:opacity .15s,transform .15s,background .1s}
+.scard:hover{border-left-color:#4db8b8;background:#12141e}
 .scard.carry{border-left-color:#e8a838;background:#1a160f}
+.scard.dragging{opacity:.35;transform:scale(.95)}
+.scard.done-item{opacity:.45}
+.scard.selected{background:#1a2a3a!important;outline:2px solid #4db8b8;outline-offset:-1px}
+.locked .scard{cursor:pointer}
 .scard .s-title{font-weight:600;color:#e8e8e8;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .scard .s-meta{display:flex;gap:8px;color:#888;font-size:.9em;margin-top:2px;flex-wrap:wrap;align-items:center}
 .scard .s-hrs{color:#ffd580;font-weight:600}.scard .s-val{color:#4db8b8;font-weight:600}
 .scard .s-due{font-size:.85em;padding:1px 4px;border-radius:3px;background:#1e2230;color:#aaa}
 .scard .s-due.over{background:#3d1515;color:#ff6b6b}.scard .s-due.warn{background:#3d2e10;color:#ffaa44}
 .scard .s-actions{display:flex;gap:4px;margin-top:3px;align-items:center}
-.week-picker{background:#0f1117;border:1px solid #3a3d4a;color:#e8e8e8;padding:2px 4px;border-radius:3px;font-size:.85em;cursor:pointer;max-width:110px}
-.btn-sm{background:#2a2d3a;border:1px solid #3a3d4a;color:#aaa;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:.85em;font-weight:600}
+.btn-sm{background:#2a2d3a;border:1px solid #3a3d4a;color:#aaa;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:.85em;font-weight:600;transition:all .15s}
 .btn-sm:hover{background:#3a3d4a;color:#fff}
 .btn-sm.done.active{background:#5a9e5a;color:#fff}
+.btn-sm.rush{color:#e8a838}.btn-sm.rush:hover{background:#3d2e10;border-color:#e8a838}
+.btn-lock{background:#1e3a1e;border:1px solid #3a6a3a;color:#5a9e5a;padding:3px 8px;border-radius:3px;cursor:pointer;font-size:.75em;font-weight:700;letter-spacing:.5px}
+.btn-lock:hover{background:#2a4a2a;color:#7ebe7e}
+.btn-unlock{background:#3a1e1e;border:1px solid #6a3a3a;color:#e05555;padding:3px 8px;border-radius:3px;cursor:pointer;font-size:.75em;font-weight:700}
+.btn-unlock:hover{background:#4a2a2a;color:#ff7777}
+.btn-move{background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;padding:3px 8px;border-radius:3px;cursor:pointer;font-size:.75em;font-weight:700}
+.btn-move:hover{background:#2a3a4a;color:#6dd8d8}
+.sel-count{font-size:.7em;color:#4db8b8;font-weight:600}
 .co-badge{display:inline-block;background:#e8a838;color:#000;font-size:.7em;font-weight:800;padding:0 4px;border-radius:2px;margin-left:4px}
 .pri-badge{font-size:.7em;font-weight:800;padding:0 4px;border-radius:2px;margin-left:4px}
 .pri-badge.p1{background:#ff4444;color:#fff}.pri-badge.p2{background:#e8a838;color:#000}
 .wcmon{background:#7b5ea7;color:#fff;font-size:.7em;padding:0 4px;border-radius:2px;margin-left:3px}
+.lock-icon{font-size:.9em;margin-right:3px}
+.toast{position:fixed;bottom:20px;right:20px;background:#1e2a3a;border:1px solid #4db8b8;color:#fff;padding:10px 16px;border-radius:6px;font-size:.85em;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+/* PIN Modal */
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center}
+.modal-overlay.active{display:flex}
+.modal-box{background:#1a1d27;border:1px solid #3a4a6a;border-radius:10px;padding:24px;min-width:320px;text-align:center}
+.modal-box h3{color:#fff;margin-bottom:6px;font-size:1.1em}
+.modal-box p{color:#888;font-size:.85em;margin-bottom:16px}
+.modal-box input{background:#0f1117;border:2px solid #3a4a6a;color:#fff;padding:10px 16px;border-radius:6px;font-size:1.2em;text-align:center;letter-spacing:8px;width:160px;outline:none}
+.modal-box input:focus{border-color:#4db8b8}
+.modal-box input.error{border-color:#e05555;animation:shake .3s}
+.modal-box .week-select{background:#0f1117;border:1px solid #3a4a6a;color:#e8e8e8;padding:8px 12px;border-radius:6px;font-size:.9em;width:100%;margin-bottom:12px;outline:none}
+.modal-box .week-select:focus{border-color:#4db8b8}
+.modal-btns{display:flex;gap:8px;justify-content:center;margin-top:16px}
+.modal-btns button{padding:8px 20px;border-radius:5px;border:1px solid #3a4a6a;cursor:pointer;font-weight:700;font-size:.85em}
+.modal-btns .btn-confirm{background:#4db8b8;color:#000;border-color:#4db8b8}
+.modal-btns .btn-confirm:hover{background:#3da8a8}
+.modal-btns .btn-cancel{background:#2a2d3a;color:#aaa}
+.modal-btns .btn-cancel:hover{background:#3a3d4a;color:#fff}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
 </style>
 </head>
 <body>
 <div class="top-bar">
   <div style="display:flex;align-items:center;gap:10px">
     <div style="font-size:1.6em">📅</div>
-    <h1>PRODUCTION SCHEDULE<span>Weekly Department Planning — Hours & Value by Week</span></h1>
+    <h1>PRODUCTION SCHEDULE<span>Close Week (PIN) to Lock · Drag Items Between Open Weeks · Click to Select in Locked Weeks</span></h1>
   </div>
   <div class="nav-links">
     <a href="/">🏭 Dashboard</a>
@@ -2489,6 +2522,23 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
 </div>
 <div class="summary-bar" id="summary-bar"></div>
 <div class="dept-grid" id="dept-grid"></div>
+<div class="toast" id="toast"></div>
+
+<!-- PIN Modal -->
+<div class="modal-overlay" id="pin-modal">
+  <div class="modal-box">
+    <h3 id="modal-title">Close Week</h3>
+    <p id="modal-desc">Enter PIN to lock this week's schedule</p>
+    <div id="move-target-wrap" style="display:none;margin-bottom:12px">
+      <select class="week-select" id="move-target"></select>
+    </div>
+    <input type="password" id="pin-input" maxlength="4" placeholder="····" autocomplete="off">
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-confirm" onclick="submitPin()">Confirm</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const STAGES=[
@@ -2507,6 +2557,16 @@ const fmt=v=>v?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',ma
 const fmtHrs=h=>h?h.toFixed(1)+'h':'—';
 
 let _items=[], _assignments={}, _priorities={};
+let _lockedWeeks={}; // 'dept-week' => true
+let _selected=new Set(); // selected job ids (for multi-select in locked weeks)
+let _dragJob=null;
+let _pendingAction=null; // {type:'lock'|'unlock'|'move', dept, week, jobs:[]}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
 
 function getMonday(d){const dt=new Date(d);const day=dt.getDay();const diff=dt.getDate()-day+(day===0?-6:1);dt.setDate(diff);return dt.toISOString().slice(0,10);}
 function addWeeks(monday,n){const d=new Date(monday+'T00:00:00');d.setDate(d.getDate()+n*7);return d.toISOString().slice(0,10);}
@@ -2524,12 +2584,13 @@ function weekLabel(monday){
   return'Wk '+diff;
 }
 
+function isLocked(dept,week){return !!_lockedWeeks[dept+'-'+week];}
+
 function itemHours(item){
   const s=STAGE_MAP[item.stage];
   if(!s||!s.hKey.length)return 0;
   return s.hKey.reduce((a,k)=>a+(item[k]||0),0);
 }
-
 function daysDiff(d){if(!d)return null;return Math.floor((new Date(d)-new Date())/(86400000));}
 function dueTag(d){
   const diff=daysDiff(d);if(diff===null)return'';
@@ -2537,7 +2598,6 @@ function dueTag(d){
   if(diff<=7)return'<span class="s-due warn">'+d.slice(5)+'</span>';
   return'<span class="s-due">'+d.slice(5)+'</span>';
 }
-
 function priTag(job){
   const p=_priorities[job]||0;
   if(p===1)return'<span class="pri-badge p1">URG</span>';
@@ -2545,99 +2605,239 @@ function priTag(job){
   return'';
 }
 
-function buildWeekOptions(){
-  const today=getMonday(new Date().toISOString().slice(0,10));
-  let html='<option value="">— Move —</option>';
-  for(let i=0;i<8;i++){
-    const w=addWeeks(today,i);
-    html+='<option value="'+w+'">'+weekLabel(w)+' ('+fmtWeekRange(w)+')</option>';
-  }
-  return html;
-}
-
+// ========== AUTO-ASSIGNMENT ==========
 function autoAssign(){
   const today=getMonday(new Date().toISOString().slice(0,10));
-  // For each department, find the last scheduled week with manual assignments
-  const deptLastWeek={};
-  STAGES.forEach(s=>{deptLastWeek[s.k]=null;});
-  // First pass: find latest week per dept from existing manual assignments
   _items.forEach(i=>{
-    const a=_assignments[i.job];
-    if(a&&a.week&&!a.auto){
-      if(!deptLastWeek[i.stage]||a.week>deptLastWeek[i.stage])deptLastWeek[i.stage]=a.week;
+    if(_assignments[i.job] && _assignments[i.job].week) return;
+    const dept=i.stage;
+    const pri=_priorities[i.job]||0;
+    // Priority 1 (urgent) always goes to current week
+    if(pri===1){
+      _assignments[i.job]={week:today,carryover:false,original_week:null,done:false,auto:true};
+      return;
     }
-  });
-  // Second pass: assign unscheduled items to NEXT week after last planned
-  _items.forEach(i=>{
-    if(!_assignments[i.job]||!_assignments[i.job].week){
-      let targetWeek;
-      if(deptLastWeek[i.stage]){
-        // Department has planned weeks — new item goes to next week after last planned
-        targetWeek=addWeeks(deptLastWeek[i.stage],1);
-      } else {
-        // No planned weeks yet — start at current week
-        targetWeek=today;
-      }
-      _assignments[i.job]={week:targetWeek,carryover:false,original_week:null,done:false,auto:true};
-      // Update dept last week so subsequent unassigned items stack into same overflow week
-      deptLastWeek[i.stage]=targetWeek;
+    // If current week is locked for this dept, go to next week
+    if(isLocked(dept,today)){
+      _assignments[i.job]={week:addWeeks(today,1),carryover:false,original_week:null,done:false,auto:true};
+    } else {
+      _assignments[i.job]={week:today,carryover:false,original_week:null,done:false,auto:true};
     }
   });
 }
 
+// ========== SELECTION (for locked weeks) ==========
+function toggleSelect(job, e){
+  if(e) e.stopPropagation();
+  if(_selected.has(job)) _selected.delete(job);
+  else _selected.add(job);
+  // Update visual
+  document.querySelectorAll('.scard').forEach(el=>{
+    const j=el.getAttribute('data-job');
+    if(j && _selected.has(j)) el.classList.add('selected');
+    else el.classList.remove('selected');
+  });
+  updateSelectionUI();
+}
+
+function updateSelectionUI(){
+  // Update move buttons visibility
+  document.querySelectorAll('.sel-move-wrap').forEach(el=>{
+    const dept=el.dataset.dept;
+    const week=el.dataset.week;
+    const count=getSelectedInWeek(dept,week).length;
+    el.querySelector('.sel-count').textContent=count?count+' selected':'';
+    el.querySelector('.btn-move').style.display=count?'inline-block':'none';
+  });
+}
+
+function getSelectedInWeek(dept,week){
+  return _items.filter(i=>
+    i.stage===dept && _assignments[i.job] && _assignments[i.job].week===week && _selected.has(i.job)
+  ).map(i=>i.job);
+}
+
+function requestMoveSelected(dept,week){
+  const jobs=getSelectedInWeek(dept,week);
+  if(!jobs.length)return;
+  _pendingAction={type:'move',dept,week,jobs};
+  document.getElementById('modal-title').textContent='Move '+jobs.length+' Item'+(jobs.length>1?'s':'');
+  document.getElementById('modal-desc').textContent='Enter PIN to move from locked week';
+  // Build week target options
+  const today=getMonday(new Date().toISOString().slice(0,10));
+  let opts='';
+  for(let i=0;i<8;i++){
+    const w=addWeeks(today,i);
+    if(w===week)continue;
+    opts+='<option value="'+w+'">'+weekLabel(w)+' ('+fmtWeekRange(w)+')</option>';
+  }
+  document.getElementById('move-target').innerHTML=opts;
+  document.getElementById('move-target-wrap').style.display='block';
+  document.getElementById('pin-input').value='';
+  document.getElementById('pin-input').classList.remove('error');
+  document.getElementById('pin-modal').classList.add('active');
+  setTimeout(()=>document.getElementById('pin-input').focus(),100);
+}
+
+// ========== LOCK / UNLOCK / MOVE ==========
+function requestLock(dept,week){
+  _pendingAction={type:'lock',dept,week,jobs:[]};
+  document.getElementById('modal-title').textContent='Close Week';
+  document.getElementById('modal-desc').textContent='Lock '+STAGE_MAP[dept].l+' — '+weekLabel(week);
+  document.getElementById('move-target-wrap').style.display='none';
+  document.getElementById('pin-input').value='';
+  document.getElementById('pin-input').classList.remove('error');
+  document.getElementById('pin-modal').classList.add('active');
+  setTimeout(()=>document.getElementById('pin-input').focus(),100);
+}
+function requestUnlock(dept,week){
+  _pendingAction={type:'unlock',dept,week,jobs:[]};
+  document.getElementById('modal-title').textContent='Reopen Week';
+  document.getElementById('modal-desc').textContent='Unlock '+STAGE_MAP[dept].l+' — '+weekLabel(week);
+  document.getElementById('move-target-wrap').style.display='none';
+  document.getElementById('pin-input').value='';
+  document.getElementById('pin-input').classList.remove('error');
+  document.getElementById('pin-modal').classList.add('active');
+  setTimeout(()=>document.getElementById('pin-input').focus(),100);
+}
+function closeModal(){
+  document.getElementById('pin-modal').classList.remove('active');
+  _pendingAction=null;
+}
+function submitPin(){
+  const pin=document.getElementById('pin-input').value;
+  if(!_pendingAction)return closeModal();
+  const {type,dept,week,jobs}=_pendingAction;
+
+  if(type==='move'){
+    const targetWeek=document.getElementById('move-target').value;
+    if(!targetWeek){showToast('Select a target week');return;}
+    fetch('/api/schedule/lock-week',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({dept,week,action:'move',pin,jobs,target_week:targetWeek})
+    }).then(r=>r.json()).then(d=>{
+      if(d.ok){
+        jobs.forEach(j=>{
+          const a=_assignments[j]||{};
+          _assignments[j]={week:targetWeek,carryover:a.carryover||false,original_week:a.original_week||null,done:a.done||false,auto:false};
+          _selected.delete(j);
+        });
+        showToast('Moved '+jobs.length+' item'+(jobs.length>1?'s':'')+' → '+weekLabel(targetWeek));
+        closeModal();render();
+      } else {
+        document.getElementById('pin-input').classList.add('error');
+        document.getElementById('pin-input').value='';
+        setTimeout(()=>document.getElementById('pin-input').classList.remove('error'),300);
+      }
+    }).catch(e=>{console.error(e);closeModal();});
+  } else {
+    const action=type; // 'lock' or 'unlock'
+    fetch('/api/schedule/lock-week',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({dept,week,action,pin})
+    }).then(r=>r.json()).then(d=>{
+      if(d.ok){
+        if(action==='lock'){
+          _lockedWeeks[dept+'-'+week]=true;
+          showToast('🔒 '+STAGE_MAP[dept].l+' '+weekLabel(week)+' locked');
+        } else {
+          delete _lockedWeeks[dept+'-'+week];
+          showToast('🔓 '+STAGE_MAP[dept].l+' '+weekLabel(week)+' reopened');
+        }
+        closeModal();render();
+      } else {
+        document.getElementById('pin-input').classList.add('error');
+        document.getElementById('pin-input').value='';
+        setTimeout(()=>document.getElementById('pin-input').classList.remove('error'),300);
+      }
+    }).catch(e=>{console.error(e);closeModal();});
+  }
+}
+document.getElementById('pin-input').addEventListener('keydown',e=>{
+  if(e.key==='Enter')submitPin();
+  if(e.key==='Escape')closeModal();
+});
+
+// ========== ASSIGN / DONE ==========
 function assignWeek(job,week){
   const a=_assignments[job]||{};
-  if(!week){
-    delete _assignments[job];
-  } else {
-    _assignments[job]={week,carryover:a.carryover||false,original_week:a.original_week||null,done:a.done||false,auto:false};
-  }
+  if(!week){delete _assignments[job];}
+  else{_assignments[job]={week,carryover:a.carryover||false,original_week:a.original_week||null,done:a.done||false,auto:false};}
   fetch('/api/schedule/assign',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({job,week:week||''})}).catch(e=>console.error('assign failed',e));
+  const item=_items.find(i=>i.job===job);
+  showToast('#'+job+(item?' '+item.name:'')+' → '+weekLabel(week));
   render();
 }
-
+function rushToThisWeek(job){assignWeek(job,getMonday(new Date().toISOString().slice(0,10)));}
 function toggleDone(job){
   const a=_assignments[job];if(!a)return;
   a.done=!a.done;
   fetch('/api/schedule/mark-done',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({job,done:a.done})}).catch(e=>console.error('mark-done failed',e));
+  showToast('#'+job+(a.done?' marked done':' unmarked'));
   render();
 }
+function toggleWb(id){const el=document.getElementById(id);if(el)el.classList.toggle('collapsed');}
 
-function toggleWb(id){
-  const el=document.getElementById(id);
-  if(el)el.classList.toggle('collapsed');
+// ========== DRAG AND DROP ==========
+function onDragStart(e,job){
+  const a=_assignments[job];
+  if(a&&a.week){const item=_items.find(i=>i.job===job);
+    if(item&&isLocked(item.stage,a.week)){e.preventDefault();return;}}
+  _dragJob=job;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',job);
+  setTimeout(()=>{const el=document.querySelector('[data-job="'+job+'"]');if(el)el.classList.add('dragging');},0);
+}
+function onDragEnd(e){
+  _dragJob=null;
+  document.querySelectorAll('.dragging').forEach(el=>el.classList.remove('dragging'));
+  document.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over'));
+}
+function onDragOver(e){e.preventDefault();e.dataTransfer.dropEffect='move';
+  const wb=e.target.closest('.week-block');
+  if(wb&&!wb.classList.contains('drag-over')){
+    document.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over'));
+    wb.classList.add('drag-over');}}
+function onDragLeave(e){const wb=e.target.closest('.week-block');if(wb){
+  const r=wb.getBoundingClientRect();
+  if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)wb.classList.remove('drag-over');}}
+function onDrop(e,dept,week){
+  e.preventDefault();
+  document.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over'));
+  const job=e.dataTransfer.getData('text/plain')||_dragJob;
+  if(!job||!week){_dragJob=null;return;}
+  if(isLocked(dept,week)){
+    const pri=_priorities[job]||0;
+    if(pri!==1){showToast('Week is locked — only urgent items allowed');_dragJob=null;return;}}
+  assignWeek(job,week);_dragJob=null;
 }
 
+// ========== RENDER ==========
 function render(){
   const today=getMonday(new Date().toISOString().slice(0,10));
   autoAssign();
 
-  // Gather weeks across all assignments
   const allWeeks=new Set();
-  for(let i=0;i<4;i++)allWeeks.add(addWeeks(today,i));
+  for(let i=0;i<6;i++)allWeeks.add(addWeeks(today,i));
   Object.values(_assignments).forEach(a=>{if(a&&a.week)allWeeks.add(a.week);});
   const weeks=Array.from(allWeeks).sort();
 
-  // Summary stats
   const totalHrs=_items.reduce((a,i)=>a+itemHours(i),0);
   const totalVal=_items.reduce((a,i)=>a+(i.price||0),0);
-  const thisWeekItems=_items.filter(i=>_assignments[i.job]&&_assignments[i.job].week===today);
-  const twHrs=thisWeekItems.reduce((a,i)=>a+itemHours(i),0);
-  const twVal=thisWeekItems.reduce((a,i)=>a+(i.price||0),0);
-  const carryovers=_items.filter(i=>_assignments[i.job]&&_assignments[i.job].carryover);
+  const twItems=_items.filter(i=>_assignments[i.job]&&_assignments[i.job].week===today);
+  const twHrs=twItems.reduce((a,i)=>a+itemHours(i),0);
+  const twVal=twItems.reduce((a,i)=>a+(i.price||0),0);
+  const doneItems=_items.filter(i=>_assignments[i.job]&&_assignments[i.job].done);
+  const lockedCount=Object.keys(_lockedWeeks).length;
   document.getElementById('summary-bar').innerHTML=
     '<div class="sstat">TOTAL <strong>'+_items.length+'</strong> items</div>'+
     '<div class="sstat gold">HOURS <strong>'+fmtHrs(totalHrs)+'</strong></div>'+
     '<div class="sstat teal">VALUE <strong>'+fmt(totalVal)+'</strong></div>'+
-    '<div class="sstat green">THIS WEEK <strong>'+thisWeekItems.length+'</strong> items · '+fmtHrs(twHrs)+' · '+fmt(twVal)+'</div>'+
-    (carryovers.length?'<div class="sstat red">CARRYOVER <strong>'+carryovers.length+'</strong></div>':'');
+    '<div class="sstat green">THIS WEEK <strong>'+twItems.length+'</strong> items · '+fmtHrs(twHrs)+' · '+fmt(twVal)+'</div>'+
+    (doneItems.length?'<div class="sstat" style="color:#5a9e5a">DONE <strong>'+doneItems.length+'</strong></div>':'')+
+    (lockedCount?'<div class="sstat" style="color:#5a9e5a">🔒 <strong>'+lockedCount+'</strong> locked</div>':'');
 
-  const weekOpts=buildWeekOptions();
   let grid='';
-
-  // Render each department as a column
   STAGES.forEach(stg=>{
     const deptItems=_items.filter(i=>i.stage===stg.k);
     const deptHrs=deptItems.reduce((a,i)=>a+itemHours(i),0);
@@ -2646,15 +2846,13 @@ function render(){
     let body='';
     weeks.forEach(w=>{
       const wItems=deptItems.filter(i=>_assignments[i.job]&&_assignments[i.job].week===w);
-      if(!wItems.length)return;
-
+      if(!wItems.length&&w!==today&&w!==addWeeks(today,1))return;
       const isCurrent=w===today;
+      const wLocked=isLocked(stg.k,w);
       const wHrs=wItems.reduce((a,i)=>a+itemHours(i),0);
       const wVal=wItems.reduce((a,i)=>a+(i.price||0),0);
       const doneCount=wItems.filter(i=>_assignments[i.job]&&_assignments[i.job].done).length;
-      const carries=wItems.filter(i=>_assignments[i.job]&&_assignments[i.job].carryover);
 
-      // Sort: carryovers first, then priority, then due
       wItems.sort((a,b)=>{
         const ca=_assignments[a.job]&&_assignments[a.job].carryover?0:1;
         const cb=_assignments[b.job]&&_assignments[b.job].carryover?0:1;
@@ -2667,37 +2865,61 @@ function render(){
       });
 
       const wbId='wb-'+stg.k+'-'+w;
-      body+='<div class="week-block'+(isCurrent?' current':'')+'">'+
+      body+='<div class="week-block'+(isCurrent?' current':'')+(wLocked?' locked':'')+'" '+
+        'ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event,\''+stg.k+'\',\''+w+'\')">' +
         '<div class="wb-hdr" onclick="toggleWb(\''+wbId+'\')">'+
-          '<span><span class="wlabel">'+weekLabel(w)+'</span><span class="wdates"> '+fmtWeekRange(w)+'</span></span>'+
-          '<span class="wstats"><strong>'+wItems.length+'</strong> · '+fmtHrs(wHrs)+' · '+fmt(wVal)+(doneCount?' · <span style="color:#5a9e5a">'+doneCount+' done</span>':'')+'</span>'+
+          '<span>'+(wLocked?'<span class="lock-icon">🔒</span>':'')+
+            '<span class="wlabel">'+weekLabel(w)+'</span><span class="wdates"> '+fmtWeekRange(w)+'</span></span>'+
+          '<span class="wstats"><strong>'+wItems.length+'</strong> · '+fmtHrs(wHrs)+' · '+fmt(wVal)+
+            (doneCount?' · <span style="color:#5a9e5a">'+doneCount+'✓</span>':'')+'</span>'+
         '</div>'+
         '<div class="wb-body" id="'+wbId+'">'+
-          (carries.length?'<div style="font-size:.68em;color:#e8a838;padding:2px 6px">⚠ '+carries.length+' carryover</div>':'')+
+          (wItems.length===0?'<div style="text-align:center;padding:10px;color:#444;font-size:.7em">'+(wLocked?'Locked':'Drop items here')+'</div>':'')+
           wItems.map(i=>{
             const a=_assignments[i.job]||{};
             const hrs=itemHours(i);
             const isCarry=a.carryover;
             const isDone=a.done;
-            return '<div class="scard'+(isCarry?' carry':'')+'" style="'+(isDone?'opacity:.5':'')+';border-left-color:'+stg.c+'">'+
-              '<div class="s-title">#'+i.job+' '+i.name+(i.monument?'<span class="wcmon">MON</span>':'')+
+            const isSel=_selected.has(i.job);
+            const canDrag=!wLocked;
+            // In locked weeks, click to select; in open weeks, drag
+            const clickHandler=wLocked?
+              'onclick="toggleSelect(\''+i.job+'\',event)"':
+              '';
+            const dragHandler=canDrag?
+              'draggable="true" ondragstart="onDragStart(event,\''+i.job+'\')" ondragend="onDragEnd(event)"':
+              '';
+            return '<div class="scard'+(isCarry?' carry':'')+(isDone?' done-item':'')+(isSel?' selected':'')+'" '+
+              'data-job="'+i.job+'" '+dragHandler+' '+clickHandler+
+              ' style="border-left-color:'+stg.c+'">'+
+              '<div class="s-title">'+(wLocked&&!isSel?'☐ ':'')+(wLocked&&isSel?'☑ ':'')+
+                '#'+i.job+' '+i.name+
+                (i.monument?'<span class="wcmon">MON</span>':'')+
                 (isCarry?'<span class="co-badge">CARRY</span>':'')+priTag(i.job)+
-                (isDone?'<span style="color:#5a9e5a;margin-left:4px">✓</span>':'')+'</div>'+
+                (isDone?'<span style="color:#5a9e5a;margin-left:4px">✓ Done</span>':'')+'</div>'+
               '<div class="s-meta">'+
                 '<span>'+i.customer+'</span>'+
                 (hrs?'<span class="s-hrs">'+fmtHrs(hrs)+'</span>':'')+
                 (i.price?'<span class="s-val">'+fmt(i.price)+'</span>':'')+
                 dueTag(i.due)+
               '</div>'+
-              '<div class="s-actions">'+
-                '<select class="week-picker" onchange="assignWeek(\''+i.job+'\',this.value)">'+
-                  weekOpts.replace('value="'+w+'"','value="'+w+'" selected')+
-                '</select>'+
-                '<button class="btn-sm done'+(isDone?' active':'')+'" onclick="toggleDone(\''+i.job+'\')">'+
-                  (isDone?'✓':'Done')+'</button>'+
-              '</div>'+
+              (!wLocked?'<div class="s-actions">'+
+                (!isCurrent?'<button class="btn-sm rush" onclick="event.stopPropagation();rushToThisWeek(\''+i.job+'\')">⚡ Rush</button>':'')+
+                '<button class="btn-sm done'+(isDone?' active':'')+'" onclick="event.stopPropagation();toggleDone(\''+i.job+'\')">'+
+                  (isDone?'✓ Done':'Done')+'</button>'+
+              '</div>':'')+
             '</div>';
           }).join('')+
+        '</div>'+
+        '<div class="wb-actions">'+
+          (wLocked?
+            '<span class="sel-move-wrap" data-dept="'+stg.k+'" data-week="'+w+'">'+
+              '<span class="sel-count"></span> '+
+              '<button class="btn-move" style="display:none" onclick="event.stopPropagation();requestMoveSelected(\''+stg.k+'\',\''+w+'\')">📦 Move Selected</button>'+
+            '</span>'+
+            '<button class="btn-unlock" onclick="event.stopPropagation();requestUnlock(\''+stg.k+'\',\''+w+'\')">🔓 Reopen</button>':
+            '<span></span>'+
+            '<button class="btn-lock" onclick="event.stopPropagation();requestLock(\''+stg.k+'\',\''+w+'\')">🔒 Close Week</button>')+
         '</div>'+
       '</div>';
     });
@@ -2717,6 +2939,8 @@ function render(){
   });
 
   document.getElementById('dept-grid').innerHTML=grid;
+  // Re-apply selection UI after render
+  setTimeout(updateSelectionUI,10);
 }
 
 function loadData(){
@@ -2731,6 +2955,10 @@ function loadData(){
       Object.entries(sched.assignments).forEach(([job,a])=>{
         _assignments[job]={...a,auto:false};
       });
+    }
+    if(sched.locked_weeks){
+      _lockedWeeks={};
+      sched.locked_weeks.forEach(k=>{_lockedWeeks[k]=true;});
     }
     render();
   }).catch(e=>console.error('load failed',e));
@@ -2752,7 +2980,50 @@ def api_schedule():
         _auto_rollover()
         return jsonify({
             'assignments': dict(_schedule_data.get('assignments', {})),
+            'locked_weeks': list(_schedule_data.get('locked_weeks', [])),
         })
+
+@app.route('/api/schedule/lock-week', methods=['POST'])
+def schedule_lock_week():
+    try:
+        body = request.get_json(force=True)
+        dept   = str(body.get('dept', '')).strip()
+        week   = str(body.get('week', '')).strip()
+        action = str(body.get('action', '')).strip()
+        pin    = str(body.get('pin', '')).strip()
+        if not dept or not week or not action:
+            return jsonify({'error': 'missing fields'}), 400
+        if pin != KPI_PIN:
+            return jsonify({'ok': False, 'error': 'bad pin'}), 200
+        with _lock:
+            locked = _schedule_data.setdefault('locked_weeks', [])
+            key = f'{dept}-{week}'
+            if action == 'lock':
+                if key not in locked:
+                    locked.append(key)
+                log.info(f'Schedule: locked {key}')
+            elif action == 'unlock':
+                if key in locked:
+                    locked.remove(key)
+                log.info(f'Schedule: unlocked {key}')
+            elif action == 'move':
+                # Move selected items from locked week to target
+                jobs = body.get('jobs', [])
+                target = str(body.get('target_week', '')).strip()
+                if not target or not jobs:
+                    return jsonify({'error': 'missing target or jobs'}), 400
+                assignments = _schedule_data.setdefault('assignments', {})
+                for j in jobs:
+                    j = str(j).strip()
+                    if j in assignments:
+                        assignments[j]['week'] = target
+                        assignments[j]['carryover'] = False
+                log.info(f'Schedule: moved {len(jobs)} items from {key} to {target}')
+            _save_schedule()
+        return jsonify({'ok': True})
+    except Exception as e:
+        log.error(f'lock-week error: {e}')
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/schedule/assign', methods=['POST'])
 def schedule_assign():
