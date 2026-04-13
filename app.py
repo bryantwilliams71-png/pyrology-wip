@@ -2521,13 +2521,24 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
 .tdover{background:#3d1515;color:#ff6b6b}
 .tdwarn{background:#3d2e10;color:#ffaa44}
 .tdok{color:#aaa}
-.prog-wrap{position:relative;width:100%;height:24px;background:#0f1117;border-radius:4px;overflow:hidden;border:1px solid #2a2d3a}
-.prog-bar-bg{width:100%;height:100%;display:flex;align-items:center;justify-content:center;position:relative}
-.prog-bar-fill{height:100%;background:linear-gradient(90deg,#4db8b8,#3da8a8);transition:width .3s ease;position:absolute;left:0;top:0}
-.prog-text{position:relative;z-index:2;font-size:.75em;font-weight:700;color:#fff}
-.pct-btn{display:inline-block;background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:.7em;font-weight:700;margin:0 2px;transition:all .15s}
-.pct-btn:hover{background:#2a3a4a;color:#6dd8d8}
-.pct-btn.active{background:#4db8b8;color:#000;border-color:#4db8b8}
+.prog-wrap{display:flex;flex-direction:column;gap:2px;min-width:100px;width:100%}
+.prog-row{display:flex;align-items:center;gap:5px}
+.prog-label{font-size:.62em;color:#888;width:38px;flex-shrink:0}
+.prog-bar-bg{flex:1;height:6px;background:#2a2d3a;border-radius:4px;overflow:hidden}
+.prog-bar-fill{height:100%;border-radius:4px;transition:width .4s}
+.prog-pct{font-size:.65em;font-weight:700;width:30px;text-align:right;flex-shrink:0}
+.prog-val{font-size:.6em;color:#aaa;margin-top:0;text-align:right}
+.pct-btns{display:flex;gap:3px;margin-top:4px;flex-wrap:wrap;justify-content:center}
+.pct-btn{background:#1e2130;border:1px solid #3a3d4a;color:#777;padding:2px 7px;border-radius:10px;cursor:pointer;font-size:.6em;font-weight:700;transition:background .15s,color .15s,border-color .15s;user-select:none;line-height:1.3}
+.pct-btn:hover{background:#2a2d3a;color:#e8e8e8;border-color:#5a6a8a}
+.pct-btn.active{background:#8b9dc3;color:#000;border-color:#8b9dc3}
+.pct-btn.active-full{background:#5a9e5a;color:#fff;border-color:#5a9e5a}
+.pct-btn.active-half{background:#e8a838;color:#000;border-color:#e8a838}
+.summary-health{display:flex;flex-direction:column;gap:2px;min-width:200px;padding:2px 0}
+.summary-health .prog-row{gap:6px}
+.summary-health .prog-label{font-size:.68em;width:42px}
+.summary-health .prog-pct{font-size:.7em;width:34px}
+.dept-health{padding:4px 6px 2px;margin-top:2px}
 .pri-btn{display:inline-block;background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:.7em;font-weight:700;margin:0 2px;transition:all .15s}
 .pri-btn.p0{color:#aaa;border-color:#3a3d4a}
 .pri-btn.p1{color:#ff4444;border-color:#6a2222;background:#3d1515}
@@ -2626,12 +2637,14 @@ const STAGES=[
   {k:'waxpull',c:'#e8a838',l:'Wax Pull',hKey:['hWaxPull']},
   {k:'waxchase',c:'#d4763b',l:'Wax Chase',hKey:['hSprue']},
   {k:'shell',c:'#5a9e6f',l:'Shell',hKey:[]},
-  {k:'metal',c:'#8b9dc3',l:'Metal',hKey:['hMetal']},
+  {k:'metal_small',c:'#8b9dc3',l:'Small Metal',hKey:['hMetal'],filter:i=>i.stage==='metal'&&!i.monument},
+  {k:'metal_mon',c:'#7b5ea7',l:'Monument Metal',hKey:['hMetal'],filter:i=>i.stage==='metal'&&!!i.monument},
   {k:'patina',c:'#c45c8a',l:'Patina',hKey:['hPatina']},
   {k:'base',c:'#4db8b8',l:'Base',hKey:['hBasing']},
   {k:'ready',c:'#5a9e5a',l:'Ready',hKey:[]}
 ];
 const STAGE_MAP=Object.fromEntries(STAGES.map(s=>[s.k,s]));
+STAGE_MAP['metal']={k:'metal',c:'#8b9dc3',l:'Metal Work',hKey:['hMetal']}; // alias for drill-down
 const fmt=v=>v?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(v):'—';
 const fmtHrs=h=>h?h.toFixed(1)+'h':'—';
 
@@ -2797,10 +2810,12 @@ function renderDrill(){
   const doneVal=sorted.filter(i=>_assignments[i.job]&&_assignments[i.job].done).reduce((a,i)=>a+(i.price||0),0);
 
   document.getElementById('sdtitle').textContent=stg.l;
+  const drillStats=deptPctCalc(sorted);
   document.getElementById('sdstats').innerHTML=
     '<div class="sdstat">Items: <strong>'+doneCount+'/'+sorted.length+'</strong></div>'+
     '<div class="sdstat">Hours: <strong>'+fmtHrs(doneHrs)+'/'+fmtHrs(totalHrs)+'</strong></div>'+
-    '<div class="sdstat">Value: <strong>'+fmt(doneVal)+'/'+fmt(totalVal)+'</strong></div>';
+    '<div class="sdstat">Value: <strong>'+fmt(doneVal)+'/'+fmt(totalVal)+'</strong></div>'+
+    '<div class="sdstat" style="min-width:180px">'+healthBarHtml(drillStats,stg.c,false)+'</div>';
 
   // Update sort buttons
   document.querySelectorAll('#sdtools .wdbtn').forEach(b=>{
@@ -2891,12 +2906,46 @@ function weekLabel(monday){
   return'Wk '+diff;
 }
 
-function isLocked(dept,week){return !!_lockedWeeks[dept+'-'+week];}
+function realDeptKey(dept){return dept==='metal_small'||dept==='metal_mon'?'metal':dept;}
+function isLocked(dept,week){return !!_lockedWeeks[realDeptKey(dept)+'-'+week];}
 
 function itemHours(item){
   const s=STAGE_MAP[item.stage];
   if(!s||!s.hKey.length)return 0;
   return s.hKey.reduce((a,k)=>a+(item[k]||0),0);
+}
+function getDeptItems(stg){
+  if(stg.filter)return _items.filter(stg.filter);
+  return _items.filter(i=>i.stage===stg.k);
+}
+function deptPctCalc(items){
+  if(!items.length)return{pct:0,rem:100,doneVal:0,remVal:0,doneCount:0};
+  let totalVal=0,doneVal=0,doneCount=0;
+  items.forEach(i=>{
+    const p=i.stage==='metal'?metalPct(i):stagePct(i);
+    const v=i.price||0;
+    totalVal+=v;
+    doneVal+=v*(p/100);
+    if(p>=100)doneCount++;
+  });
+  const pct=totalVal>0?Math.round((doneVal/totalVal)*100):0;
+  return{pct,rem:100-pct,doneVal,remVal:totalVal-doneVal,doneCount,total:items.length};
+}
+function healthBarHtml(stats,color,compact){
+  const doneColor=stats.pct>=80?'#5a9e5a':stats.pct>=50?'#e8a838':'#8b9dc3';
+  return '<div class="prog-wrap'+(compact?' dept-health':'')+'">'+
+    '<div class="prog-row">'+
+      '<span class="prog-label" style="color:'+doneColor+'">Done</span>'+
+      '<div class="prog-bar-bg"><div class="prog-bar-fill" style="width:'+stats.pct+'%;background:'+doneColor+'"></div></div>'+
+      '<span class="prog-pct" style="color:'+doneColor+'">'+stats.pct+'%</span>'+
+    '</div>'+
+    '<div class="prog-row" style="margin-top:1px">'+
+      '<span class="prog-label" style="color:#e8a838">Remain</span>'+
+      '<div class="prog-bar-bg"><div class="prog-bar-fill" style="width:'+stats.rem+'%;background:#e8a838"></div></div>'+
+      '<span class="prog-pct" style="color:#e8a838">'+stats.rem+'%</span>'+
+    '</div>'+
+    (!compact?'<div class="prog-val" style="color:'+doneColor+'">'+fmt(stats.doneVal)+' done · '+stats.doneCount+'/'+stats.total+' items</div>':'')+
+  '</div>';
 }
 function daysDiff(d){if(!d)return null;return Math.floor((new Date(d)-new Date())/(86400000));}
 function dueTag(d){
@@ -2965,9 +3014,10 @@ function getSelectedInWeek(dept,week){
 }
 
 function requestMoveSelected(dept,week){
-  const jobs=getSelectedInWeek(dept,week);
+  const rd=realDeptKey(dept);
+  const jobs=getSelectedInWeek(rd,week);
   if(!jobs.length)return;
-  _pendingAction={type:'move',dept,week,jobs};
+  _pendingAction={type:'move',dept:rd,week,jobs};
   document.getElementById('modal-title').textContent='Move '+jobs.length+' Item'+(jobs.length>1?'s':'');
   document.getElementById('modal-desc').textContent='Enter PIN to move from locked week';
   // Build week target options
@@ -2988,9 +3038,10 @@ function requestMoveSelected(dept,week){
 
 // ========== LOCK / UNLOCK / MOVE ==========
 function requestLock(dept,week){
-  _pendingAction={type:'lock',dept,week,jobs:[]};
+  const rd=realDeptKey(dept);
+  _pendingAction={type:'lock',dept:rd,week,jobs:[]};
   document.getElementById('modal-title').textContent='Close Week';
-  document.getElementById('modal-desc').textContent='Lock '+STAGE_MAP[dept].l+' — '+weekLabel(week);
+  document.getElementById('modal-desc').textContent='Lock '+(STAGE_MAP[dept]||{l:dept}).l+' — '+weekLabel(week);
   document.getElementById('move-target-wrap').style.display='none';
   document.getElementById('pin-input').value='';
   document.getElementById('pin-input').classList.remove('error');
@@ -2998,9 +3049,10 @@ function requestLock(dept,week){
   setTimeout(()=>document.getElementById('pin-input').focus(),100);
 }
 function requestUnlock(dept,week){
-  _pendingAction={type:'unlock',dept,week,jobs:[]};
+  const rd=realDeptKey(dept);
+  _pendingAction={type:'unlock',dept:rd,week,jobs:[]};
   document.getElementById('modal-title').textContent='Reopen Week';
-  document.getElementById('modal-desc').textContent='Unlock '+STAGE_MAP[dept].l+' — '+weekLabel(week);
+  document.getElementById('modal-desc').textContent='Unlock '+(STAGE_MAP[dept]||{l:dept}).l+' — '+weekLabel(week);
   document.getElementById('move-target-wrap').style.display='none';
   document.getElementById('pin-input').value='';
   document.getElementById('pin-input').classList.remove('error');
@@ -3087,17 +3139,21 @@ function toggleDone(job){
   if(item){
     if(a.done){
       if(item.stage==='metal'){
+        _metalOverrides[job]=100;
         fetch('/api/metal-override',{method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({job,pct:100})}).catch(e=>console.error('metal-override failed',e));
       } else {
+        _stageOverrides[job]=100;
         fetch('/api/stage-override',{method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({job,pct:100})}).catch(e=>console.error('stage-override failed',e));
       }
     } else {
       if(item.stage==='metal'){
+        _metalOverrides[job]=0;
         fetch('/api/metal-override',{method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({job,pct:0})}).catch(e=>console.error('metal-override failed',e));
       } else {
+        _stageOverrides[job]=0;
         fetch('/api/stage-override',{method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({job,pct:0})}).catch(e=>console.error('stage-override failed',e));
       }
@@ -3157,19 +3213,22 @@ function render(){
   const twVal=twItems.reduce((a,i)=>a+(i.price||0),0);
   const doneItems=_items.filter(i=>_assignments[i.job]&&_assignments[i.job].done);
   const lockedCount=Object.keys(_lockedWeeks).length;
+  const overallStats=deptPctCalc(_items);
   document.getElementById('summary-bar').innerHTML=
     '<div class="sstat">TOTAL <strong>'+_items.length+'</strong> items</div>'+
     '<div class="sstat gold">HOURS <strong>'+fmtHrs(totalHrs)+'</strong></div>'+
     '<div class="sstat teal">VALUE <strong>'+fmt(totalVal)+'</strong></div>'+
     '<div class="sstat green">THIS WEEK <strong>'+twItems.length+'</strong> items · '+fmtHrs(twHrs)+' · '+fmt(twVal)+'</div>'+
     (doneItems.length?'<div class="sstat" style="color:#5a9e5a">DONE <strong>'+doneItems.length+'</strong></div>':'')+
-    (lockedCount?'<div class="sstat" style="color:#5a9e5a">🔒 <strong>'+lockedCount+'</strong> locked</div>':'');
+    (lockedCount?'<div class="sstat" style="color:#5a9e5a">🔒 <strong>'+lockedCount+'</strong> locked</div>':'')+
+    '<div class="summary-health">'+healthBarHtml(overallStats,'#4db8b8',false)+'</div>';
 
   let grid='';
   STAGES.forEach(stg=>{
-    const deptItems=_items.filter(i=>i.stage===stg.k);
+    const deptItems=getDeptItems(stg);
     const deptHrs=deptItems.reduce((a,i)=>a+itemHours(i),0);
     const deptVal=deptItems.reduce((a,i)=>a+(i.price||0),0);
+    const deptStats=deptPctCalc(deptItems);
 
     let body='';
     weeks.forEach(w=>{
@@ -3200,7 +3259,7 @@ function render(){
         '<div class="wb-hdr" onclick="toggleWb(\''+wbId+'\')">'+
           '<span>'+(wLocked?'<span class="lock-icon">🔒</span>':'')+
             '<span class="wlabel">'+weekLabel(w)+'</span><span class="wdates"> '+fmtWeekRange(w)+'</span></span>'+
-          '<span class="wstats"><strong>'+wItems.length+'</strong> · '+fmtHrs(wHrs)+' · '+fmt(wVal)+
+          '<span class="wstats"><strong>'+wItems.length+'</strong> · '+fmtHrs(wHrs-doneHrsWeek)+' remaining · '+fmt(wVal-doneValWeek)+' remaining'+
             (doneCount?' · <span style="color:#5a9e5a">'+doneCount+'✓</span>':'')+'</span>'+
         '</div>'+
         '<div class="wb-score">'+
@@ -3261,13 +3320,17 @@ function render(){
 
     if(!body)body='<div style="text-align:center;padding:20px;color:#555;font-size:.75em">No items</div>';
 
+    const deptDoneHrs=deptItems.filter(i=>{const p=i.stage==='metal'?metalPct(i):stagePct(i);return p>=100;}).reduce((a,i)=>a+itemHours(i),0);
+    const deptRemHrs=deptHrs-deptDoneHrs;
+    const deptRemVal=deptStats.remVal;
     grid+='<div class="dept-col">'+
-      '<div class="dept-hdr" style="background:'+stg.c+'22;cursor:pointer;transition:background .15s" onclick="openDrill(\''+stg.k+'\',\''+stg.l+'\',\''+stg.c+'\')" onmouseover="this.style.background=\''+stg.c+'33\'" onmouseout="this.style.background=\''+stg.c+'22\'">'+
+      '<div class="dept-hdr" style="background:'+stg.c+'22;cursor:pointer;transition:background .15s" onclick="openDrill(\''+(stg.filter?'metal':stg.k)+'\',\''+stg.l+'\',\''+stg.c+'\')" onmouseover="this.style.background=\''+stg.c+'33\'" onmouseout="this.style.background=\''+stg.c+'22\'">'+
         '<div class="dept-label" style="color:'+stg.c+'">'+stg.l+'</div>'+
         '<div class="dept-count">'+deptItems.length+'</div>'+
         '<div class="dept-sub">ITEMS</div>'+
-        (deptHrs?'<div class="dept-hrs">'+fmtHrs(deptHrs)+' bid</div>':'')+
-        '<div class="dept-val">'+fmt(deptVal)+'</div>'+
+        (deptHrs?'<div class="dept-hrs">'+fmtHrs(deptRemHrs)+' / '+fmtHrs(deptHrs)+' hrs</div>':'')+
+        '<div class="dept-val">'+fmt(deptRemVal)+' / '+fmt(deptVal)+'</div>'+
+        healthBarHtml(deptStats,stg.c,true)+
       '</div>'+
       '<div class="dept-body">'+body+'</div>'+
     '</div>';
