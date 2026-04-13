@@ -246,16 +246,21 @@ _load_schedule()
 # ── Transform raw API rows → internal format ───────────────────────────────────
 def transform_rows(raw):
     items = []
+    seen_jobs = set()
     for row in raw:
         status = row.get('status', '')
         stage  = STATUS_MAP.get(status)
         if not stage:
             continue
+        job_id = str(row.get('dithPieceNo', ''))
+        if job_id in seen_jobs:
+            continue
+        seen_jobs.add(job_id)
         due_raw = row.get('dueDate') or row.get('shipDate') or ''
         first = (row.get('firstName') or '').strip()
         last  = (row.get('lastName')  or '').strip()
         items.append({
-            'job':           str(row.get('dithPieceNo', '')),
+            'job':           job_id,
             'pieceId':       row.get('pieceId'),
             'name':          row.get('itemDescription', ''),
             'customer':      f'{first} {last}'.strip(),
@@ -333,7 +338,8 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
 .wstat.green strong{color:#5a9e5a}.wstat.red strong{color:#e05555}
 .wstat.gold strong{color:#e8a838}.wstat.teal strong{color:#4db8b8}
 #wgrid{display:flex;gap:4px;padding:6px;overflow-x:auto;overflow-y:hidden;height:calc(100vh - 96px)}
-.wcol{flex:1;min-width:0;background:#1a1d27;border-radius:6px;display:flex;flex-direction:column;border:1px solid #2a2d3a;cursor:pointer;transition:border-color .2s}
+.wcol{flex:1;min-width:0;background:#1a1d27;border-radius:6px;display:flex;flex-direction:column;border:1px solid #2a2d3a;cursor:pointer;transition:border-color .2s,box-shadow .2s}
+.wcol:hover{border-color:#3a4a5a;box-shadow:0 2px 8px rgba(0,0,0,.3)}
 .wcol:hover{border-color:#4db8b8}
 .wchdr{padding:7px 8px 5px;text-align:center;border-radius:6px 6px 0 0;flex-shrink:0}
 .wclabel{font-size:.72em;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
@@ -342,18 +348,19 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
 .wcval{font-size:.78em;color:rgba(255,255,255,.85);margin-top:1px}
 .wchrs{font-size:.72em;color:#ffd580;margin-top:2px;font-weight:600}
 .wcbody{flex:1;overflow-y:auto;padding:4px;display:flex;flex-direction:column;gap:3px}
-.wcard{background:#0f1117;border-radius:4px;padding:5px 6px;border-left:3px solid #333;font-size:.7em;flex-shrink:0}
-.wctitle{font-weight:600;color:#e8e8e8;line-height:1.2}
-.wclient{color:#888;font-size:.9em}
-.wcmeta{display:flex;justify-content:space-between;align-items:center;margin-top:2px;flex-wrap:wrap;gap:2px}
-.wcdue{font-size:.85em;padding:1px 4px;border-radius:3px;background:#1e2230;color:#aaa}
+.wcard{background:#0f1117;border-radius:5px;padding:6px 7px;border-left:3px solid #333;font-size:.7em;flex-shrink:0;transition:background .15s}
+.wcard:hover{background:#151820}
+.wctitle{font-weight:600;color:#e8e8e8;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wclient{color:#777;font-size:.85em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wcmeta{display:flex;align-items:center;margin-top:3px;flex-wrap:wrap;gap:3px}
+.wcdue{font-size:.82em;padding:1px 5px;border-radius:3px;background:#1e2230;color:#aaa;font-weight:600}
 .wcdue.over{background:#3d1515;color:#ff6b6b}
 .wcdue.warn{background:#3d2e10;color:#ffaa44}
 .wcdue.ok{background:#0f2d1f;color:#5a9e5a}
-.wcprice{font-size:.85em;color:#4db8b8;font-weight:600}
-.wcmon{background:#7b5ea7;color:#fff;font-size:.7em;padding:1px 4px;border-radius:3px;margin-left:3px}
+.wcprice{font-size:.82em;color:#4db8b8;font-weight:700}
+.wcmon{background:#7b5ea7;color:#fff;font-size:.68em;padding:1px 4px;border-radius:3px;margin-left:3px;font-weight:700}
 .wmore{text-align:center;font-size:.65em;color:#555;padding:4px}
-#wlive{font-size:.65em;color:#5a9e5a;text-align:right;margin-left:auto}
+#wlive{font-size:.65em;color:#5a9e5a;text-align:right;margin-left:auto;white-space:nowrap}
 #werr{background:#3d1515;color:#ff6b6b;padding:8px 14px;font-size:.8em;display:none}
 #wdrillbg{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.85);display:none;flex-direction:column}
 #wdrill{background:#1a1d27;margin:20px;border-radius:10px;flex:1;display:flex;flex-direction:column;overflow:hidden;border:1px solid #2a2d3a}
@@ -361,7 +368,7 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
 #wdhdr h2{font-size:1.4em;font-weight:700}
 #wdstats{display:flex;gap:20px;margin-top:6px;flex-wrap:wrap}
 #wdstats span{font-size:.8em;color:#aaa}
-#wdtools{display:flex;gap:8px;align-items:center;flex-shrink:0}
+#wdtools{display:flex;gap:6px;align-items:center;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
 #wdsearch{background:#0f1117;border:1px solid #3a3d4a;color:#e8e8e8;padding:6px 10px;border-radius:4px;font-size:.85em;width:200px}
 .wdbtn{background:#2a2d3a;border:1px solid #3a3d4a;color:#aaa;padding:5px 10px;border-radius:4px;cursor:pointer;font-size:.78em}
 .wdbtn.active{background:#4db8b8;color:#000;border-color:#4db8b8;font-weight:700}
@@ -721,10 +728,10 @@ function stgSummaryBar(items,stageColor){
 
 function renderBoard(){
   const sm={};
-  STAGES.forEach(s=>{sm[s.k]={items:[],val:0,hrs:0};});
+  STAGES.forEach(s=>{sm[s.k]={items:[],val:0,hrs:0,seen:new Set()};});
   _items.forEach(item=>{
     const st=sm[item.stage];
-    if(st){st.items.push(item);st.val+=item.price||0;if(STAGE_HRS[item.stage])st.hrs+=STAGE_HRS[item.stage](item);}
+    if(st&&!st.seen.has(item.job)){st.seen.add(item.job);st.items.push(item);st.val+=item.price||0;if(STAGE_HRS[item.stage])st.hrs+=STAGE_HRS[item.stage](item);}
   });
   document.getElementById('stotal').textContent=_items.length;
   document.getElementById('svalue').textContent=fmt(_items.reduce((a,i)=>a+(i.price||0),0));
@@ -754,22 +761,22 @@ function renderBoard(){
           const dl=dueLabel(item.due);
           const pri=getPri(item.job);
           const priCls=pri===1?' pri-1':pri===2?' pri-2':'';
+          const pct=stagePct(item);const pctColor=pct>=100?'#5a9e5a':pct>=50?'#e8a838':'#8b9dc3';
+          const isScheduled=_scheduleData[item.job]&&_scheduleData[item.job].week;
           return `<div class="wcard${priCls}" data-job="${item.job}" style="border-left-color:${pri?'':s.c}" oncontextmenu="cyclePri('${item.job}',event)">
             ${priLabel(item.job)}
-            <div class="wctitle">#${item.job} ${item.name}${item.monument?'<span class="wcmon">MON</span>':''}${schedBadge(item.job)}</div>
+            <div class="wctitle">#${item.job} ${item.name}${item.monument?'<span class="wcmon">MON</span>':''}</div>
             <div class="wclient">${item.customer||''}</div>
             <div class="wcmeta">
-              ${item.edition?`<span style="color:#666;font-size:.85em">Ed.${item.edition}</span>`:''}
+              ${item.edition?`<span style="color:#555;font-size:.82em">Ed.${item.edition}</span>`:''}
               ${dl?`<span class="wcdue ${dl.c}">${dl.t}</span>`:''}
               ${item.price?`<span class="wcprice">${fmt(item.price)}</span>`:''}
+              ${schedBadge(item.job)}
             </div>
-            <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
-              <div class="wc-progress" style="flex:1">
-                <div style="height:4px;background:#2a2d3a;border-radius:2px;overflow:hidden">
-                  <div style="width:${stagePct(item)}%;height:100%;background:${stagePct(item)>=100?'#5a9e5a':stagePct(item)>=50?'#e8a838':'#8b9dc3'};border-radius:2px;transition:width .3s"></div>
-                </div>
-              </div>
-              ${_scheduleData[item.job]&&_scheduleData[item.job].week?'':'<button onclick="addOneToWeek(\''+item.job+'\',event)" style="padding:1px 6px;background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;border-radius:3px;cursor:pointer;font-size:.62em;white-space:nowrap;font-weight:600;letter-spacing:.3px">SCHED</button>'}
+            <div style="display:flex;align-items:center;gap:4px;margin-top:3px">
+              <div style="flex:1;height:3px;background:#1a1d27;border-radius:2px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${pctColor};border-radius:2px;transition:width .3s"></div></div>
+              ${pct>0?'<span style="font-size:.7em;color:'+pctColor+';font-weight:700;min-width:22px;text-align:right">'+pct+'%</span>':''}
+              ${isScheduled?'':'<button onclick="addOneToWeek(\''+item.job+'\',event)" style="padding:1px 5px;background:#1e2a3a;border:1px solid #2a3a5a;color:#4db8b8;border-radius:3px;cursor:pointer;font-size:.6em;white-space:nowrap;font-weight:600;letter-spacing:.3px;opacity:.7;transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.7">SCHED</button>'}
             </div>
           </div>`;
         }).join('')}
@@ -959,7 +966,7 @@ function renderDrillMetal(q){
         <td class="tdhrs">${h>0?h.toFixed(2)+' hrs':''}</td>
         <td>${stgPctBar(item)}</td>
         <td><button class="btn-complete${isDone?' done':''}" onclick="event.stopPropagation();setStgPct('${item.job}',${isDone?0:100})">${isDone?'\u2713 Done':'\u2713'}</button></td>
-        <td><button onclick="addOneToWeek('${item.job}',event)" style="padding:3px 8px;background:${hasSched?'#1e3a2a':'#1e2a3a'};border:1px solid ${hasSched?'#3a6a4a':'#3a4a6a'};color:${hasSched?'#5ae8a8':'#4db8b8'};border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">${hasSched?'\u2713 Scheduled':'Schedule'}</button></td>
+        <td><button onclick="addOneToWeek('${item.job}',event)" style="padding:3px 8px;background:${hasSched?'#1e3a2a':'#1e2a3a'};border:1px solid ${hasSched?'#3a6a4a':'#3a4a6a'};color:${hasSched?'#5ae8a8':'#4db8b8'};border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">${hasSched?'\u2713 Scheduled '+schedBadge(item.job):'📅 Schedule'}</button></td>
       </tr>`;
     }).join('')+'</tbody></table>';
   }
@@ -1029,7 +1036,7 @@ function renderDrillMetal(q){
         <td class="tdval">${fmt(item.price)}</td>
         <td class="tdhrs">${(()=>{if(!h)return'';const pct=metalPct(item);const dh=h*(pct/100);const rh=h-dh;return`<div style="color:#ffd580;font-weight:700">${h.toFixed(1)} bid</div><div style="color:#5a9e5a;font-size:.82em">${dh.toFixed(1)} done</div><div style="color:#e8a838;font-size:.82em">${rh.toFixed(1)} left</div>`;})()}</td>
         <td>${pctBars(item)}</td>
-        <td><button onclick="addOneToWeek('${item.job}',event)" style="padding:3px 8px;background:${hasSched?'#1e3a2a':'#1e2a3a'};border:1px solid ${hasSched?'#3a6a4a':'#3a4a6a'};color:${hasSched?'#5ae8a8':'#4db8b8'};border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">${hasSched?'\u2713 Scheduled':'Schedule'}</button></td>
+        <td><button onclick="addOneToWeek('${item.job}',event)" style="padding:3px 8px;background:${hasSched?'#1e3a2a':'#1e2a3a'};border:1px solid ${hasSched?'#3a6a4a':'#3a4a6a'};color:${hasSched?'#5ae8a8':'#4db8b8'};border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">${hasSched?'\u2713 Scheduled '+schedBadge(item.job):'📅 Schedule'}</button></td>
       </tr>`;
     }).join('')+'</tbody></table>';
   }
@@ -1085,7 +1092,7 @@ function renderDrillSprue(q){
         <td class="tdhrs">${h>0?h.toFixed(2)+' hrs':''}</td>
         <td>${stgPctBar(item)}</td>
         <td><button class="btn-complete${isDone?' done':''}" onclick="event.stopPropagation();setStgPct('${item.job}',${isDone?0:100})">${isDone?'\u2713 Done':'\u2713'}</button></td>
-        <td><button onclick="addOneToWeek('${item.job}',event)" style="padding:3px 8px;background:${hasSched?'#1e3a2a':'#1e2a3a'};border:1px solid ${hasSched?'#3a6a4a':'#3a4a6a'};color:${hasSched?'#5ae8a8':'#4db8b8'};border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">${hasSched?'\u2713 Scheduled':'Schedule'}</button></td>
+        <td><button onclick="addOneToWeek('${item.job}',event)" style="padding:3px 8px;background:${hasSched?'#1e3a2a':'#1e2a3a'};border:1px solid ${hasSched?'#3a6a4a':'#3a4a6a'};color:${hasSched?'#5ae8a8':'#4db8b8'};border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">${hasSched?'\u2713 Scheduled '+schedBadge(item.job):'📅 Schedule'}</button></td>
       </tr>`;
     }).join('')+'</tbody></table>';
   }
@@ -1154,7 +1161,7 @@ function renderDrillSprue(q){
         <td class="tdval">${fmt(item.price)}</td>
         <td class="tdhrs">${(()=>{if(!h)return'';const pct=stagePct(item);const dh=h*(pct/100);const rh=h-dh;return`<div style="color:#ffd580;font-weight:700">${h.toFixed(1)} bid</div><div style="color:#5a9e5a;font-size:.82em">${dh.toFixed(1)} done</div><div style="color:#e8a838;font-size:.82em">${rh.toFixed(1)} left</div>`;})()}</td>
         <td>${stgPctBar(item)}</td>
-        <td><button onclick="addOneToWeek('${item.job}',event)" style="padding:3px 8px;background:${hasSched?'#1e3a2a':'#1e2a3a'};border:1px solid ${hasSched?'#3a6a4a':'#3a4a6a'};color:${hasSched?'#5ae8a8':'#4db8b8'};border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">${hasSched?'\u2713 Scheduled':'Schedule'}</button></td>
+        <td><button onclick="addOneToWeek('${item.job}',event)" style="padding:3px 8px;background:${hasSched?'#1e3a2a':'#1e2a3a'};border:1px solid ${hasSched?'#3a6a4a':'#3a4a6a'};color:${hasSched?'#5ae8a8':'#4db8b8'};border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">${hasSched?'\u2713 Scheduled '+schedBadge(item.job):'📅 Schedule'}</button></td>
       </tr>`;
     }).join('')+'</tbody></table>';
   }
@@ -1216,7 +1223,7 @@ function renderDrill(){
         <td class="tdhrs">${h>0?h.toFixed(2)+' hrs':''}</td>
         <td>${stgPctBar(item)}</td>
         <td><button class="btn-complete${isDone?' done':''}" onclick="event.stopPropagation();setStgPct('${item.job}',${isDone?0:100})">${isDone?'\u2713 Done':'\u2713'}</button></td>
-        <td><button onclick="addOneToWeek('${item.job}',event)" style="padding:3px 8px;background:${hasSched?'#1e3a2a':'#1e2a3a'};border:1px solid ${hasSched?'#3a6a4a':'#3a4a6a'};color:${hasSched?'#5ae8a8':'#4db8b8'};border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">${hasSched?'\u2713 '+schedBadge(item.job)+'Scheduled':'\u{1F4C5} Add to Week'}</button></td>
+        <td><button onclick="addOneToWeek('${item.job}',event)" style="padding:3px 8px;background:${hasSched?'#1e3a2a':'#1e2a3a'};border:1px solid ${hasSched?'#3a6a4a':'#3a4a6a'};color:${hasSched?'#5ae8a8':'#4db8b8'};border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">${hasSched?'\u2713 Scheduled '+schedBadge(item.job):'📅 Schedule'}</button></td>
       </tr>`;
     }).join('')+'</tbody></table>';
 }
@@ -1507,6 +1514,7 @@ table.ktbl tr:hover td{background:#1e2130}
   </div>
   <div class="nav-links" style="display:flex;gap:8px">
     <a href="/" class="nav-link">🏭 Dashboard</a>
+    <a href="/schedule" class="nav-link" style="color:#5ae8a8;border-color:#2a5a3a">📅 Schedule</a>
     <a href="/maintenance" class="nav-link" style="color:#e8a838;border-color:#6a4a1a">🔧 Maintenance</a>
     <a href="/shipping" class="nav-link" style="color:#7aa8e8;border-color:#3a5a8a">📦 Shipping</a>
   </div>
@@ -1848,6 +1856,7 @@ body{background:#0f1117;color:#e8e8e8;font-family:-apple-system,BlinkMacSystemFo
   </div>
   <div class="nav-links">
     <a href="/" class="nav-link">&#x1F3ED; Dashboard</a>
+    <a href="/schedule" class="nav-link" style="color:#5ae8a8;border-color:#2a5a3a">&#x1F4C5; Schedule</a>
     <a href="/kpi" class="nav-link">&#x1F4CA; KPI</a>
     <a href="/shipping" class="nav-link" style="color:#7aa8e8;border-color:#3a5a8a">&#x1F4E6; Shipping</a>
   </div>
@@ -2143,6 +2152,7 @@ a:hover{text-decoration:underline;}
   </div>
   <div class="nav-links">
     <a href="/" class="nav-link">🏭 Dashboard</a>
+    <a href="/schedule" class="nav-link" style="color:#5ae8a8;border-color:#2a5a3a">📅 Schedule</a>
     <a href="/kpi" class="nav-link">📊 KPI</a>
     <a href="/maintenance" class="nav-link" style="color:#e8a838;border-color:#6a4a1a">🔧 Maintenance</a>
   </div>
@@ -3168,7 +3178,6 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
 .co-badge{display:inline-block;background:#e8a838;color:#000;font-size:.7em;font-weight:800;padding:0 4px;border-radius:2px;margin-left:4px}
 .pri-badge{font-size:.7em;font-weight:800;padding:0 4px;border-radius:2px;margin-left:4px}
 .pri-badge.p1{background:#ff4444;color:#fff}.pri-badge.p2{background:#e8a838;color:#000}
-.wcmon{background:#7b5ea7;color:#fff;font-size:.7em;padding:0 4px;border-radius:2px;margin-left:3px}
 .lock-icon{font-size:.9em;margin-right:3px}
 .toast{position:fixed;bottom:20px;right:20px;background:#1e2a3a;border:1px solid #4db8b8;color:#fff;padding:10px 16px;border-radius:6px;font-size:.85em;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
 .toast.show{opacity:1}
