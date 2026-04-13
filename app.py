@@ -32,6 +32,7 @@ SCHEDULE_FILE        = '/tmp/schedule_data.json'
 # ── Status → Stage mapping ─────────────────────────────────────────────────────
 STATUS_MAP = {
     'Mold':'molds','Waiting on Creation/Mold':'molds','Scan':'molds',
+    'Sculpt':'molds',
     'Waiting on Production':'creation','Print/Cast':'creation',
     'Print Surfacing':'creation','Mn Print':'creation',
     'Pull':'waxpull','Mn Pull':'waxpull',
@@ -474,10 +475,25 @@ table.wdt tr:hover td{background:#1e2130}
         <button class="wdbtn" id="wdsortval">Sort: Value ↓</button>
         <button class="wdbtn" id="wdsortname">Sort: Name</button>
         <button class="wdbtn" id="wdsortpri">Sort: Priority</button>
+        <button id="wdselall" style="background:#1e3a2a;border-color:#3a6a4a;color:#5ae8a8;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;cursor:pointer">☐ Select All</button>
+        <button id="wdaddweek" style="display:none;background:#1e2a3a;border-color:#3a6a4a;color:#4db8b8;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;cursor:pointer">📅 Add to Week (0)</button>
         <button id="wdback">← Back to All</button>
       </div>
     </div>
     <div id="wdtable"></div>
+  </div>
+</div>
+
+<!-- Week Picker Modal -->
+<div id="weekPickerBg" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.85);align-items:center;justify-content:center">
+  <div style="background:#1a1d27;border:1px solid #2a2d3a;border-radius:12px;padding:24px 28px;min-width:340px;max-width:420px">
+    <h3 id="wpTitle" style="color:#4db8b8;font-size:1.1em;margin-bottom:14px">Add to Week</h3>
+    <p id="wpDesc" style="color:#999;font-size:.88em;margin-bottom:14px">Select a week to schedule these items</p>
+    <select id="wpWeekSelect" style="width:100%;padding:10px;background:#0f1117;border:1px solid #3a4a6a;color:#e8e8e8;border-radius:6px;font-size:.95em;margin-bottom:16px"></select>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="closeWeekPicker()" style="padding:8px 16px;background:#2a2d3a;border:1px solid #3a4a6a;color:#999;border-radius:6px;cursor:pointer;font-size:.9em">Cancel</button>
+      <button onclick="confirmWeekPicker()" style="padding:8px 16px;background:#1e3a2a;border:1px solid #3a6a4a;color:#5ae8a8;border-radius:6px;cursor:pointer;font-weight:700;font-size:.9em">📅 Add to Week</button>
+    </div>
   </div>
 </div>
 
@@ -731,10 +747,13 @@ function renderBoard(){
               ${dl?`<span class="wcdue ${dl.c}">${dl.t}</span>`:''}
               ${item.price?`<span class="wcprice">${fmt(item.price)}</span>`:''}
             </div>
-            <div class="wc-progress" style="margin-top:4px">
-              <div style="height:4px;background:#2a2d3a;border-radius:2px;overflow:hidden">
-                <div style="width:${stagePct(item)}%;height:100%;background:${stagePct(item)>=100?'#5a9e5a':stagePct(item)>=50?'#e8a838':'#8b9dc3'};border-radius:2px;transition:width .3s"></div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+              <div class="wc-progress" style="flex:1">
+                <div style="height:4px;background:#2a2d3a;border-radius:2px;overflow:hidden">
+                  <div style="width:${stagePct(item)}%;height:100%;background:${stagePct(item)>=100?'#5a9e5a':stagePct(item)>=50?'#e8a838':'#8b9dc3'};border-radius:2px;transition:width .3s"></div>
+                </div>
               </div>
+              ${!_scheduleData[item.job]||!_scheduleData[item.job].week?`<button onclick="addOneToWeek('${item.job}',event)" style="padding:1px 5px;background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;border-radius:3px;cursor:pointer;font-size:.65em;white-space:nowrap">\u{1F4C5}</button>`:''}
             </div>
           </div>`;
         }).join('')}
@@ -856,6 +875,10 @@ function sortItems(items){
 
 function openDrill(stageKey,stageName,stageColor){
   _drillStage=stageKey;
+  _drillSelected.clear();
+  _allSelectMode=false;
+  document.getElementById('wdselall').textContent='\u2610 Select All';
+  document.getElementById('wdaddweek').style.display='none';
   const hasTier=TIER_STAGES.includes(stageKey);
   document.getElementById('wdsorttier').style.display=hasTier?'':'none';
   _drillSort=hasTier?'tier':'due';
@@ -899,24 +922,28 @@ function renderDrillMetal(q){
   function smallTable(items){
     if(!items.length)return'<p style="color:#555;font-size:.8em;padding:8px 0">No items.</p>';
     return stgSummaryBar(items,'#8b9dc3')+
-    `<table class="wdt"><thead><tr><th>Priority</th><th>Piece #</th><th>Description</th><th>Client</th><th>Edition</th><th>Due Date</th><th>Value</th><th>Hrs Bid</th><th>Progress</th><th></th></tr></thead><tbody>`+
+    `<table class="wdt"><thead><tr><th style="width:30px"></th><th>Priority</th><th>Piece #</th><th>Description</th><th>Client</th><th>Edition</th><th>Due Date</th><th>Value</th><th>Hrs Bid</th><th>Progress</th><th></th><th>Schedule</th></tr></thead><tbody>`+
     items.map(item=>{
       const dl=dueLabel(item.due);
       const h=(item.hMetal||0)+(item.hPolish||0);
       const isDone=stagePct(item)>=100;
       const tierBadge=item.tier!=null?`<br><span class="tdtier t${item.tier}">TIER ${item.tier}</span>`:'';
       const pri=getPri(item.job);
+      const isSel=_drillSelected.has(item.job);
+      const hasSched=_scheduleData[item.job]&&_scheduleData[item.job].week;
       return`<tr style="${pri===1?'background:#1a0f0f':pri===2?'background:#1a160f':''}">
+        <td><span class="drill-cb" data-job="${item.job}" onclick="toggleDrillSelect('${item.job}')" style="cursor:pointer;font-size:1.2em;color:${isSel?'#5ae8a8':'#555'}">${isSel?'\u2611':'\u2610'}</span></td>
         <td>${priBtns(item.job)}</td>
         <td style="color:#888">#${item.job}${tierBadge}</td>
-        <td><strong>${item.name||'—'}</strong><br><small style="color:#666">${item.status||''}</small></td>
-        <td>${item.customer||'—'}</td>
+        <td><strong>${item.name||'\u2014'}</strong><br><small style="color:#666">${item.status||''}</small></td>
+        <td>${item.customer||'\u2014'}</td>
         <td style="color:#888">${item.edition?'Ed.'+item.edition:''}</td>
-        <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">—</span>'}</td>
+        <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">\u2014</span>'}</td>
         <td class="tdval">${fmt(item.price)}</td>
         <td class="tdhrs">${h>0?h.toFixed(2)+' hrs':''}</td>
         <td>${stgPctBar(item)}</td>
-        <td><button class="btn-complete${isDone?' done':''}" onclick="event.stopPropagation();setStgPct('${item.job}',${isDone?0:100})">${isDone?'✓ Done':'✓'}</button></td>
+        <td><button class="btn-complete${isDone?' done':''}" onclick="event.stopPropagation();setStgPct('${item.job}',${isDone?0:100})">${isDone?'\u2713 Done':'\u2713'}</button></td>
+        <td><button onclick="addOneToWeek('${item.job}',event)" style="padding:3px 8px;background:${hasSched?'#1e3a2a':'#1e2a3a'};border:1px solid ${hasSched?'#3a6a4a':'#3a4a6a'};color:${hasSched?'#5ae8a8':'#4db8b8'};border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">${hasSched?'\u2713 Scheduled':'\u{1F4C5} Add to Week'}</button></td>
       </tr>`;
     }).join('')+'</tbody></table>';
   }
@@ -967,22 +994,26 @@ function renderDrillMetal(q){
       </div>
     </div>`;
     return summaryBar+
-    `<table class="wdt"><thead><tr><th>Priority</th><th>Piece #</th><th>Description</th><th>Client</th><th>Edition</th><th>Due Date</th><th>Value</th><th>Hrs Bid</th><th>Progress</th></tr></thead><tbody>`+
+    `<table class="wdt"><thead><tr><th style="width:30px"></th><th>Priority</th><th>Piece #</th><th>Description</th><th>Client</th><th>Edition</th><th>Due Date</th><th>Value</th><th>Hrs Bid</th><th>Progress</th><th>Schedule</th></tr></thead><tbody>`+
     items.map(item=>{
       const dl=dueLabel(item.due);
       const h=(item.hMetal||0)+(item.hPolish||0);
       const tierBadge=item.tier!=null?`<br><span class="tdtier t${item.tier}">TIER ${item.tier}</span>`:'';
       const pri=getPri(item.job);
+      const isSel=_drillSelected.has(item.job);
+      const hasSched=_scheduleData[item.job]&&_scheduleData[item.job].week;
       return`<tr style="${pri===1?'background:#1a0f0f':pri===2?'background:#1a160f':''}">
+        <td><span class="drill-cb" data-job="${item.job}" onclick="toggleDrillSelect('${item.job}')" style="cursor:pointer;font-size:1.2em;color:${isSel?'#5ae8a8':'#555'}">${isSel?'\u2611':'\u2610'}</span></td>
         <td>${priBtns(item.job)}</td>
         <td style="color:#888">#${item.job}${tierBadge}</td>
-        <td><strong>${item.name||'—'}</strong><span class="tdmon">MON</span><br><small style="color:#666">${item.status||''}</small></td>
-        <td>${item.customer||'—'}</td>
+        <td><strong>${item.name||'\u2014'}</strong><span class="tdmon">MON</span><br><small style="color:#666">${item.status||''}</small></td>
+        <td>${item.customer||'\u2014'}</td>
         <td style="color:#888">${item.edition?'Ed.'+item.edition:''}</td>
-        <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">—</span>'}</td>
+        <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">\u2014</span>'}</td>
         <td class="tdval">${fmt(item.price)}</td>
         <td class="tdhrs">${(()=>{if(!h)return'';const pct=metalPct(item);const dh=h*(pct/100);const rh=h-dh;return`<div style="color:#ffd580;font-weight:700">${h.toFixed(1)} bid</div><div style="color:#5a9e5a;font-size:.82em">${dh.toFixed(1)} done</div><div style="color:#e8a838;font-size:.82em">${rh.toFixed(1)} left</div>`;})()}</td>
         <td>${pctBars(item)}</td>
+        <td><button onclick="addOneToWeek('${item.job}',event)" style="padding:3px 8px;background:${hasSched?'#1e3a2a':'#1e2a3a'};border:1px solid ${hasSched?'#3a6a4a':'#3a4a6a'};color:${hasSched?'#5ae8a8':'#4db8b8'};border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">${hasSched?'\u2713 Scheduled':'\u{1F4C5} Add to Week'}</button></td>
       </tr>`;
     }).join('')+'</tbody></table>';
   }
@@ -1017,24 +1048,28 @@ function renderDrillSprue(q){
   function smallTable(items){
     if(!items.length)return'<p style="color:#555;font-size:.8em;padding:8px 0">No items.</p>';
     return stgSummaryBar(items,'#d4763b')+
-    `<table class="wdt"><thead><tr><th>Priority</th><th>Piece #</th><th>Description</th><th>Client</th><th>Edition</th><th>Due Date</th><th>Value</th><th>Hrs Bid</th><th>Progress</th><th></th></tr></thead><tbody>`+
+    `<table class="wdt"><thead><tr><th style="width:30px"></th><th>Priority</th><th>Piece #</th><th>Description</th><th>Client</th><th>Edition</th><th>Due Date</th><th>Value</th><th>Hrs Bid</th><th>Progress</th><th></th><th>Schedule</th></tr></thead><tbody>`+
     items.map(item=>{
       const dl=dueLabel(item.due);
       const h=(item.hWax||0)+(item.hSprue||0);
       const isDone=stagePct(item)>=100;
       const tierBadge=item.tier!=null?`<br><span class="tdtier t${item.tier}">TIER ${item.tier}</span>`:'';
       const pri=getPri(item.job);
+      const isSel=_drillSelected.has(item.job);
+      const hasSched=_scheduleData[item.job]&&_scheduleData[item.job].week;
       return`<tr style="${pri===1?'background:#1a0f0f':pri===2?'background:#1a160f':''}">
+        <td><span class="drill-cb" data-job="${item.job}" onclick="toggleDrillSelect('${item.job}')" style="cursor:pointer;font-size:1.2em;color:${isSel?'#5ae8a8':'#555'}">${isSel?'\u2611':'\u2610'}</span></td>
         <td>${priBtns(item.job)}</td>
         <td style="color:#888">#${item.job}${tierBadge}</td>
-        <td><strong>${item.name||'—'}</strong><br><small style="color:#666">${item.status||''}</small></td>
-        <td>${item.customer||'—'}</td>
+        <td><strong>${item.name||'\u2014'}</strong><br><small style="color:#666">${item.status||''}</small></td>
+        <td>${item.customer||'\u2014'}</td>
         <td style="color:#888">${item.edition?'Ed.'+item.edition:''}</td>
-        <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">—</span>'}</td>
+        <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">\u2014</span>'}</td>
         <td class="tdval">${fmt(item.price)}</td>
         <td class="tdhrs">${h>0?h.toFixed(2)+' hrs':''}</td>
         <td>${stgPctBar(item)}</td>
-        <td><button class="btn-complete${isDone?' done':''}" onclick="event.stopPropagation();setStgPct('${item.job}',${isDone?0:100})">${isDone?'✓ Done':'✓'}</button></td>
+        <td><button class="btn-complete${isDone?' done':''}" onclick="event.stopPropagation();setStgPct('${item.job}',${isDone?0:100})">${isDone?'\u2713 Done':'\u2713'}</button></td>
+        <td><button onclick="addOneToWeek('${item.job}',event)" style="padding:3px 8px;background:${hasSched?'#1e3a2a':'#1e2a3a'};border:1px solid ${hasSched?'#3a6a4a':'#3a4a6a'};color:${hasSched?'#5ae8a8':'#4db8b8'};border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">${hasSched?'\u2713 Scheduled':'\u{1F4C5} Add to Week'}</button></td>
       </tr>`;
     }).join('')+'</tbody></table>';
   }
@@ -1084,30 +1119,34 @@ function renderDrillSprue(q){
       </div>
     </div>`;
     return summaryBar+
-    `<table class="wdt"><thead><tr><th>Priority</th><th>Piece #</th><th>Description</th><th>Client</th><th>Edition</th><th>Due Date</th><th>Value</th><th>Hrs Bid</th><th>Progress</th></tr></thead><tbody>`+
+    `<table class="wdt"><thead><tr><th style="width:30px"></th><th>Priority</th><th>Piece #</th><th>Description</th><th>Client</th><th>Edition</th><th>Due Date</th><th>Value</th><th>Hrs Bid</th><th>Progress</th><th>Schedule</th></tr></thead><tbody>`+
     items.map(item=>{
       const dl=dueLabel(item.due);
       const h=(item.hWax||0)+(item.hSprue||0);
       const tierBadge=item.tier!=null?`<br><span class="tdtier t${item.tier}">TIER ${item.tier}</span>`:'';
       const pri=getPri(item.job);
+      const isSel=_drillSelected.has(item.job);
+      const hasSched=_scheduleData[item.job]&&_scheduleData[item.job].week;
       return`<tr style="${pri===1?'background:#1a0f0f':pri===2?'background:#1a160f':''}">
+        <td><span class="drill-cb" data-job="${item.job}" onclick="toggleDrillSelect('${item.job}')" style="cursor:pointer;font-size:1.2em;color:${isSel?'#5ae8a8':'#555'}">${isSel?'\u2611':'\u2610'}</span></td>
         <td>${priBtns(item.job)}</td>
         <td style="color:#888">#${item.job}${tierBadge}</td>
-        <td><strong>${item.name||'—'}</strong><span class="tdmon">MON</span><br><small style="color:#666">${item.status||''}</small></td>
-        <td>${item.customer||'—'}</td>
+        <td><strong>${item.name||'\u2014'}</strong><span class="tdmon">MON</span><br><small style="color:#666">${item.status||''}</small></td>
+        <td>${item.customer||'\u2014'}</td>
         <td style="color:#888">${item.edition?'Ed.'+item.edition:''}</td>
-        <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">—</span>'}</td>
+        <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">\u2014</span>'}</td>
         <td class="tdval">${fmt(item.price)}</td>
         <td class="tdhrs">${(()=>{if(!h)return'';const pct=stagePct(item);const dh=h*(pct/100);const rh=h-dh;return`<div style="color:#ffd580;font-weight:700">${h.toFixed(1)} bid</div><div style="color:#5a9e5a;font-size:.82em">${dh.toFixed(1)} done</div><div style="color:#e8a838;font-size:.82em">${rh.toFixed(1)} left</div>`;})()}</td>
         <td>${stgPctBar(item)}</td>
+        <td><button onclick="addOneToWeek('${item.job}',event)" style="padding:3px 8px;background:${hasSched?'#1e3a2a':'#1e2a3a'};border:1px solid ${hasSched?'#3a6a4a':'#3a4a6a'};color:${hasSched?'#5ae8a8':'#4db8b8'};border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">${hasSched?'\u2713 Scheduled':'\u{1F4C5} Add to Week'}</button></td>
       </tr>`;
     }).join('')+'</tbody></table>';
   }
 
   document.getElementById('wdtable').innerHTML=
-    `<div class="metal-section-hdr"><h3 style="color:#d4763b">Small Sprue</h3><span class="metal-badge" style="background:#d4763b22;color:#d4763b">${small.length} items · ${fmt(small.reduce((a,i)=>a+(i.price||0),0))}</span></div>`+
+    `<div class="metal-section-hdr"><h3 style="color:#d4763b">Small Sprue</h3><span class="metal-badge" style="background:#d4763b22;color:#d4763b">${small.length} items \u00B7 ${fmt(small.reduce((a,i)=>a+(i.price||0),0))}</span></div>`+
     smallTable(small)+
-    `<div class="metal-section-hdr" style="margin-top:18px"><h3 style="color:#7b5ea7">Monument Sprue</h3><span class="metal-badge" style="background:#7b5ea722;color:#7b5ea7">${mon.length} items · ${fmt(mon.reduce((a,i)=>a+(i.price||0),0))}</span></div>`+
+    `<div class="metal-section-hdr" style="margin-top:18px"><h3 style="color:#7b5ea7">Monument Sprue</h3><span class="metal-badge" style="background:#7b5ea722;color:#7b5ea7">${mon.length} items \u00B7 ${fmt(mon.reduce((a,i)=>a+(i.price||0),0))}</span></div>`+
     monTable(mon);
 }
 
@@ -1140,24 +1179,28 @@ function renderDrill(){
   const stageColor=STAGES.find(s=>s.k===_drillStage)?.c||'#4db8b8';
   document.getElementById('wdtable').innerHTML=
     stgSummaryBar(items,stageColor)+
-    `<table class="wdt"><thead><tr><th>Priority</th><th>Piece #</th><th>Description</th><th>Client</th><th>Edition</th><th>Due Date</th><th>Value</th><th>Hrs Bid</th><th>Progress</th><th></th></tr></thead><tbody>`+
+    `<table class="wdt"><thead><tr><th style="width:30px"></th><th>Priority</th><th>Piece #</th><th>Description</th><th>Client</th><th>Edition</th><th>Due Date</th><th>Value</th><th>Hrs Bid</th><th>Progress</th><th></th><th>Schedule</th></tr></thead><tbody>`+
     items.map(item=>{
       const dl=dueLabel(item.due);
       const h=STAGE_HRS[_drillStage]?STAGE_HRS[_drillStage](item):0;
       const isDone=stagePct(item)>=100;
       const tierBadge=item.tier!=null?`<br><span class="tdtier t${item.tier}">TIER ${item.tier}</span>`:'';
       const pri=getPri(item.job);
+      const isSel=_drillSelected.has(item.job);
+      const hasSched=_scheduleData[item.job]&&_scheduleData[item.job].week;
       return`<tr style="${pri===1?'background:#1a0f0f':pri===2?'background:#1a160f':''}">
+        <td><span class="drill-cb" data-job="${item.job}" onclick="toggleDrillSelect('${item.job}')" style="cursor:pointer;font-size:1.2em;color:${isSel?'#5ae8a8':'#555'}">${isSel?'\u2611':'\u2610'}</span></td>
         <td>${priBtns(item.job)}</td>
         <td style="color:#888">#${item.job}${tierBadge}</td>
-        <td><strong>${item.name||'—'}</strong>${item.monument?'<span class="tdmon">MON</span>':''}<br><small style="color:#666">${item.status||''}</small></td>
-        <td>${item.customer||'—'}</td>
+        <td><strong>${item.name||'\u2014'}</strong>${item.monument?'<span class="tdmon">MON</span>':''}<br><small style="color:#666">${item.status||''}</small></td>
+        <td>${item.customer||'\u2014'}</td>
         <td style="color:#888">${item.edition?'Ed.'+item.edition:''}</td>
-        <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">—</span>'}</td>
+        <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">\u2014</span>'}</td>
         <td class="tdval">${fmt(item.price)}</td>
         <td class="tdhrs">${h>0?h.toFixed(2)+' hrs':''}</td>
         <td>${stgPctBar(item)}</td>
-        <td><button class="btn-complete${isDone?' done':''}" onclick="event.stopPropagation();setStgPct('${item.job}',${isDone?0:100})">${isDone?'✓ Done':'✓'}</button></td>
+        <td><button class="btn-complete${isDone?' done':''}" onclick="event.stopPropagation();setStgPct('${item.job}',${isDone?0:100})">${isDone?'\u2713 Done':'\u2713'}</button></td>
+        <td><button onclick="addOneToWeek('${item.job}',event)" style="padding:3px 8px;background:${hasSched?'#1e3a2a':'#1e2a3a'};border:1px solid ${hasSched?'#3a6a4a':'#3a4a6a'};color:${hasSched?'#5ae8a8':'#4db8b8'};border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">${hasSched?'\u2713 '+schedBadge(item.job)+'Scheduled':'\u{1F4C5} Add to Week'}</button></td>
       </tr>`;
     }).join('')+'</tbody></table>';
 }
@@ -1169,6 +1212,137 @@ function updateClock(){
     '<small>'+n.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+'</small>';
 }
 setInterval(updateClock,1000);updateClock();
+
+// ── Drill-down selection & Add to Week ──
+let _drillSelected = new Set();
+let _allSelectMode = false;
+
+function toggleDrillSelect(job) {
+  if (_drillSelected.has(job)) _drillSelected.delete(job);
+  else _drillSelected.add(job);
+  updateDrillSelectUI();
+}
+
+function updateDrillSelectUI() {
+  const count = _drillSelected.size;
+  const btn = document.getElementById('wdaddweek');
+  if (count > 0) {
+    btn.style.display = '';
+    btn.textContent = '\u{1F4C5} Add to Week (' + count + ')';
+  } else {
+    btn.style.display = 'none';
+  }
+  document.querySelectorAll('.drill-cb').forEach(cb => {
+    cb.textContent = _drillSelected.has(cb.dataset.job) ? '\u2611' : '\u2610';
+    cb.style.color = _drillSelected.has(cb.dataset.job) ? '#5ae8a8' : '#555';
+  });
+}
+
+document.getElementById('wdselall').onclick = function() {
+  _allSelectMode = !_allSelectMode;
+  if (_allSelectMode) {
+    document.querySelectorAll('.drill-cb').forEach(cb => _drillSelected.add(cb.dataset.job));
+    this.textContent = '\u2611 Deselect All';
+    this.style.color = '#5ae8a8';
+  } else {
+    _drillSelected.clear();
+    this.textContent = '\u2610 Select All';
+    this.style.color = '#5ae8a8';
+  }
+  updateDrillSelectUI();
+};
+
+document.getElementById('wdaddweek').onclick = function() {
+  if (!_drillSelected.size) return;
+  openWeekPicker(Array.from(_drillSelected));
+};
+
+function addWeeksW(base, n) {
+  const d = new Date(base);
+  d.setDate(d.getDate() + 7 * n);
+  return d.toISOString().slice(0, 10);
+}
+
+function weekLabelW(d) {
+  const dt = new Date(d + 'T00:00:00');
+  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function fmtWeekRangeW(monday) {
+  const start = new Date(monday + 'T00:00:00');
+  const end = new Date(start);
+  end.setDate(end.getDate() + 4);
+  return start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' - ' +
+         end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+let _weekPickerJobs = [];
+
+function openWeekPicker(jobs) {
+  _weekPickerJobs = jobs;
+  const today = getMonday(new Date().toISOString().slice(0, 10));
+  const sel = document.getElementById('wpWeekSelect');
+  sel.innerHTML = '';
+  for (let i = 0; i < 12; i++) {
+    const w = addWeeksW(today, i);
+    const opt = document.createElement('option');
+    opt.value = w;
+    opt.textContent = (i === 0 ? 'THIS WEEK - ' : '') + weekLabelW(w) + ' (' + fmtWeekRangeW(w) + ')';
+    sel.appendChild(opt);
+  }
+  document.getElementById('wpTitle').textContent = 'Add ' + jobs.length + ' Item' + (jobs.length > 1 ? 's' : '') + ' to Week';
+  document.getElementById('wpDesc').textContent = 'Select a week to schedule these items for production';
+  document.getElementById('weekPickerBg').style.display = 'flex';
+}
+
+function closeWeekPicker() {
+  document.getElementById('weekPickerBg').style.display = 'none';
+  _weekPickerJobs = [];
+}
+
+function confirmWeekPicker() {
+  const week = document.getElementById('wpWeekSelect').value;
+  if (!week || !_weekPickerJobs.length) return;
+  fetch('/api/schedule/batch-assign', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jobs: _weekPickerJobs, week: week })
+  }).then(r => r.json()).then(d => {
+    if (d.ok) {
+      _weekPickerJobs.forEach(j => {
+        _scheduleData[j] = { week: week, carryover: false, original_week: null, done: false };
+      });
+      showToastW(_weekPickerJobs.length + ' item' + (_weekPickerJobs.length > 1 ? 's' : '') + ' added to week ' + weekLabelW(week));
+      _drillSelected.clear();
+      _allSelectMode = false;
+      document.getElementById('wdselall').textContent = '\u2610 Select All';
+      updateDrillSelectUI();
+      closeWeekPicker();
+      renderBoard();
+      if (_drillStage) renderDrill();
+    }
+  }).catch(e => console.error('Batch assign failed', e));
+}
+
+function showToastW(msg) {
+  let t = document.getElementById('wtoast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'wtoast';
+    t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e3a2a;color:#5ae8a8;border:1px solid #3a6a4a;padding:12px 24px;border-radius:8px;font-weight:700;font-size:.95em;z-index:300;transition:opacity .3s';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  t.style.display = 'block';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function(){ t.style.opacity = '0'; setTimeout(function(){ t.style.display = 'none'; }, 300); }, 3000);
+}
+
+function addOneToWeek(job, ev) {
+  if (ev) ev.stopPropagation();
+  openWeekPicker([job]);
+}
 
 function loadData(){
   fetch('/api/wip').then(r=>r.json()).then(d=>{
@@ -2478,18 +2652,51 @@ def dt_pending_done():
 
 @app.route('/api/push-wip', methods=['POST'])
 def push_wip():
+    """Accept WIP data. Supports batch mode:
+       - append=true: add to pending batch (no publish yet)
+       - finalize=true: publish the pending batch
+       - neither: replace cache immediately (legacy single-push)
+    """
     try:
         body = request.get_json(force=True)
         if body is None:
             return jsonify({'error': 'No JSON body'}), 400
-        raw = body.get('items', body) if isinstance(body, dict) else body
+        append   = False
+        finalize = False
+        if isinstance(body, dict):
+            append   = body.get('append', False)
+            finalize = body.get('finalize', False)
+            raw      = body.get('items', body) if not finalize else []
+        else:
+            raw = body
+
+        if finalize:
+            with _lock:
+                pending = getattr(push_wip, '_pending', [])
+                _cache['items']   = pending
+                _cache['error']   = None
+                _cache['updated'] = datetime.utcnow().isoformat() + 'Z'
+                count = len(pending)
+                push_wip._pending = []
+            log.info(f'Browser push finalized: {count} items total.')
+            return jsonify({'ok': True, 'items': count})
+
         items = transform_rows(raw)
-        with _lock:
-            _cache['items']   = items
-            _cache['error']   = None
-            _cache['updated'] = datetime.utcnow().isoformat() + 'Z'
-        log.info(f'Browser push received: {len(items)} items.')
-        return jsonify({'ok': True, 'items': len(items)})
+
+        if append:
+            with _lock:
+                if not hasattr(push_wip, '_pending'):
+                    push_wip._pending = []
+                push_wip._pending.extend(items)
+            log.info(f'Browser push batch appended: {len(items)} items (pending: {len(push_wip._pending)}).')
+            return jsonify({'ok': True, 'appended': len(items), 'pending': len(push_wip._pending)})
+        else:
+            with _lock:
+                _cache['items']   = items
+                _cache['error']   = None
+                _cache['updated'] = datetime.utcnow().isoformat() + 'Z'
+            log.info(f'Browser push received: {len(items)} items.')
+            return jsonify({'ok': True, 'items': len(items)})
     except Exception as e:
         log.error(f'Push failed: {e}')
         return jsonify({'error': str(e)}), 500
@@ -3944,6 +4151,49 @@ def schedule_mark_done():
         return jsonify({'ok': True, 'job': job, 'done': done})
     except Exception as e:
         log.error(f'Schedule mark-done failed: {e}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/schedule/wipe', methods=['POST'])
+def schedule_wipe():
+    """Wipe all schedule assignments and locked weeks."""
+    try:
+        with _lock:
+            _schedule_data['assignments'] = {}
+            _schedule_data['locked_weeks'] = []
+        _save_schedule()
+        log.info('Schedule: wiped all assignments and locked weeks.')
+        return jsonify({'ok': True})
+    except Exception as e:
+        log.error(f'Schedule wipe failed: {e}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/schedule/batch-assign', methods=['POST'])
+def schedule_batch_assign():
+    """Assign multiple jobs to a week at once.
+       Body: { jobs: ['123','456'], week: '2026-04-13' }
+    """
+    try:
+        body = request.get_json(force=True)
+        jobs = body.get('jobs', [])
+        week = str(body.get('week', '')).strip()
+        if not jobs or not week:
+            return jsonify({'error': 'missing jobs or week'}), 400
+        with _lock:
+            assignments = _schedule_data.setdefault('assignments', {})
+            for j in jobs:
+                j = str(j).strip()
+                existing = assignments.get(j, {})
+                assignments[j] = {
+                    'week': week,
+                    'carryover': existing.get('carryover', False),
+                    'original_week': existing.get('original_week'),
+                    'done': existing.get('done', False),
+                }
+        _save_schedule()
+        log.info(f'Schedule: batch assigned {len(jobs)} items to week={week}')
+        return jsonify({'ok': True, 'count': len(jobs), 'week': week})
+    except Exception as e:
+        log.error(f'Schedule batch-assign failed: {e}')
         return jsonify({'error': str(e)}), 500
 
 # ── Startup ────────────────────────────────────────────────────────────────────
