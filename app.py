@@ -485,15 +485,17 @@ table.wdt tr:hover td{background:#1e2130}
 </div>
 
 <!-- Week Picker Modal -->
-<div id="weekPickerBg" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.85);align-items:center;justify-content:center">
-  <div style="background:#1a1d27;border:1px solid #2a2d3a;border-radius:12px;padding:24px 28px;min-width:340px;max-width:420px">
-    <h3 id="wpTitle" style="color:#4db8b8;font-size:1.1em;margin-bottom:14px">Add to Week</h3>
-    <p id="wpDesc" style="color:#999;font-size:.88em;margin-bottom:14px">Select a week to schedule these items</p>
-    <select id="wpWeekSelect" style="width:100%;padding:10px;background:#0f1117;border:1px solid #3a4a6a;color:#e8e8e8;border-radius:6px;font-size:.95em;margin-bottom:16px"></select>
-    <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button onclick="closeWeekPicker()" style="padding:8px 16px;background:#2a2d3a;border:1px solid #3a4a6a;color:#999;border-radius:6px;cursor:pointer;font-size:.9em">Cancel</button>
-      <button onclick="confirmWeekPicker()" style="padding:8px 16px;background:#1e3a2a;border:1px solid #3a6a4a;color:#5ae8a8;border-radius:6px;cursor:pointer;font-weight:700;font-size:.9em">📅 Add to Week</button>
+<div id="weekPickerBg" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.82);align-items:center;justify-content:center">
+  <div style="position:relative;background:#1a1d27;border:1px solid #2a2d3a;border-radius:12px;padding:28px 32px;min-width:400px;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+    <h3 id="wpTitle" style="color:#fff;font-size:1.15em;font-weight:700;margin-bottom:6px">Schedule Items</h3>
+    <p id="wpDesc" style="color:#888;font-size:.85em;margin-bottom:20px">Choose when this work should be completed</p>
+    <div id="wpQuickPicks" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px"></div>
+    <div style="border-top:1px solid #2a2d3a;padding-top:14px;margin-top:4px">
+      <div style="font-size:.75em;color:#666;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Or choose a specific week</div>
+      <select id="wpWeekSelect" style="width:100%;padding:10px 12px;background:#0f1117;border:1px solid #2a2d3a;color:#e8e8e8;border-radius:6px;font-size:.88em;cursor:pointer"></select>
+      <button onclick="confirmWeekPicker()" style="width:100%;margin-top:10px;padding:10px;background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;border-radius:6px;cursor:pointer;font-weight:700;font-size:.88em;transition:all .15s" onmouseover="this.style.background='#2a3a4a'" onmouseout="this.style.background='#1e2a3a'">Schedule to Selected Week</button>
     </div>
+    <button onclick="closeWeekPicker()" style="position:absolute;top:12px;right:16px;background:none;border:none;color:#666;font-size:1.3em;cursor:pointer;padding:4px 8px;line-height:1" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#666'">&times;</button>
   </div>
 </div>
 
@@ -600,6 +602,13 @@ function setPct(job,pct){
   _metalOverrides[job]=pct;
   fetch('/api/metal-override',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job,pct})})
     .catch(e=>console.error('setPct failed:',e));
+  // Sync completion to schedule
+  const isDone=pct>=100;
+  if(_scheduleData[job]&&_scheduleData[job].week){
+    _scheduleData[job].done=isDone;
+    fetch('/api/schedule/mark-done',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({job,done:isDone})}).catch(e=>console.error('schedule sync failed:',e));
+  }
   renderDrill();
 }
 function pctBars(item){
@@ -640,6 +649,13 @@ function setStgPct(job,pct){
   _stageOverrides[job]=pct;
   fetch('/api/stage-override',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job,pct})})
     .catch(e=>console.error('setStgPct failed:',e));
+  // Sync completion to schedule: if marked 100% done, also mark schedule done
+  const isDone=pct>=100;
+  if(_scheduleData[job]&&_scheduleData[job].week){
+    _scheduleData[job].done=isDone;
+    fetch('/api/schedule/mark-done',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({job,done:isDone})}).catch(e=>console.error('schedule sync failed:',e));
+  }
   renderDrill();
   renderBoard();
 }
@@ -753,7 +769,7 @@ function renderBoard(){
                   <div style="width:${stagePct(item)}%;height:100%;background:${stagePct(item)>=100?'#5a9e5a':stagePct(item)>=50?'#e8a838':'#8b9dc3'};border-radius:2px;transition:width .3s"></div>
                 </div>
               </div>
-              ${!_scheduleData[item.job]||!_scheduleData[item.job].week?`<button onclick="addOneToWeek('${item.job}',event)" style="padding:1px 5px;background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;border-radius:3px;cursor:pointer;font-size:.65em;white-space:nowrap">\u{1F4C5}</button>`:''}
+              ${_scheduleData[item.job]&&_scheduleData[item.job].week?'':'<button onclick="addOneToWeek(\''+item.job+'\',event)" style="padding:1px 6px;background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;border-radius:3px;cursor:pointer;font-size:.62em;white-space:nowrap;font-weight:600;letter-spacing:.3px">SCHED</button>'}
             </div>
           </div>`;
         }).join('')}
@@ -943,7 +959,7 @@ function renderDrillMetal(q){
         <td class="tdhrs">${h>0?h.toFixed(2)+' hrs':''}</td>
         <td>${stgPctBar(item)}</td>
         <td><button class="btn-complete${isDone?' done':''}" onclick="event.stopPropagation();setStgPct('${item.job}',${isDone?0:100})">${isDone?'\u2713 Done':'\u2713'}</button></td>
-        <td><button onclick="addOneToWeek('${item.job}',event)" style="padding:3px 8px;background:${hasSched?'#1e3a2a':'#1e2a3a'};border:1px solid ${hasSched?'#3a6a4a':'#3a4a6a'};color:${hasSched?'#5ae8a8':'#4db8b8'};border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">${hasSched?'\u2713 Scheduled':'\u{1F4C5} Add to Week'}</button></td>
+        <td><button onclick="addOneToWeek('${item.job}',event)" style="padding:3px 8px;background:${hasSched?'#1e3a2a':'#1e2a3a'};border:1px solid ${hasSched?'#3a6a4a':'#3a4a6a'};color:${hasSched?'#5ae8a8':'#4db8b8'};border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">${hasSched?'\u2713 Scheduled':'Schedule'}</button></td>
       </tr>`;
     }).join('')+'</tbody></table>';
   }
@@ -1013,7 +1029,7 @@ function renderDrillMetal(q){
         <td class="tdval">${fmt(item.price)}</td>
         <td class="tdhrs">${(()=>{if(!h)return'';const pct=metalPct(item);const dh=h*(pct/100);const rh=h-dh;return`<div style="color:#ffd580;font-weight:700">${h.toFixed(1)} bid</div><div style="color:#5a9e5a;font-size:.82em">${dh.toFixed(1)} done</div><div style="color:#e8a838;font-size:.82em">${rh.toFixed(1)} left</div>`;})()}</td>
         <td>${pctBars(item)}</td>
-        <td><button onclick="addOneToWeek('${item.job}',event)" style="padding:3px 8px;background:${hasSched?'#1e3a2a':'#1e2a3a'};border:1px solid ${hasSched?'#3a6a4a':'#3a4a6a'};color:${hasSched?'#5ae8a8':'#4db8b8'};border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">${hasSched?'\u2713 Scheduled':'\u{1F4C5} Add to Week'}</button></td>
+        <td><button onclick="addOneToWeek('${item.job}',event)" style="padding:3px 8px;background:${hasSched?'#1e3a2a':'#1e2a3a'};border:1px solid ${hasSched?'#3a6a4a':'#3a4a6a'};color:${hasSched?'#5ae8a8':'#4db8b8'};border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">${hasSched?'\u2713 Scheduled':'Schedule'}</button></td>
       </tr>`;
     }).join('')+'</tbody></table>';
   }
@@ -1069,7 +1085,7 @@ function renderDrillSprue(q){
         <td class="tdhrs">${h>0?h.toFixed(2)+' hrs':''}</td>
         <td>${stgPctBar(item)}</td>
         <td><button class="btn-complete${isDone?' done':''}" onclick="event.stopPropagation();setStgPct('${item.job}',${isDone?0:100})">${isDone?'\u2713 Done':'\u2713'}</button></td>
-        <td><button onclick="addOneToWeek('${item.job}',event)" style="padding:3px 8px;background:${hasSched?'#1e3a2a':'#1e2a3a'};border:1px solid ${hasSched?'#3a6a4a':'#3a4a6a'};color:${hasSched?'#5ae8a8':'#4db8b8'};border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">${hasSched?'\u2713 Scheduled':'\u{1F4C5} Add to Week'}</button></td>
+        <td><button onclick="addOneToWeek('${item.job}',event)" style="padding:3px 8px;background:${hasSched?'#1e3a2a':'#1e2a3a'};border:1px solid ${hasSched?'#3a6a4a':'#3a4a6a'};color:${hasSched?'#5ae8a8':'#4db8b8'};border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">${hasSched?'\u2713 Scheduled':'Schedule'}</button></td>
       </tr>`;
     }).join('')+'</tbody></table>';
   }
@@ -1138,7 +1154,7 @@ function renderDrillSprue(q){
         <td class="tdval">${fmt(item.price)}</td>
         <td class="tdhrs">${(()=>{if(!h)return'';const pct=stagePct(item);const dh=h*(pct/100);const rh=h-dh;return`<div style="color:#ffd580;font-weight:700">${h.toFixed(1)} bid</div><div style="color:#5a9e5a;font-size:.82em">${dh.toFixed(1)} done</div><div style="color:#e8a838;font-size:.82em">${rh.toFixed(1)} left</div>`;})()}</td>
         <td>${stgPctBar(item)}</td>
-        <td><button onclick="addOneToWeek('${item.job}',event)" style="padding:3px 8px;background:${hasSched?'#1e3a2a':'#1e2a3a'};border:1px solid ${hasSched?'#3a6a4a':'#3a4a6a'};color:${hasSched?'#5ae8a8':'#4db8b8'};border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">${hasSched?'\u2713 Scheduled':'\u{1F4C5} Add to Week'}</button></td>
+        <td><button onclick="addOneToWeek('${item.job}',event)" style="padding:3px 8px;background:${hasSched?'#1e3a2a':'#1e2a3a'};border:1px solid ${hasSched?'#3a6a4a':'#3a4a6a'};color:${hasSched?'#5ae8a8':'#4db8b8'};border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">${hasSched?'\u2713 Scheduled':'Schedule'}</button></td>
       </tr>`;
     }).join('')+'</tbody></table>';
   }
@@ -1281,18 +1297,42 @@ let _weekPickerJobs = [];
 function openWeekPicker(jobs) {
   _weekPickerJobs = jobs;
   const today = getMonday(new Date().toISOString().slice(0, 10));
+  const n = jobs.length;
+  document.getElementById('wpTitle').textContent = 'Schedule ' + n + ' Item' + (n > 1 ? 's' : '');
+  document.getElementById('wpDesc').textContent = 'Choose when ' + (n > 1 ? 'these items' : 'this item') + ' should be completed';
+
+  // Quick pick buttons: This Week, Next Week, +2 Weeks
+  const qp = document.getElementById('wpQuickPicks');
+  const picks = [
+    { offset: 0, label: 'This Week', desc: fmtWeekRangeW(today), icon: '\u25CF', color: '#4db8b8', bg: '#1e2a3a', border: '#3a5a6a' },
+    { offset: 1, label: 'Next Week', desc: fmtWeekRangeW(addWeeksW(today, 1)), icon: '\u25B6', color: '#5ae8a8', bg: '#1e3a2a', border: '#3a6a4a' },
+    { offset: 2, label: 'Week After Next', desc: fmtWeekRangeW(addWeeksW(today, 2)), icon: '\u25B6\u25B6', color: '#e8a838', bg: '#2a2a1a', border: '#5a5a3a' }
+  ];
+  qp.innerHTML = picks.map(function(p) {
+    const w = addWeeksW(today, p.offset);
+    return '<button onclick="quickPickWeek(\'' + w + '\')" style="display:flex;align-items:center;gap:12px;width:100%;padding:12px 16px;background:' + p.bg + ';border:1px solid ' + p.border + ';border-radius:8px;cursor:pointer;transition:all .15s;text-align:left" onmouseover="this.style.transform=\'translateX(4px)\';this.style.borderColor=\'' + p.color + '\'" onmouseout="this.style.transform=\'none\';this.style.borderColor=\'' + p.border + '\'">' +
+      '<span style="font-size:1.1em;color:' + p.color + '">' + p.icon + '</span>' +
+      '<span style="flex:1"><span style="color:#fff;font-weight:700;font-size:.92em">' + p.label + '</span><br><span style="color:#888;font-size:.78em">' + p.desc + '</span></span>' +
+      '<span style="color:' + p.color + ';font-size:.78em;font-weight:600">' + weekLabelW(w) + '</span>' +
+    '</button>';
+  }).join('');
+
+  // Additional weeks in dropdown
   const sel = document.getElementById('wpWeekSelect');
   sel.innerHTML = '';
-  for (let i = 0; i < 12; i++) {
-    const w = addWeeksW(today, i);
-    const opt = document.createElement('option');
+  for (var i = 3; i < 12; i++) {
+    var w = addWeeksW(today, i);
+    var opt = document.createElement('option');
     opt.value = w;
-    opt.textContent = (i === 0 ? 'THIS WEEK - ' : '') + weekLabelW(w) + ' (' + fmtWeekRangeW(w) + ')';
+    opt.textContent = weekLabelW(w) + ' (' + fmtWeekRangeW(w) + ')';
     sel.appendChild(opt);
   }
-  document.getElementById('wpTitle').textContent = 'Add ' + jobs.length + ' Item' + (jobs.length > 1 ? 's' : '') + ' to Week';
-  document.getElementById('wpDesc').textContent = 'Select a week to schedule these items for production';
   document.getElementById('weekPickerBg').style.display = 'flex';
+}
+
+function quickPickWeek(week) {
+  if (!_weekPickerJobs.length) return;
+  doWeekAssign(_weekPickerJobs, week);
 }
 
 function closeWeekPicker() {
@@ -1303,19 +1343,24 @@ function closeWeekPicker() {
 function confirmWeekPicker() {
   const week = document.getElementById('wpWeekSelect').value;
   if (!week || !_weekPickerJobs.length) return;
+  doWeekAssign(_weekPickerJobs, week);
+}
+
+function doWeekAssign(jobs, week) {
   fetch('/api/schedule/batch-assign', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jobs: _weekPickerJobs, week: week })
+    body: JSON.stringify({ jobs: jobs, week: week })
   }).then(r => r.json()).then(d => {
     if (d.ok) {
-      _weekPickerJobs.forEach(j => {
+      jobs.forEach(j => {
         _scheduleData[j] = { week: week, carryover: false, original_week: null, done: false };
       });
-      showToastW(_weekPickerJobs.length + ' item' + (_weekPickerJobs.length > 1 ? 's' : '') + ' added to week ' + weekLabelW(week));
+      showToastW(jobs.length + ' item' + (jobs.length > 1 ? 's' : '') + ' scheduled for ' + weekLabelW(week));
       _drillSelected.clear();
       _allSelectMode = false;
-      document.getElementById('wdselall').textContent = '\u2610 Select All';
+      var selBtn = document.getElementById('wdselall');
+      if (selBtn) selBtn.textContent = '\u2610 Select All';
       updateDrillSelectUI();
       closeWeekPicker();
       renderBoard();
@@ -3074,15 +3119,15 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
 .sstat{font-size:.82em;color:#aaa}.sstat strong{color:#fff;font-size:1.1em}
 .sstat.teal strong{color:#4db8b8}.sstat.red strong{color:#e05555}
 .sstat.gold strong{color:#e8a838}.sstat.green strong{color:#5a9e5a}
-.dept-grid{display:flex;gap:6px;padding:8px;overflow-x:auto;height:calc(100vh - 90px)}
-.dept-col{flex:1;min-width:220px;background:#1a1d27;border-radius:8px;display:flex;flex-direction:column;border:1px solid #2a2d3a;overflow:hidden}
+.dept-grid{display:flex;gap:6px;padding:8px;overflow-x:auto;overflow-y:visible;min-height:calc(100vh - 90px)}
+.dept-col{flex:1;min-width:220px;background:#1a1d27;border-radius:8px;display:flex;flex-direction:column;border:1px solid #2a2d3a;overflow:visible}
 .dept-hdr{padding:8px 10px 6px;text-align:center;border-radius:8px 8px 0 0;flex-shrink:0}
 .dept-label{font-size:.78em;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
 .dept-sub{font-size:.62em;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.4px}
 .dept-count{font-size:1.25em;font-weight:700;color:#fff;margin-top:2px}
 .dept-hrs{font-size:.76em;color:#ffd580;margin-top:2px;font-weight:600}
 .dept-val{font-size:.82em;color:rgba(255,255,255,.85);margin-top:1px}
-.dept-body{flex:1;overflow-y:auto;padding:5px;display:flex;flex-direction:column;gap:8px}
+.dept-body{flex:1;padding:5px;display:flex;flex-direction:column;gap:8px}
 .week-block{background:#141620;border-radius:6px;border:1px solid #2a2d3a;overflow:hidden;transition:border-color .15s}
 .week-block.current{border-color:#4db8b8}
 .week-block.locked{border-color:#5a9e5a;background:#0f1a0f}
@@ -3903,7 +3948,8 @@ function render(){
 
     let body='';
     weeks.forEach(w=>{
-      const wItems=deptItems.filter(i=>_assignments[i.job]&&_assignments[i.job].week===w);
+      const _wSeen=new Set();
+      const wItems=deptItems.filter(i=>{if(_wSeen.has(i.job))return false;if(!_assignments[i.job]||_assignments[i.job].week!==w)return false;_wSeen.add(i.job);return true;});
       if(!wItems.length&&w!==today&&w!==addWeeks(today,1))return;
       const isCurrent=w===today;
       const wLocked=isLocked(stg.k,w);
