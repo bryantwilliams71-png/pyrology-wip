@@ -321,17 +321,17 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 <title>Production Status Board — Pyrology</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'Segoe UI',Arial,sans-serif;overflow:hidden}
-#wtop{display:flex;align-items:center;justify-content:space-between;padding:6px 14px;background:#1a1d27;border-bottom:1px solid #2a2d3a}
+html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'Segoe UI',Arial,sans-serif;overflow-x:hidden;overflow-y:auto}
+#wtop{display:flex;align-items:center;justify-content:space-between;padding:6px 14px;background:#1a1d27;border-bottom:1px solid #2a2d3a;position:sticky;top:0;z-index:10}
 #wtop h1{font-size:1.3em;font-weight:700;letter-spacing:1px;color:#fff}
 #wtop h1 span{font-size:.65em;font-weight:400;color:#888;display:block;letter-spacing:.5px}
 #wclock{text-align:right;font-size:1.6em;font-weight:700;color:#4db8b8;line-height:1}
 #wclock small{font-size:.45em;font-weight:400;color:#888;display:block}
-#wstats{display:flex;gap:18px;padding:5px 14px;background:#141620;border-bottom:1px solid #2a2d3a;align-items:center;flex-wrap:wrap}
+#wstats{display:flex;gap:18px;padding:5px 14px;background:#141620;border-bottom:1px solid #2a2d3a;align-items:center;flex-wrap:wrap;position:sticky;top:52px;z-index:9}
 .wstat{font-size:.78em;color:#aaa}.wstat strong{color:#fff;font-size:1.1em}
 .wstat.green strong{color:#5a9e5a}.wstat.red strong{color:#e05555}
 .wstat.gold strong{color:#e8a838}.wstat.teal strong{color:#4db8b8}
-#wgrid{display:flex;gap:4px;padding:6px;overflow:hidden;height:calc(100vh - 96px)}
+#wgrid{display:flex;gap:4px;padding:6px;overflow-x:auto;overflow-y:hidden;height:calc(100vh - 96px)}
 .wcol{flex:1;min-width:0;background:#1a1d27;border-radius:6px;display:flex;flex-direction:column;border:1px solid #2a2d3a;cursor:pointer;transition:border-color .2s}
 .wcol:hover{border-color:#4db8b8}
 .wchdr{padding:7px 8px 5px;text-align:center;border-radius:6px 6px 0 0;flex-shrink:0}
@@ -340,7 +340,7 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
 .wccount{font-size:1.15em;font-weight:700;color:#fff;margin-top:2px}
 .wcval{font-size:.78em;color:rgba(255,255,255,.85);margin-top:1px}
 .wchrs{font-size:.72em;color:#ffd580;margin-top:2px;font-weight:600}
-.wcbody{flex:1;overflow:hidden;padding:4px;display:flex;flex-direction:column;gap:3px}
+.wcbody{flex:1;overflow-y:auto;padding:4px;display:flex;flex-direction:column;gap:3px}
 .wcard{background:#0f1117;border-radius:4px;padding:5px 6px;border-left:3px solid #333;font-size:.7em;flex-shrink:0}
 .wctitle{font-weight:600;color:#e8e8e8;line-height:1.2}
 .wclient{color:#888;font-size:.9em}
@@ -2857,52 +2857,52 @@ SCHEDULE_HTML = r"""<!DOCTYPE html>
 <title>Production Schedule — Pyrology</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'Segoe UI',Arial,sans-serif;overflow:hidden}
-.top-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:#1a1d27;border-bottom:1px solid #2a2d3a}
+html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'Segoe UI',Arial,sans-serif;overflow-x:hidden;overflow-y:auto}
+.top-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:#1a1d27;border-bottom:1px solid #2a2d3a;position:sticky;top:0;z-index:10}
 .top-bar h1{font-size:1.3em;font-weight:700;letter-spacing:1px;color:#fff}
 .top-bar h1 span{font-size:.65em;font-weight:400;color:#888;display:block;letter-spacing:.5px}
 .nav-links{display:flex;gap:8px;align-items:center}
 .nav-links a{display:inline-flex;align-items:center;gap:5px;background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;text-decoration:none;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;letter-spacing:.5px}
-.summary-bar{display:flex;gap:18px;padding:6px 16px;background:#141620;border-bottom:1px solid #2a2d3a;align-items:center;flex-wrap:wrap}
-.sstat{font-size:.78em;color:#aaa}.sstat strong{color:#fff;font-size:1.1em}
+.summary-bar{display:flex;gap:18px;padding:6px 16px;background:#141620;border-bottom:1px solid #2a2d3a;align-items:center;flex-wrap:wrap;position:sticky;top:52px;z-index:9}
+.sstat{font-size:.82em;color:#aaa}.sstat strong{color:#fff;font-size:1.1em}
 .sstat.teal strong{color:#4db8b8}.sstat.red strong{color:#e05555}
 .sstat.gold strong{color:#e8a838}.sstat.green strong{color:#5a9e5a}
-.dept-grid{display:flex;gap:4px;padding:6px;overflow-x:auto;height:calc(100vh - 90px)}
-.dept-col{flex:1;min-width:210px;background:#1a1d27;border-radius:6px;display:flex;flex-direction:column;border:1px solid #2a2d3a;overflow:hidden}
-.dept-hdr{padding:7px 8px 5px;text-align:center;border-radius:6px 6px 0 0;flex-shrink:0}
-.dept-label{font-size:.72em;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
-.dept-sub{font-size:.58em;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.4px}
-.dept-count{font-size:1.15em;font-weight:700;color:#fff;margin-top:2px}
-.dept-hrs{font-size:.72em;color:#ffd580;margin-top:2px;font-weight:600}
-.dept-val{font-size:.78em;color:rgba(255,255,255,.85);margin-top:1px}
-.dept-body{flex:1;overflow-y:auto;padding:4px;display:flex;flex-direction:column;gap:6px}
-.week-block{background:#141620;border-radius:5px;border:1px solid #2a2d3a;overflow:hidden;transition:border-color .15s}
+.dept-grid{display:flex;gap:6px;padding:8px;overflow-x:auto;height:calc(100vh - 90px)}
+.dept-col{flex:1;min-width:220px;background:#1a1d27;border-radius:8px;display:flex;flex-direction:column;border:1px solid #2a2d3a;overflow:hidden}
+.dept-hdr{padding:8px 10px 6px;text-align:center;border-radius:8px 8px 0 0;flex-shrink:0}
+.dept-label{font-size:.78em;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
+.dept-sub{font-size:.62em;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.4px}
+.dept-count{font-size:1.25em;font-weight:700;color:#fff;margin-top:2px}
+.dept-hrs{font-size:.76em;color:#ffd580;margin-top:2px;font-weight:600}
+.dept-val{font-size:.82em;color:rgba(255,255,255,.85);margin-top:1px}
+.dept-body{flex:1;overflow-y:auto;padding:5px;display:flex;flex-direction:column;gap:8px}
+.week-block{background:#141620;border-radius:6px;border:1px solid #2a2d3a;overflow:hidden;transition:border-color .15s}
 .week-block.current{border-color:#4db8b8}
 .week-block.locked{border-color:#5a9e5a;background:#0f1a0f}
 .week-block.drag-over{border-color:#e8a838!important;background:#1a1a10}
-.wb-hdr{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;cursor:pointer;user-select:none;font-size:.72em;font-weight:700}
+.wb-hdr{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;cursor:pointer;user-select:none;font-size:.78em;font-weight:700}
 .wb-hdr:hover{background:#1e2130}
 .wb-hdr .wlabel{color:#4db8b8}.wb-hdr .wdates{color:#888;font-weight:400;margin-left:4px}
 .wb-hdr .wstats{color:#aaa;font-weight:400}
 .wb-hdr .wstats strong{color:#fff}
 .locked .wb-hdr .wlabel{color:#5a9e5a}
-.wb-body{padding:3px;min-height:20px}
+.wb-body{padding:4px;min-height:20px}
 .wb-body.collapsed{display:none}
-.wb-actions{display:flex;gap:4px;padding:4px 6px;border-top:1px solid #1a1d27;align-items:center;justify-content:space-between}
-.scard{background:#0f1117;border-radius:4px;padding:5px 6px;margin-bottom:3px;border-left:3px solid #333;font-size:.7em;cursor:grab;transition:opacity .15s,transform .15s,background .1s}
+.wb-actions{display:flex;gap:4px;padding:5px 8px;border-top:1px solid #1a1d27;align-items:center;justify-content:space-between}
+.scard{background:#0f1117;border-radius:5px;padding:7px 8px;margin-bottom:4px;border-left:4px solid #333;font-size:.78em;cursor:grab;transition:opacity .15s,transform .15s,background .1s}
 .scard:hover{border-left-color:#4db8b8;background:#12141e}
 .scard.carry{border-left-color:#e8a838;background:#1a160f}
 .scard.dragging{opacity:.35;transform:scale(.95)}
 .scard.done-item{opacity:.45}
 .scard.selected{background:#1a2a3a!important;outline:2px solid #4db8b8;outline-offset:-1px}
 .locked .scard{cursor:pointer}
-.scard .s-title{font-weight:600;color:#e8e8e8;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.scard .s-meta{display:flex;gap:8px;color:#888;font-size:.9em;margin-top:2px;flex-wrap:wrap;align-items:center}
+.scard .s-title{font-weight:600;color:#e8e8e8;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:1em}
+.scard .s-meta{display:flex;gap:8px;color:#999;font-size:.9em;margin-top:3px;flex-wrap:wrap;align-items:center}
 .scard .s-hrs{color:#ffd580;font-weight:600}.scard .s-val{color:#4db8b8;font-weight:600}
-.scard .s-due{font-size:.85em;padding:1px 4px;border-radius:3px;background:#1e2230;color:#aaa}
+.scard .s-due{font-size:.88em;padding:2px 5px;border-radius:3px;background:#1e2230;color:#bbb}
 .scard .s-due.over{background:#3d1515;color:#ff6b6b}.scard .s-due.warn{background:#3d2e10;color:#ffaa44}
-.scard .s-actions{display:flex;gap:4px;margin-top:3px;align-items:center}
-.btn-sm{background:#2a2d3a;border:1px solid #3a3d4a;color:#aaa;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:.85em;font-weight:600;transition:all .15s}
+.scard .s-actions{display:flex;gap:5px;margin-top:4px;align-items:center}
+.btn-sm{background:#2a2d3a;border:1px solid #3a3d4a;color:#bbb;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:.88em;font-weight:600;transition:all .15s}
 .btn-sm:hover{background:#3a3d4a;color:#fff}
 .btn-sm.done.active{background:#5a9e5a;color:#fff}
 .btn-sm.rush{color:#e8a838}.btn-sm.rush:hover{background:#3d2e10;border-color:#e8a838}
@@ -3012,7 +3012,7 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
 <div class="top-bar">
   <div style="display:flex;align-items:center;gap:10px">
     <div style="font-size:1.6em">📅</div>
-    <h1>PRODUCTION SCHEDULE<span>Close Week (PIN) to Lock · Drag Items Between Open Weeks · Click to Select in Locked Weeks</span></h1>
+    <h1>PRODUCTION SCHEDULE<span>Click cards to select · Drag or batch-move between weeks · PIN to lock/unlock weeks</span></h1>
   </div>
   <div class="nav-links">
     <a href="/">🏭 Dashboard</a>
@@ -3132,11 +3132,8 @@ function metalPct(item){
 function stagePct(item){
   const o=_stageOverrides[item.job];
   if(o!==undefined)return o;
-  if(!item.stage)return 0;
-  const stages=['molds','creation','waxpull','waxchase','sprue','shell','metal','patina','base','ready'];
-  const idx=stages.indexOf(item.stage);
-  if(idx<0)return 0;
-  return Math.round((idx/8)*100);
+  // Default: 0% — completion is only tracked via explicit overrides
+  return 0;
 }
 function setPct(job,pct){
   _metalOverrides[job]=pct;
@@ -3453,9 +3450,7 @@ function requestMoveSelected(dept,week){
   const rd=realDeptKey(dept);
   const jobs=getSelectedInWeek(rd,week);
   if(!jobs.length)return;
-  _pendingAction={type:'move',dept:rd,week,jobs};
-  document.getElementById('modal-title').textContent='Move '+jobs.length+' Item'+(jobs.length>1?'s':'');
-  document.getElementById('modal-desc').textContent='Enter PIN to move from locked week';
+  const wLocked=isLocked(rd,week);
   // Build week target options
   const today=getMonday(new Date().toISOString().slice(0,10));
   let opts='';
@@ -3464,12 +3459,28 @@ function requestMoveSelected(dept,week){
     if(w===week)continue;
     opts+='<option value="'+w+'">'+weekLabel(w)+' ('+fmtWeekRange(w)+')</option>';
   }
-  document.getElementById('move-target').innerHTML=opts;
-  document.getElementById('move-target-wrap').style.display='block';
-  document.getElementById('pin-input').value='';
-  document.getElementById('pin-input').classList.remove('error');
-  document.getElementById('pin-modal').classList.add('active');
-  setTimeout(()=>document.getElementById('pin-input').focus(),100);
+  if(wLocked){
+    // Locked week: require PIN
+    _pendingAction={type:'move',dept:rd,week,jobs};
+    document.getElementById('modal-title').textContent='Move '+jobs.length+' Item'+(jobs.length>1?'s':'');
+    document.getElementById('modal-desc').textContent='Enter PIN to move from locked week';
+    document.getElementById('move-target').innerHTML=opts;
+    document.getElementById('move-target-wrap').style.display='block';
+    document.getElementById('pin-input').value='';
+    document.getElementById('pin-input').classList.remove('error');
+    document.getElementById('pin-modal').classList.add('active');
+    setTimeout(()=>document.getElementById('pin-input').focus(),100);
+  } else {
+    // Open week: show quick move dialog (no PIN needed)
+    _pendingAction={type:'quickmove',dept:rd,week,jobs};
+    document.getElementById('modal-title').textContent='Move '+jobs.length+' Item'+(jobs.length>1?'s':'');
+    document.getElementById('modal-desc').textContent='Select target week';
+    document.getElementById('move-target').innerHTML=opts;
+    document.getElementById('move-target-wrap').style.display='block';
+    document.getElementById('pin-input').value='';
+    document.getElementById('pin-input').style.display='none';
+    document.getElementById('pin-modal').classList.add('active');
+  }
 }
 
 // ========== LOCK / UNLOCK / MOVE ==========
@@ -3497,12 +3508,29 @@ function requestUnlock(dept,week){
 }
 function closeModal(){
   document.getElementById('pin-modal').classList.remove('active');
+  document.getElementById('pin-input').style.display='';
   _pendingAction=null;
 }
 function submitPin(){
   const pin=document.getElementById('pin-input').value;
   if(!_pendingAction)return closeModal();
   const {type,dept,week,jobs}=_pendingAction;
+
+  if(type==='quickmove'){
+    // Open-week batch move — no PIN needed, just reassign locally + server
+    const targetWeek=document.getElementById('move-target').value;
+    if(!targetWeek){showToast('Select a target week');return;}
+    jobs.forEach(j=>{
+      const a=_assignments[j]||{};
+      _assignments[j]={week:targetWeek,carryover:a.carryover||false,original_week:a.original_week||null,done:a.done||false,auto:false};
+      _selected.delete(j);
+      fetch('/api/schedule/assign',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({job:j,week:targetWeek})}).catch(e=>console.error('assign failed',e));
+    });
+    showToast('Moved '+jobs.length+' item'+(jobs.length>1?'s':'')+' → '+weekLabel(targetWeek));
+    closeModal();render();
+    return;
+  }
 
   if(type==='move'){
     const targetWeek=document.getElementById('move-target').value;
@@ -3712,17 +3740,15 @@ function render(){
             const isDone=a.done;
             const isSel=_selected.has(i.job);
             const canDrag=!wLocked;
-            // In locked weeks, click to select; in open weeks, drag
-            const clickHandler=wLocked?
-              'onclick="toggleSelect(\''+i.job+'\',event)"':
-              '';
+            // Click to select in ALL weeks; drag in open weeks
+            const clickHandler='onclick="toggleSelect(\''+i.job+'\',event)"';
             const dragHandler=canDrag?
               'draggable="true" ondragstart="onDragStart(event,\''+i.job+'\')" ondragend="onDragEnd(event)"':
               '';
             return '<div class="scard'+(isCarry?' carry':'')+(isDone?' done-item':'')+(isSel?' selected':'')+'" '+
               'data-job="'+i.job+'" '+dragHandler+' '+clickHandler+
               ' style="border-left-color:'+stg.c+'">'+
-              '<div class="s-title">'+(wLocked&&!isSel?'☐ ':'')+(wLocked&&isSel?'☑ ':'')+
+              '<div class="s-title">'+(!isSel?'☐ ':'☑ ')+
                 '#'+i.job+' '+i.name+
                 (i.monument?'<span class="wcmon">MON</span>':'')+
                 (isCarry?'<span class="co-badge">CARRY</span>':'')+priTag(i.job)+
@@ -3742,13 +3768,12 @@ function render(){
           }).join('')+
         '</div>'+
         '<div class="wb-actions">'+
+          '<span class="sel-move-wrap" data-dept="'+stg.k+'" data-week="'+w+'">'+
+            '<span class="sel-count"></span> '+
+            '<button class="btn-move" style="display:none" onclick="event.stopPropagation();requestMoveSelected(\''+stg.k+'\',\''+w+'\')">📦 Move Selected</button>'+
+          '</span>'+
           (wLocked?
-            '<span class="sel-move-wrap" data-dept="'+stg.k+'" data-week="'+w+'">'+
-              '<span class="sel-count"></span> '+
-              '<button class="btn-move" style="display:none" onclick="event.stopPropagation();requestMoveSelected(\''+stg.k+'\',\''+w+'\')">📦 Move Selected</button>'+
-            '</span>'+
             '<button class="btn-unlock" onclick="event.stopPropagation();requestUnlock(\''+stg.k+'\',\''+w+'\')">🔓 Reopen</button>':
-            '<span></span>'+
             '<button class="btn-lock" onclick="event.stopPropagation();requestLock(\''+stg.k+'\',\''+w+'\')">🔒 Close Week</button>')+
         '</div>'+
       '</div>';
