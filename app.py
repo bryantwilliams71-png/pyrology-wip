@@ -35,7 +35,7 @@ STATUS_MAP = {
     'Waiting on Production':'creation','Print/Cast':'creation',
     'Print Surfacing':'creation','Mn Print':'creation',
     'Pull':'waxpull','Mn Pull':'waxpull',
-    'Sm Chase':'waxchase','Sm Sprue':'waxchase',
+    'Sm Chase':'waxchase','Sm Sprue':'sprue','Mn Chase/Sprue':'sprue',
     'Shell Room/Pouryard':'shell',
     'Sm Metal':'metal','Mn Metal':'metal',
     'Patina':'patina',
@@ -52,7 +52,8 @@ _kpi_data           = {'week_start': '', 'entries': [], 'history': []}
 _maint_data         = {'requests': [], 'next_id': 1}
 _ship_data          = {'shipments': [], 'next_id': 1}
 _schedule_data      = {'assignments': {}, 'locked_weeks': []}  # job → {week:'YYYY-MM-DD', carryover:bool, original_week:'YYYY-MM-DD'}
-_dt_cookie          = ''
+_dt_pending         = []    # pending DithTracker sync moves [{id, pieceIds, statusId, created}]
+_dt_pending_id      = 0
 _lock            = threading.Lock()
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s  %(message)s', datefmt='%H:%M:%S')
@@ -485,7 +486,8 @@ const STAGES=[
   {k:'molds',   l:'Molds',          c:'#4a6fa5'},
   {k:'creation',l:'Creation',       c:'#7b5ea7'},
   {k:'waxpull', l:'Wax Pull',       c:'#e8a838'},
-  {k:'waxchase',l:'Wax Chase',      c:'#d4763b'},
+  {k:'waxchase',l:'Wax Chase',       c:'#d4763b'},
+  {k:'sprue',   l:'Sprue',          c:'#c97a3b', sub:'Small & Monument'},
   {k:'shell',   l:'Shell/Pouryard', c:'#5a9e6f'},
   {k:'metal',   l:'Metal Work',     c:'#8b9dc3', sub:'Small & Monument'},
   {k:'patina',  l:'Patina',         c:'#c45c8a'},
@@ -494,7 +496,8 @@ const STAGES=[
 ];
 const STAGE_HRS={
   waxpull: i=>i.hWaxPull||0,
-  waxchase:i=>(i.hWax||0)+(i.hSprue||0),
+  waxchase:i=>i.hWax||0,
+  sprue:   i=>i.hSprue||0,
   metal:   i=>(i.hMetal||0)+(i.hPolish||0),
   patina:  i=>i.hPatina||0,
   base:    i=>i.hBasing||0,
@@ -748,7 +751,7 @@ let _moveToolbarEl = null;
 
 // DithTracker status mapping for each Pyrology stage
 const DT_STATUS_MAP = {
-  molds: 18, creation: 47, waxpull: 2, waxchase: 55,
+  molds: 18, creation: 47, waxpull: 2, waxchase: 55, sprue: 56,
   shell: 78, metal: 62, patina: 79, base: 22, ready: 7
 };
 
@@ -802,8 +805,8 @@ function moveItems(jobs, targetStage){
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({jobs, targetStage, pieceIds, dtStatusId: DT_STATUS_MAP[targetStage] || 80})
   }).then(r => r.json()).then(d => {
-    if(d.dtSynced) showToast(jobs.length + ' item(s) moved & synced to DithTracker');
-    else showToast(jobs.length + ' item(s) moved locally' + (d.dtError ? ' (DT sync failed: ' + d.dtError + ')' : ''));
+    if(d.dtQueued) showToast(jobs.length + ' item(s) moved — DT sync queued (' + d.pendingCount + ' pending)');
+    else showToast(jobs.length + ' item(s) moved locally');
   }).catch(e => console.error('move failed', e));
   _selectedJobs.clear();
   updateMoveToolbar();
@@ -829,7 +832,7 @@ function updateMoveToolbar(){
     '<button class="btn-cancel" onclick="_selectedJobs.clear();document.querySelectorAll(\'.selected-for-move\').forEach(c=>c.classList.remove(\'selected-for-move\'));updateMoveToolbar()">Cancel</button>';
 }
 
-const TIER_STAGES=['waxpull','waxchase','metal','patina'];
+const TIER_STAGES=['waxpull','waxchase','sprue','metal','patina'];
 function sortItems(items){
   // Secondary sort first (stable)
   if(_drillSort==='tier'){
@@ -991,11 +994,133 @@ function renderDrillMetal(q){
     monTable(mon);
 }
 
+/* ── Wax Sprue special drill-down ── */
+function renderDrillSprue(q){
+  let all=_items.filter(i=>i.stage==='sprue');
+  if(q)all=all.filter(i=>(i.name+' '+i.customer+' '+i.job).toLowerCase().includes(q));
+
+  const small=sortItems(all.filter(i=>!i.monument));
+  const mon=sortItems(all.filter(i=>i.monument));
+
+  const totalVal=all.reduce((a,i)=>a+(i.price||0),0);
+  const totalHrs=all.reduce((a,i)=>a+(i.hWax||0)+(i.hSprue||0),0);
+  const over=all.filter(i=>{const d=daysDiff(i.due);return d!==null&&d<0;}).length;
+
+  document.getElementById('wdstats').innerHTML=
+    `<span>Items: <strong>${all.length}</strong></span>`+
+    `<span>Value: <strong style="color:#4db8b8">${fmt(totalVal)}</strong></span>`+
+    (totalHrs>0?`<span>Hrs Bid: <strong style="color:#ffd580">${fmtH(totalHrs)}</strong></span>`:'')+
+    `<span>Overdue: <strong style="color:#ff6b6b">${over}</strong></span>`+
+    `<span>Small: <strong>${small.length}</strong></span>`+
+    `<span>Monument: <strong style="color:#7b5ea7">${mon.length}</strong></span>`;
+
+  function smallTable(items){
+    if(!items.length)return'<p style="color:#555;font-size:.8em;padding:8px 0">No items.</p>';
+    return stgSummaryBar(items,'#d4763b')+
+    `<table class="wdt"><thead><tr><th>Priority</th><th>Piece #</th><th>Description</th><th>Client</th><th>Edition</th><th>Due Date</th><th>Value</th><th>Hrs Bid</th><th>Progress</th><th></th></tr></thead><tbody>`+
+    items.map(item=>{
+      const dl=dueLabel(item.due);
+      const h=(item.hWax||0)+(item.hSprue||0);
+      const isDone=stagePct(item)>=100;
+      const tierBadge=item.tier!=null?`<br><span class="tdtier t${item.tier}">TIER ${item.tier}</span>`:'';
+      const pri=getPri(item.job);
+      return`<tr style="${pri===1?'background:#1a0f0f':pri===2?'background:#1a160f':''}">
+        <td>${priBtns(item.job)}</td>
+        <td style="color:#888">#${item.job}${tierBadge}</td>
+        <td><strong>${item.name||'—'}</strong><br><small style="color:#666">${item.status||''}</small></td>
+        <td>${item.customer||'—'}</td>
+        <td style="color:#888">${item.edition?'Ed.'+item.edition:''}</td>
+        <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">—</span>'}</td>
+        <td class="tdval">${fmt(item.price)}</td>
+        <td class="tdhrs">${h>0?h.toFixed(2)+' hrs':''}</td>
+        <td>${stgPctBar(item)}</td>
+        <td><button class="btn-complete${isDone?' done':''}" onclick="event.stopPropagation();setStgPct('${item.job}',${isDone?0:100})">${isDone?'✓ Done':'✓'}</button></td>
+      </tr>`;
+    }).join('')+'</tbody></table>';
+  }
+
+  function monTable(items){
+    if(!items.length)return'<p style="color:#555;font-size:.8em;padding:8px 0">No items.</p>';
+    const monVal=items.reduce((a,i)=>a+(i.price||0),0);
+    const monDoneVal=items.reduce((a,i)=>a+(i.price||0)*(stagePct(i)/100),0);
+    const monRemVal=monVal-monDoneVal;
+    const avgPct=items.length?Math.round(items.reduce((a,i)=>a+stagePct(i),0)/items.length):0;
+    const monTotalHrs=items.reduce((a,i)=>a+(i.hWax||0)+(i.hSprue||0),0);
+    const monDoneHrs=items.reduce((a,i)=>{const h=(i.hWax||0)+(i.hSprue||0);return a+h*(stagePct(i)/100);},0);
+    const monRemHrs=monTotalHrs-monDoneHrs;
+    const summaryBar=`<div style="background:#12151f;border:1px solid #2a2d3a;border-radius:6px;padding:10px 14px;margin-bottom:10px;display:flex;gap:28px;align-items:center;flex-wrap:wrap">
+      <div>
+        <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.5px">Avg Completion</div>
+        <div style="font-size:1.4em;font-weight:700;color:#7b5ea7;margin-top:2px">${avgPct}%</div>
+        <div style="width:120px;height:8px;background:#2a2d3a;border-radius:4px;margin-top:4px;overflow:hidden">
+          <div style="width:${avgPct}%;height:100%;background:#7b5ea7;border-radius:4px"></div>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:.65em;color:#5a9e5a;text-transform:uppercase;letter-spacing:.5px">Value Completed</div>
+        <div style="font-size:1.1em;font-weight:700;color:#5a9e5a;margin-top:2px">${fmt(monDoneVal)}</div>
+      </div>
+      <div>
+        <div style="font-size:.65em;color:#e8a838;text-transform:uppercase;letter-spacing:.5px">Value Remaining</div>
+        <div style="font-size:1.1em;font-weight:700;color:#e8a838;margin-top:2px">${fmt(monRemVal)}</div>
+      </div>
+      <div>
+        <div style="font-size:.65em;color:#5a9e5a;text-transform:uppercase;letter-spacing:.5px">Hrs Completed</div>
+        <div style="font-size:1.1em;font-weight:700;color:#5a9e5a;margin-top:2px">${monDoneHrs.toFixed(1)} hrs</div>
+      </div>
+      <div>
+        <div style="font-size:.65em;color:#e8a838;text-transform:uppercase;letter-spacing:.5px">Hrs Remaining</div>
+        <div style="font-size:1.1em;font-weight:700;color:#e8a838;margin-top:2px">${monRemHrs.toFixed(1)} hrs</div>
+      </div>
+      <div style="flex:1;min-width:160px">
+        <div style="font-size:.65em;color:#888;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">Total Value Progress</div>
+        <div style="height:12px;background:#2a2d3a;border-radius:6px;overflow:hidden">
+          <div style="width:${Math.round(monDoneVal/Math.max(monVal,1)*100)}%;height:100%;background:linear-gradient(90deg,#5a9e5a,#4db8b8);border-radius:6px"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:3px">
+          <span style="font-size:.65em;color:#5a9e5a">${fmt(monDoneVal)} done</span>
+          <span style="font-size:.65em;color:#e8a838">${fmt(monRemVal)} left</span>
+        </div>
+      </div>
+    </div>`;
+    return summaryBar+
+    `<table class="wdt"><thead><tr><th>Priority</th><th>Piece #</th><th>Description</th><th>Client</th><th>Edition</th><th>Due Date</th><th>Value</th><th>Hrs Bid</th><th>Progress</th></tr></thead><tbody>`+
+    items.map(item=>{
+      const dl=dueLabel(item.due);
+      const h=(item.hWax||0)+(item.hSprue||0);
+      const tierBadge=item.tier!=null?`<br><span class="tdtier t${item.tier}">TIER ${item.tier}</span>`:'';
+      const pri=getPri(item.job);
+      return`<tr style="${pri===1?'background:#1a0f0f':pri===2?'background:#1a160f':''}">
+        <td>${priBtns(item.job)}</td>
+        <td style="color:#888">#${item.job}${tierBadge}</td>
+        <td><strong>${item.name||'—'}</strong><span class="tdmon">MON</span><br><small style="color:#666">${item.status||''}</small></td>
+        <td>${item.customer||'—'}</td>
+        <td style="color:#888">${item.edition?'Ed.'+item.edition:''}</td>
+        <td>${dl?`<span class="${dl.c==='over'?'tdover':dl.c==='warn'?'tdwarn':'tdok'}">${dl.t}</span>`:'<span style="color:#555">—</span>'}</td>
+        <td class="tdval">${fmt(item.price)}</td>
+        <td class="tdhrs">${(()=>{if(!h)return'';const pct=stagePct(item);const dh=h*(pct/100);const rh=h-dh;return`<div style="color:#ffd580;font-weight:700">${h.toFixed(1)} bid</div><div style="color:#5a9e5a;font-size:.82em">${dh.toFixed(1)} done</div><div style="color:#e8a838;font-size:.82em">${rh.toFixed(1)} left</div>`;})()}</td>
+        <td>${stgPctBar(item)}</td>
+      </tr>`;
+    }).join('')+'</tbody></table>';
+  }
+
+  document.getElementById('wdtable').innerHTML=
+    `<div class="metal-section-hdr"><h3 style="color:#d4763b">Small Sprue</h3><span class="metal-badge" style="background:#d4763b22;color:#d4763b">${small.length} items · ${fmt(small.reduce((a,i)=>a+(i.price||0),0))}</span></div>`+
+    smallTable(small)+
+    `<div class="metal-section-hdr" style="margin-top:18px"><h3 style="color:#7b5ea7">Monument Sprue</h3><span class="metal-badge" style="background:#7b5ea722;color:#7b5ea7">${mon.length} items · ${fmt(mon.reduce((a,i)=>a+(i.price||0),0))}</span></div>`+
+    monTable(mon);
+}
+
 function renderDrill(){
   const q=(document.getElementById('wdsearch').value||'').toLowerCase();
 
   if(_drillStage==='metal'){
     renderDrillMetal(q);
+    return;
+  }
+
+  if(_drillStage==='sprue'){
+    renderDrillSprue(q);
     return;
   }
 
@@ -1108,6 +1233,9 @@ table.ktbl tr:hover td{background:#1e2130}
 .ktdept{display:inline-block;font-size:.72em;font-weight:700;padding:2px 7px;border-radius:3px;text-transform:uppercase;letter-spacing:.4px}
 .kd-waxpull{background:#1a2a1a;color:#5a9e5a;border:1px solid #3a6a3a}
 .kd-waxchase{background:#2a1a2a;color:#c97ae8;border:1px solid #6a3a8a}
+.kd-sprue{background:#2a1f1a;color:#c97a3b;border:1px solid #8a5a2a}
+.kd-small_sprue{background:#2a1f1a;color:#c97a3b;border:1px solid #8a5a2a}
+.kd-monument_sprue{background:#3a1a4a;color:#c9a0f0;border:1px solid #7a4aaa}
 .kd-shell{background:#1a1a2a;color:#7aa8e8;border:1px solid #3a5a8a}
 .kd-small_metal{background:#2a2a1a;color:#d4924a;border:1px solid #8a5a2a}
 .kd-monument_metal{background:#3a1a4a;color:#c9a0f0;border:1px solid #7a4aaa}
@@ -1202,11 +1330,11 @@ table.ktbl tr:hover td{background:#1e2130}
 
 <script>
 const DEPT_LABELS = {
-  waxpull:'Wax Pull', waxchase:'Wax Chase', shell:'Shell Room',
-  small_metal:'Small Metal', monument_metal:'Monument Metal',
+  waxpull:'Wax Pull', waxchase:'Wax Chase', small_sprue:'Small Sprue', monument_sprue:'Monument Sprue',
+  shell:'Shell Room', small_metal:'Small Metal', monument_metal:'Monument Metal',
   patina:'Patina', base:'Base', ready:'Ready'
 };
-const DEPT_ORDER = ['waxpull','waxchase','shell','small_metal','monument_metal','patina','base','ready'];
+const DEPT_ORDER = ['waxpull','waxchase','small_sprue','monument_sprue','shell','small_metal','monument_metal','patina','base','ready'];
 
 function fmt(v){if(!v)return'$0';return'$'+Number(v).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});}
 
@@ -1520,6 +1648,7 @@ body{background:#0f1117;color:#e8e8e8;font-family:-apple-system,BlinkMacSystemFo
           <option value="">— Select —</option>
           <option value="Wax Pull">Wax Pull</option>
           <option value="Wax Chase">Wax Chase</option>
+          <option value="Sprue">Sprue</option>
           <option value="Shell Room">Shell Room</option>
           <option value="Small Metal">Small Metal</option>
           <option value="Monument Metal">Monument Metal</option>
@@ -2105,6 +2234,7 @@ def metal_override():
 
 @app.route('/api/move-items', methods=['POST'])
 def move_items():
+    global _dt_pending_id
     try:
         body = request.get_json(force=True)
         jobs = body.get('jobs', [])
@@ -2118,28 +2248,22 @@ def move_items():
                 if item['job'] in jobs:
                     item['stage'] = target_stage
 
-        # Try to sync to DithTracker
-        dt_synced = False
-        dt_error = None
-        if piece_ids and dt_status_id and _dt_cookie:
-            try:
-                resp = requests.post(
-                    'https://dithtracker-reporting.azurewebsites.net/api/piece/state/__bulk',
-                    json={'pieceIds': piece_ids, 'statusId': dt_status_id},
-                    cookies={'.AspNetCore.Session': _dt_cookie},
-                    headers={'User-Agent': 'Mozilla/5.0', 'Content-Type': 'application/json'},
-                    timeout=10
-                )
-                dt_synced = resp.status_code < 400
-                if not dt_synced:
-                    dt_error = f'HTTP {resp.status_code}'
-            except Exception as e:
-                dt_error = str(e)
-        elif not _dt_cookie:
-            dt_error = 'No DithTracker session cookie stored'
+        # Queue DithTracker sync
+        queued = False
+        if piece_ids and dt_status_id:
+            _dt_pending_id += 1
+            _dt_pending.append({
+                'id': _dt_pending_id,
+                'pieceIds': [int(p) for p in piece_ids if p],
+                'statusId': int(dt_status_id),
+                'jobs': jobs,
+                'targetStage': target_stage,
+                'created': datetime.utcnow().isoformat() + 'Z'
+            })
+            queued = True
 
-        log.info(f'Moved {len(jobs)} items to {target_stage}. DT synced: {dt_synced}')
-        return jsonify({'ok': True, 'moved': len(jobs), 'dtSynced': dt_synced, 'dtError': dt_error})
+        log.info(f'Moved {len(jobs)} items to {target_stage}. DT queued: {queued}')
+        return jsonify({'ok': True, 'moved': len(jobs), 'dtQueued': queued, 'pendingCount': len(_dt_pending)})
     except Exception as e:
         log.error(f'Move failed: {e}')
         return jsonify({'error': str(e)}), 500
@@ -2166,6 +2290,9 @@ def stage_override():
             # Metal items: differentiate small vs monument for KPI
             if dept == 'metal':
                 dept = 'monument_metal' if item.get('monument') else 'small_metal'
+            # Sprue items: differentiate small vs monument for KPI
+            if dept == 'sprue':
+                dept = 'monument_sprue' if item.get('monument') else 'small_sprue'
             _record_kpi_entry(job, item, price, dept, '100% complete')
         return jsonify({'ok': True, 'job': job, 'pct': pct})
     except Exception as e:
@@ -2193,17 +2320,20 @@ def priority_override():
         log.error(f'Priority override failed: {e}')
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/dt-cookie', methods=['POST'])
-def set_dt_cookie():
-    global _dt_cookie
+@app.route('/api/dt-pending', methods=['GET'])
+def get_dt_pending():
+    return jsonify({'moves': _dt_pending})
+
+@app.route('/api/dt-pending-done', methods=['POST'])
+def dt_pending_done():
+    global _dt_pending
     body = request.get_json(force=True)
-    _dt_cookie = body.get('cookie', '')
-    log.info(f'DithTracker cookie updated (len={len(_dt_cookie)})')
-    return jsonify({'ok': True})
+    done_id = body.get('id')
+    _dt_pending = [m for m in _dt_pending if m['id'] != done_id]
+    return jsonify({'ok': True, 'remaining': len(_dt_pending)})
 
 @app.route('/api/push-wip', methods=['POST'])
 def push_wip():
-    global _dt_cookie
     try:
         body = request.get_json(force=True)
         if body is None:
@@ -2214,10 +2344,6 @@ def push_wip():
             _cache['items']   = items
             _cache['error']   = None
             _cache['updated'] = datetime.utcnow().isoformat() + 'Z'
-        # Try to capture DT cookie from push request
-        dt_cookie = body.get('_dtCookie', '') if isinstance(body, dict) else ''
-        if dt_cookie:
-            _dt_cookie = dt_cookie
         log.info(f'Browser push received: {len(items)} items.')
         return jsonify({'ok': True, 'items': len(items)})
     except Exception as e:
@@ -2798,7 +2924,9 @@ const STAGES=[
   {k:'molds',c:'#4a6fa5',l:'Molds',hKey:['hWax']},
   {k:'creation',c:'#7b5ea7',l:'Creation',hKey:['hWax']},
   {k:'waxpull',c:'#e8a838',l:'Wax Pull',hKey:['hWaxPull']},
-  {k:'waxchase',c:'#d4763b',l:'Wax Chase',hKey:['hSprue']},
+  {k:'waxchase',c:'#d4763b',l:'Wax Chase',hKey:['hWax']},
+  {k:'sprue_small',c:'#c97a3b',l:'Small Sprue',hKey:['hSprue'],filter:i=>i.stage==='sprue'&&!i.monument},
+  {k:'sprue_mon',c:'#7b5ea7',l:'Monument Sprue',hKey:['hSprue'],filter:i=>i.stage==='sprue'&&!!i.monument},
   {k:'shell',c:'#5a9e6f',l:'Shell',hKey:[]},
   {k:'metal_small',c:'#8b9dc3',l:'Small Metal',hKey:['hMetal'],filter:i=>i.stage==='metal'&&!i.monument},
   {k:'metal_mon',c:'#7b5ea7',l:'Monument Metal',hKey:['hMetal'],filter:i=>i.stage==='metal'&&!!i.monument},
@@ -2808,6 +2936,7 @@ const STAGES=[
 ];
 const STAGE_MAP=Object.fromEntries(STAGES.map(s=>[s.k,s]));
 STAGE_MAP['metal']={k:'metal',c:'#8b9dc3',l:'Metal Work',hKey:['hMetal']}; // alias for drill-down
+STAGE_MAP['sprue']={k:'sprue',c:'#c97a3b',l:'Sprue',hKey:['hSprue']}; // alias for drill-down
 const fmt=v=>v?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(v):'—';
 const fmtHrs=h=>h?h.toFixed(1)+'h':'—';
 
@@ -2818,7 +2947,7 @@ let _selected=new Set(); // selected job ids (for multi-select in locked weeks)
 let _dragJob=null;
 let _pendingAction=null; // {type:'lock'|'unlock'|'move', dept, week, jobs:[]}
 let _drillStage=null, _drillSort='due'; // drill-down state
-const TIER_STAGES=['waxpull','waxchase','metal','patina'];
+const TIER_STAGES=['waxpull','waxchase','sprue','metal','patina'];
 
 // ========== DRILL-DOWN HELPERS ==========
 function dueLabel(d){
@@ -2860,7 +2989,7 @@ function stagePct(item){
   const o=_stageOverrides[item.job];
   if(o!==undefined)return o;
   if(!item.stage)return 0;
-  const stages=['molds','creation','waxpull','waxchase','shell','metal','patina','base','ready'];
+  const stages=['molds','creation','waxpull','waxchase','sprue','shell','metal','patina','base','ready'];
   const idx=stages.indexOf(item.stage);
   if(idx<0)return 0;
   return Math.round((idx/8)*100);
@@ -3069,7 +3198,7 @@ function weekLabel(monday){
   return'Wk '+diff;
 }
 
-function realDeptKey(dept){return dept==='metal_small'||dept==='metal_mon'?'metal':dept;}
+function realDeptKey(dept){if(dept==='metal_small'||dept==='metal_mon')return'metal';if(dept==='sprue_small'||dept==='sprue_mon')return'sprue';return dept;}
 function isLocked(dept,week){return !!_lockedWeeks[realDeptKey(dept)+'-'+week];}
 
 function itemHours(item){
