@@ -2320,6 +2320,150 @@ def priority_override():
         log.error(f'Priority override failed: {e}')
         return jsonify({'error': str(e)}), 500
 
+@app.route('/dt-sync')
+def dt_sync_page():
+    """Serve a page that, when opened on the DithTracker tab, runs the sync worker."""
+    return '''<!DOCTYPE html>
+<html><head><title>DT Sync Worker</title>
+<style>
+  body{font-family:system-ui;background:#1a1a2e;color:#e0e0e0;padding:40px;max-width:700px;margin:0 auto}
+  h1{color:#4fc3f7}
+  .log{background:#0d1117;border:1px solid #333;border-radius:8px;padding:16px;font-family:monospace;font-size:13px;
+       max-height:400px;overflow-y:auto;white-space:pre-wrap}
+  .status{font-size:18px;margin:16px 0;padding:12px;border-radius:8px}
+  .running{background:#1b5e20;border:1px solid #4caf50}
+  .stopped{background:#b71c1c;border:1px solid #ef5350}
+  button{background:#4fc3f7;color:#000;border:none;padding:10px 24px;border-radius:6px;font-size:15px;cursor:pointer;margin:8px 8px 8px 0}
+  button:hover{background:#81d4fa}
+  .warn{color:#ff9800;font-size:14px;margin:12px 0}
+  code{background:#333;padding:2px 6px;border-radius:4px}
+  a{color:#4fc3f7}
+</style>
+</head><body>
+<h1>&#x1f504; DithTracker Sync Worker</h1>
+<p>This script syncs department moves from the <a href="/">Pyrology Production Board</a> to DithTracker.</p>
+<p class="warn">&#x26a0; <strong>Important:</strong> This must run on the <strong>DithTracker tab</strong>
+(same domain as <code>dithtracker-reporting.azurewebsites.net</code>) so it can use the session cookie and XSRF token.</p>
+
+<h3>Quick Start (Bookmarklet)</h3>
+<p>Drag this link to your bookmarks bar, then click it while on the DithTracker WIP page:</p>
+<p><a href="javascript:void((function(){if(window._dtSyncRunning){alert('Sync worker already running!');return;}var s=document.createElement('script');s.src='https://pyrology-wip.onrender.com/dt-sync-worker.js';document.head.appendChild(s);})())" onclick="return false" style="font-size:18px;background:#333;padding:8px 16px;border-radius:6px;text-decoration:none">&#x1f504; Start DT Sync</a></p>
+
+<h3>Status</h3>
+<div class="status stopped" id="status">Not running (open this on DithTracker tab or use bookmarklet)</div>
+
+<h3>Log</h3>
+<div class="log" id="log">Waiting...</div>
+
+<button onclick="startSync()">Start Sync</button>
+<button onclick="stopSync()" style="background:#ef5350">Stop Sync</button>
+
+<script>
+const PYROLOGY = 'https://pyrology-wip.onrender.com';
+const POLL_MS = 5000;
+const logEl = document.getElementById('log');
+const statusEl = document.getElementById('status');
+
+function log(msg) {
+  const ts = new Date().toLocaleTimeString();
+  logEl.textContent += ts + ' ' + msg + '\\n';
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+async function poll() {
+  try {
+    const res = await fetch(PYROLOGY + '/api/dt-pending');
+    if (!res.ok) { log('Poll failed: ' + res.status); return; }
+    const data = await res.json();
+    const pending = data.moves || [];
+    if (!pending.length) return;
+    log('Found ' + pending.length + ' pending move(s)');
+    for (const move of pending) {
+      try {
+        log('Exec move id=' + move.id + ': ' + move.pieceIds.length + ' pcs -> status ' + move.statusId);
+        // Use axios (loaded on DithTracker page) for XSRF token
+        if (typeof axios !== 'undefined') {
+          await axios.post('/api/piece/state/__bulk', { pieceIds: move.pieceIds, statusId: move.statusId });
+        } else {
+          // Fallback: try fetch with manual XSRF
+          const xsrf = document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith('XSRF-TOKEN='));
+          const headers = {'Content-Type':'application/json'};
+          if(xsrf) headers['X-XSRF-TOKEN'] = decodeURIComponent(xsrf.split('=')[1]);
+          const r = await fetch('/api/piece/state/__bulk', {method:'POST', headers, body:JSON.stringify({pieceIds:move.pieceIds,statusId:move.statusId})});
+          if(!r.ok) throw new Error('HTTP ' + r.status);
+        }
+        log('DT update OK for move ' + move.id);
+        await fetch(PYROLOGY + '/api/dt-pending-done', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({id: move.id})
+        });
+        log('Move ' + move.id + ' done!');
+      } catch(e) {
+        log('Move ' + move.id + ' FAILED: ' + e.message);
+      }
+    }
+  } catch(e) { log('Poll error: ' + e.message); }
+}
+
+function startSync() {
+  if (window._dtSyncRunning) { log('Already running'); return; }
+  window._dtSyncRunning = true;
+  window._dtSyncInterval = setInterval(poll, POLL_MS);
+  poll();
+  statusEl.textContent = 'Running (polling every ' + (POLL_MS/1000) + 's)';
+  statusEl.className = 'status running';
+  log('Sync worker started');
+}
+function stopSync() {
+  clearInterval(window._dtSyncInterval);
+  window._dtSyncRunning = false;
+  statusEl.textContent = 'Stopped';
+  statusEl.className = 'status stopped';
+  log('Sync worker stopped');
+}
+</script>
+</body></html>'''
+
+@app.route('/dt-sync-worker.js')
+def dt_sync_worker_js():
+    """JavaScript file that starts the DT sync worker when loaded on the DithTracker tab."""
+    js = '''(function(){
+  if(window._dtSyncRunning){console.log('[DT-Sync] Already running');return;}
+  window._dtSyncRunning=true;
+  window._dtSyncLog=[];
+  var PYROLOGY='https://pyrology-wip.onrender.com';
+  var POLL_MS=5000;
+  function log(m){var e=new Date().toLocaleTimeString()+' '+m;window._dtSyncLog.push(e);if(window._dtSyncLog.length>50)window._dtSyncLog.shift();console.log('[DT-Sync] '+e);}
+  async function poll(){
+    try{
+      var res=await fetch(PYROLOGY+'/api/dt-pending');
+      if(!res.ok){log('Poll fail:'+res.status);return;}
+      var data=await res.json();var pending=data.moves||[];
+      if(!pending.length)return;
+      log('Found '+pending.length+' pending');
+      for(var move of pending){
+        try{
+          log('Exec #'+move.id+': '+move.pieceIds.length+'pcs->status'+move.statusId);
+          if(typeof axios!=='undefined'){await axios.post('/api/piece/state/__bulk',{pieceIds:move.pieceIds,statusId:move.statusId});}
+          else{var x=document.cookie.split(';').map(function(c){return c.trim();}).find(function(c){return c.startsWith('XSRF-TOKEN=');});var h={'Content-Type':'application/json'};if(x)h['X-XSRF-TOKEN']=decodeURIComponent(x.split('=')[1]);var r=await fetch('/api/piece/state/__bulk',{method:'POST',headers:h,body:JSON.stringify({pieceIds:move.pieceIds,statusId:move.statusId})});if(!r.ok)throw new Error('HTTP '+r.status);}
+          log('DT OK #'+move.id);
+          await fetch(PYROLOGY+'/api/dt-pending-done',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:move.id})});
+          log('Done #'+move.id);
+        }catch(e){log('FAIL #'+move.id+':'+e.message);}
+      }
+    }catch(e){log('Poll err:'+e.message);}
+  }
+  window._dtSyncInterval=setInterval(poll,POLL_MS);poll();
+  log('Sync worker started (v3)');
+  var badge=document.createElement('div');
+  badge.style.cssText='position:fixed;top:8px;right:8px;z-index:99999;background:#1b5e20;color:#4caf50;padding:6px 14px;border-radius:20px;font:bold 13px system-ui;cursor:pointer;border:1px solid #4caf50';
+  badge.textContent='\\u{1f504} DT Sync Active';
+  badge.title='Click to view sync log';
+  badge.onclick=function(){alert(window._dtSyncLog.join('\\n'));};
+  document.body.appendChild(badge);
+})();'''
+    return js, 200, {'Content-Type': 'application/javascript', 'Access-Control-Allow-Origin': '*'}
+
 @app.route('/api/dt-pending', methods=['GET'])
 def get_dt_pending():
     return jsonify({'moves': _dt_pending})
