@@ -7,7 +7,7 @@ Data arrives two ways:
   2. Browser-push: POST raw dithtracker JSON to /api/push-wip.
 """
 
-import os, time, logging, threading, json
+import os, time, logging, threading, json, base64
 from datetime import datetime, timedelta
 
 import requests
@@ -28,6 +28,18 @@ KPI_PIN              = os.getenv('KPI_PIN', '1977')
 MAINTENANCE_FILE     = '/tmp/maintenance_data.json'
 SHIPPING_FILE        = '/tmp/shipping_data.json'
 SCHEDULE_FILE        = '/tmp/schedule_data.json'
+
+# ── GitHub Persistence Config ─────────────────────────────────────────────────
+GH_REPO    = os.getenv('GH_REPO', 'bryantwilliams71-png/pyrology-wip')
+GH_TOKEN   = os.getenv('GH_TOKEN', '')
+GH_STATE_FILE = 'state.json'                     # file in repo root
+_gh_state_sha = None                              # current SHA of state.json (for updates)
+_gh_save_timer = None                             # debounce timer
+_gh_ready = False                                 # set True after startup (prevents save during init)
+GH_SAVE_DELAY = 5                                 # seconds to debounce before saving
+
+# DithTracker auto-fetch config
+DITH_API_BASE = 'https://dithtracker-reporting.azurewebsites.net/Api/Reports/Wip'
 
 # ── Status → Stage mapping ─────────────────────────────────────────────────────
 STATUS_MAP = {
@@ -77,6 +89,7 @@ def _save_overrides():
             json.dump(_metal_overrides, f)
     except Exception as e:
         log.warning(f'Could not save overrides: {e}')
+    _schedule_github_save()
 
 def _load_stage_overrides():
     global _stage_overrides
@@ -95,6 +108,7 @@ def _save_stage_overrides():
             json.dump(_stage_overrides, f)
     except Exception as e:
         log.warning(f'Could not save stage overrides: {e}')
+    _schedule_github_save()
 
 def _load_priority_overrides():
     global _priority_overrides
@@ -113,6 +127,7 @@ def _save_priority_overrides():
             json.dump(_priority_overrides, f)
     except Exception as e:
         log.warning(f'Could not save priority overrides: {e}')
+    _schedule_github_save()
 
 def _current_week_start():
     today = datetime.utcnow().date()
@@ -136,6 +151,7 @@ def _save_kpi():
             json.dump(_kpi_data, f)
     except Exception as e:
         log.warning(f'Could not save KPI data: {e}')
+    _schedule_github_save()
 
 def _record_kpi_entry(job, item, value, dept, note):
     """Thread-safe KPI entry recorder. Must be called with _lock NOT held."""
@@ -173,6 +189,7 @@ def _save_maintenance():
             json.dump(_maint_data, f)
     except Exception as e:
         log.warning(f'Could not save maintenance data: {e}')
+    _schedule_github_save()
 
 def _load_shipping():
     global _ship_data
@@ -191,6 +208,7 @@ def _save_shipping():
             json.dump(_ship_data, f)
     except Exception as e:
         log.warning(f'Could not save shipping data: {e}')
+    _schedule_github_save()
 
 def _load_schedule():
     global _schedule_data
@@ -209,6 +227,144 @@ def _save_schedule():
             json.dump(_schedule_data, f)
     except Exception as e:
         log.warning(f'Could not save schedule data: {e}')
+    _schedule_github_save()
+
+# ── GitHub State Persistence ──────────────────────────────────────────────────
+def _gh_headers():
+    return {'Authorization': f'token {GH_TOKEN}',
+            'Accept': 'application/vnd.github.v3+json',
+            'User-Agent': 'pyrology-wip'}
+
+def _load_state_from_github():
+    """Load persistent state (schedule, overrides, KPI, etc.) from GitHub repo."""
+    global _gh_state_sha, _schedule_data, _stage_overrides, _priority_overrides
+    global _metal_overrides, _kpi_data, _maint_data, _ship_data
+    if not GH_TOKEN or not GH_REPO:
+        log.info('No GH_TOKEN/GH_REPO — skipping GitHub state load.')
+        return False
+    try:
+        url = f'https://api.github.com/repos/{GH_REPO}/contents/{GH_STATE_FILE}'
+        r = requests.get(url, headers=_gh_headers(), timeout=15)
+        if r.status_code == 404:
+            log.info('No state.json in repo yet — starting fresh.')
+            return False
+        r.raise_for_status()
+        data = r.json()
+        _gh_state_sha = data['sha']
+        content = base64.b64decode(data['content']).decode('utf-8')
+        state = json.loads(content)
+        # Restore each piece of state
+        if 'schedule_data' in state:
+            _schedule_data = state['schedule_data']
+            log.info(f'  ✓ Restored {len(_schedule_data.get("assignments", {}))} schedule assignments from GitHub.')
+        if 'stage_overrides' in state:
+            _stage_overrides = state['stage_overrides']
+            log.info(f'  ✓ Restored {len(_stage_overrides)} stage overrides from GitHub.')
+        if 'priority_overrides' in state:
+            _priority_overrides = state['priority_overrides']
+        if 'metal_overrides' in state:
+            _metal_overrides = state['metal_overrides']
+        if 'kpi_data' in state:
+            _kpi_data = state['kpi_data']
+        if 'maint_data' in state:
+            _maint_data = state['maint_data']
+        if 'ship_data' in state:
+            _ship_data = state['ship_data']
+        log.info(f'✓ State restored from GitHub (sha={_gh_state_sha[:8]})')
+        # Also write to /tmp files so existing save functions work locally
+        _save_schedule(); _save_stage_overrides(); _save_priority_overrides()
+        _save_overrides(); _save_kpi(); _save_maintenance(); _save_shipping()
+        return True
+    except Exception as e:
+        log.warning(f'Could not load state from GitHub: {e}')
+        return False
+
+def _build_state_blob():
+    """Build the full state dict to persist."""
+    return {
+        'schedule_data':      _schedule_data,
+        'stage_overrides':    _stage_overrides,
+        'priority_overrides': _priority_overrides,
+        'metal_overrides':    _metal_overrides,
+        'kpi_data':           _kpi_data,
+        'maint_data':         _maint_data,
+        'ship_data':          _ship_data,
+        'saved_at':           datetime.utcnow().isoformat() + 'Z',
+    }
+
+def _save_state_to_github():
+    """Push current state to GitHub repo as state.json."""
+    global _gh_state_sha
+    if not GH_TOKEN or not GH_REPO:
+        return
+    try:
+        state = _build_state_blob()
+        content_bytes = json.dumps(state, separators=(',', ':')).encode('utf-8')
+        b64 = base64.b64encode(content_bytes).decode('utf-8')
+        url = f'https://api.github.com/repos/{GH_REPO}/contents/{GH_STATE_FILE}'
+        payload = {
+            'message': f'Auto-save state {datetime.utcnow().strftime("%Y-%m-%d %H:%M")}',
+            'content': b64,
+        }
+        if _gh_state_sha:
+            payload['sha'] = _gh_state_sha
+        r = requests.put(url, headers=_gh_headers(), json=payload, timeout=15)
+        r.raise_for_status()
+        _gh_state_sha = r.json()['content']['sha']
+        log.info(f'✓ State saved to GitHub (sha={_gh_state_sha[:8]})')
+    except Exception as e:
+        log.warning(f'Could not save state to GitHub: {e}')
+
+def _schedule_github_save():
+    """Debounced save: waits GH_SAVE_DELAY seconds after last call before actually saving."""
+    global _gh_save_timer
+    if not _gh_ready:
+        return  # don't save during init
+    if _gh_save_timer:
+        _gh_save_timer.cancel()
+    _gh_save_timer = threading.Timer(GH_SAVE_DELAY, _save_state_to_github)
+    _gh_save_timer.daemon = True
+    _gh_save_timer.start()
+
+def _persist():
+    """Save to both local /tmp AND queue a debounced GitHub save."""
+    _schedule_github_save()
+
+# ── DithTracker Auto-Fetch ───────────────────────────────────────────────────
+def _auto_fetch_wip():
+    """Fetch WIP items directly from DithTracker API (no auth needed)."""
+    log.info('Auto-fetching WIP data from DithTracker...')
+    try:
+        all_items = []
+        url = f'{DITH_API_BASE}?activeFilter=Include&pageSize=500'
+        r = requests.get(url, headers={
+            'User-Agent': 'Mozilla/5.0',
+            'Accept': 'application/json',
+        }, timeout=30)
+        r.raise_for_status()
+        body = r.json()
+        raw = body.get('items', body) if isinstance(body, dict) else body
+        all_items.extend(raw)
+        total = body.get('totalCount', len(raw)) if isinstance(body, dict) else len(raw)
+        total_pages = body.get('totalPages', 1) if isinstance(body, dict) else 1
+        # Fetch remaining pages if any
+        if total_pages > 1:
+            for page in range(1, total_pages):
+                url2 = f'{DITH_API_BASE}?activeFilter=Include&pageSize=500&pageIndex={page}'
+                r2 = requests.get(url2, headers={
+                    'User-Agent': 'Mozilla/5.0',
+                    'Accept': 'application/json',
+                }, timeout=30)
+                r2.raise_for_status()
+                b2 = r2.json()
+                raw2 = b2.get('items', b2) if isinstance(b2, dict) else b2
+                all_items.extend(raw2)
+        items = transform_rows(all_items)
+        log.info(f'✓ Auto-fetched {len(items)} WIP items from DithTracker (raw: {len(all_items)})')
+        return items
+    except Exception as e:
+        log.warning(f'Auto-fetch from DithTracker failed: {e}')
+        return None
 
 def _get_week_monday(dt=None):
     """Return the Monday of the week for a given date (or today)."""
@@ -235,13 +391,17 @@ def _auto_rollover():
     if changed:
         _save_schedule()
 
-_load_overrides()
-_load_stage_overrides()
-_load_priority_overrides()
-_load_kpi()
-_load_maintenance()
-_load_shipping()
-_load_schedule()
+# ── Init: Load state (GitHub first, then /tmp fallback) ──────────────────────
+_gh_loaded = _load_state_from_github()
+if not _gh_loaded:
+    log.info('Falling back to /tmp file state...')
+    _load_overrides()
+    _load_stage_overrides()
+    _load_priority_overrides()
+    _load_kpi()
+    _load_maintenance()
+    _load_shipping()
+    _load_schedule()
 
 # ── Transform raw API rows → internal format ───────────────────────────────────
 def transform_rows(raw):
@@ -4432,7 +4592,20 @@ if SESSION_COOKIE:
     t = threading.Thread(target=refresh_loop, daemon=True)
     t.start()
 else:
-    log.info('No SESSION_COOKIE — waiting for browser push to /api/push-wip')
+    # Auto-fetch WIP from DithTracker on startup (no auth required)
+    log.info('No SESSION_COOKIE — auto-fetching WIP from DithTracker...')
+    _startup_items = _auto_fetch_wip()
+    if _startup_items:
+        with _lock:
+            _cache['items'] = _startup_items
+            _cache['updated'] = datetime.utcnow().isoformat() + 'Z'
+        log.info(f'✓  {len(_startup_items)} items auto-loaded from DithTracker on startup.')
+    else:
+        log.info('Auto-fetch returned nothing — waiting for browser push to /api/push-wip')
+
+# Mark GitHub persistence as ready (prevents saves during init)
+_gh_ready = True
+log.info('✓ GitHub persistence armed — state changes will auto-save.')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT, debug=False, use_reloader=False)
