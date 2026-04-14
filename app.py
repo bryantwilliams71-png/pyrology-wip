@@ -1012,10 +1012,12 @@ function moveItems(jobs, targetStage){
   fetch('/api/move-items', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({jobs, targetStage, pieceIds, dtStatusId: DT_STATUS_MAP[targetStage] || 80})
+    body: JSON.stringify({jobs, targetStage, pieceIds, dtStatusId: DT_STATUS_MAP[targetStage] || null})
   }).then(r => r.json()).then(d => {
-    if(d.dtQueued) showToast(jobs.length + ' item(s) moved — DT sync queued (' + d.pendingCount + ' pending)');
-    else showToast(jobs.length + ' item(s) moved locally');
+    let msg = jobs.length + ' item(s) moved';
+    if(d.reassigned > 0) msg += ' → scheduled next week';
+    if(d.dtQueued) msg += ' — DT sync queued (' + d.pendingCount + ' pending)';
+    showToast(msg);
   }).catch(e => console.error('move failed', e));
   _selectedJobs.clear();
   updateMoveToolbar();
@@ -2658,11 +2660,37 @@ def move_items():
         piece_ids = body.get('pieceIds', [])
         dt_status_id = body.get('dtStatusId')
 
+        # Auto-assign to next week unless caller explicitly says not to
+        auto_week = body.get('autoWeek', True)
+
         # Update local cache
         with _lock:
             for item in _cache.get('items', []):
                 if item['job'] in jobs:
                     item['stage'] = target_stage
+
+        # Auto-assign moved items to next week (unless already in current week or manually overridden)
+        reassigned = []
+        if auto_week:
+            this_monday = _get_week_monday()
+            next_monday = (datetime.strptime(this_monday, '%Y-%m-%d') + timedelta(days=7)).strftime('%Y-%m-%d')
+            with _lock:
+                assignments = _schedule_data.setdefault('assignments', {})
+                for j in jobs:
+                    existing = assignments.get(j, {})
+                    cur_week = existing.get('week', '')
+                    # Only reassign if NOT already in current week (user may have manually placed it there)
+                    if cur_week != this_monday:
+                        assignments[j] = {
+                            'week': next_monday,
+                            'carryover': False,
+                            'original_week': existing.get('original_week') or cur_week or None,
+                            'done': False,
+                        }
+                        reassigned.append(j)
+            if reassigned:
+                _save_schedule()
+                log.info(f'Auto-assigned {len(reassigned)} moved items to next week ({next_monday})')
 
         # Queue DithTracker sync
         queued = False
@@ -2679,7 +2707,7 @@ def move_items():
             queued = True
 
         log.info(f'Moved {len(jobs)} items to {target_stage}. DT queued: {queued}')
-        return jsonify({'ok': True, 'moved': len(jobs), 'dtQueued': queued, 'pendingCount': len(_dt_pending)})
+        return jsonify({'ok': True, 'moved': len(jobs), 'dtQueued': queued, 'pendingCount': len(_dt_pending), 'reassigned': len(reassigned)})
     except Exception as e:
         log.error(f'Move failed: {e}')
         return jsonify({'error': str(e)}), 500
@@ -3560,6 +3588,12 @@ const MOVE_DEPTS=[
   {k:'metal',l:'Metal Work'},{k:'patina',l:'Patina'},{k:'base',l:'Base'},{k:'ready',l:'Ready'}
 ];
 
+// DithTracker status mapping for each Pyrology stage
+const DT_STATUS_MAP={
+  molds:18, creation:47, waxpull:2, waxchase:55, sprue:56,
+  shell:78, metal:62, patina:79, base:22, ready:7
+};
+
 // ========== DRILL-DOWN HELPERS ==========
 function dueLabel(d){
   if(!d)return{t:'—',c:''};
@@ -3923,10 +3957,23 @@ function sdMoveDept(jobs,targetStage){
     const item=_items.find(i=>i.job===j);
     if(item){item.stage=targetStage;if(item.pieceId)pieceIds.push(item.pieceId);}
   });
+  // Use correct DithTracker status ID for the target department
+  const dtId=DT_STATUS_MAP[targetStage]||null;
   fetch('/api/move-items',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({jobs,targetStage,pieceIds,dtStatusId:80})
+    body:JSON.stringify({jobs,targetStage,pieceIds,dtStatusId:dtId})
   }).then(r=>r.json()).then(d=>{
-    showToast(jobs.length+' item(s) moved to '+(MOVE_DEPTS.find(s=>s.k===targetStage)||{l:targetStage}).l);
+    // Update local assignments to reflect next-week auto-assign
+    if(d.reassigned>0){
+      const today=getMonday(new Date());
+      const nextMon=addWeeks(today,1);
+      jobs.forEach(j=>{
+        if(!_assignments[j]||_assignments[j].week!==today){
+          _assignments[j]={week:nextMon,carryover:false,original_week:(_assignments[j]||{}).week||null,done:false};
+        }
+      });
+    }
+    const deptLabel=(MOVE_DEPTS.find(s=>s.k===targetStage)||{l:targetStage}).l;
+    showToast(jobs.length+' item(s) moved to '+deptLabel+(d.reassigned>0?' → scheduled next week':''));
   }).catch(e=>console.error('move failed',e));
   _sdSelected.clear();
   updateSdSelectUI();
