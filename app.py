@@ -1047,8 +1047,7 @@ function moveItems(jobs, targetStage){
   }).then(r => r.json()).then(d => {
     let msg = jobs.length + ' item(s) moved';
     if(d.reassigned > 0) msg += ' → scheduled next week';
-    if(d.dtSynced) msg += ' — DT updated';
-    else if(d.dtQueued) msg += ' — DT sync queued';
+    if(d.dtQueued) msg += ' — DT syncing';
     showToast(msg);
   }).catch(e => console.error('move failed', e));
   _selectedJobs.clear();
@@ -2723,27 +2722,24 @@ def move_items():
                 _save_schedule()
                 log.info(f'Auto-assigned {len(reassigned)} moved items to next week ({next_monday})')
 
-        # Sync to DithTracker — try direct server-side call first, fall back to queue
-        dt_synced = False
+        # Sync to DithTracker — always queue for browser worker (server-side cookies are IP-bound)
         queued = False
         if piece_ids and dt_status_id:
             int_pieces = [int(p) for p in piece_ids if p]
             int_status = int(dt_status_id)
-            dt_synced = _dt_sync_now(int_pieces, int_status)
-            if not dt_synced:
-                _dt_pending_id += 1
-                _dt_pending.append({
-                    'id': _dt_pending_id,
-                    'pieceIds': int_pieces,
-                    'statusId': int_status,
-                    'jobs': jobs,
-                    'targetStage': target_stage,
-                    'created': datetime.utcnow().isoformat() + 'Z'
-                })
-                queued = True
+            _dt_pending_id += 1
+            _dt_pending.append({
+                'id': _dt_pending_id,
+                'pieceIds': int_pieces,
+                'statusId': int_status,
+                'jobs': jobs,
+                'targetStage': target_stage,
+                'created': datetime.utcnow().isoformat() + 'Z'
+            })
+            queued = True
 
-        log.info(f'Moved {len(jobs)} items to {target_stage}. DT synced: {dt_synced}, queued: {queued}')
-        return jsonify({'ok': True, 'moved': len(jobs), 'dtSynced': dt_synced, 'dtQueued': queued, 'pendingCount': len(_dt_pending), 'reassigned': len(reassigned)})
+        log.info(f'Moved {len(jobs)} items to {target_stage}. DT queued: {queued}')
+        return jsonify({'ok': True, 'moved': len(jobs), 'dtSynced': False, 'dtQueued': queued, 'pendingCount': len(_dt_pending), 'reassigned': len(reassigned)})
     except Exception as e:
         log.error(f'Move failed: {e}')
         return jsonify({'error': str(e)}), 500
@@ -4052,8 +4048,7 @@ function sdMoveDept(jobs,targetStage){
     const deptLabel=(MOVE_DEPTS.find(s=>s.k===targetStage)||{l:targetStage}).l;
     let tmsg=jobs.length+' item(s) moved to '+deptLabel;
     if(d.reassigned>0)tmsg+=' → next week';
-    if(d.dtSynced)tmsg+=' — DT updated';
-    else if(d.dtQueued)tmsg+=' — DT queued';
+    if(d.dtQueued)tmsg+=' — DT syncing';
     showToast(tmsg);
   }).catch(e=>console.error('move failed',e));
   _sdSelected.clear();
