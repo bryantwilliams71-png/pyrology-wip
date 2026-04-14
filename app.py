@@ -3517,6 +3517,35 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
 .prog-pct{font-size:.65em;font-weight:700;width:30px;text-align:right;flex-shrink:0}
 .prog-val{font-size:.6em;color:#aaa;margin-top:0;text-align:right}
 .pct-btns{display:flex;gap:3px;margin-top:4px;flex-wrap:wrap;justify-content:center}
+/* ── Gantt Chart ── */
+.gantt-wrap{width:100%;overflow-x:auto;margin-top:8px}
+.gantt{display:grid;min-width:700px;font-size:.82em}
+.gantt-hdr{display:contents}
+.gantt-hdr .gh-label{background:#1a1d27;padding:8px 10px;font-weight:700;color:#4db8b8;border-bottom:2px solid #3a4a6a;position:sticky;left:0;z-index:2;min-width:260px}
+.gantt-hdr .gh-week{background:#1a1d27;padding:8px 6px;font-weight:700;color:#889;text-align:center;border-bottom:2px solid #3a4a6a;font-size:.85em;white-space:nowrap}
+.gantt-hdr .gh-week.current{color:#4db8b8;background:#1a2530}
+.gantt-row{display:contents}
+.gantt-row:hover .gr-label,.gantt-row:hover .gr-cell{background:#1a2130}
+.gr-label{padding:6px 10px;border-bottom:1px solid #1e2230;display:flex;align-items:center;gap:8px;position:sticky;left:0;z-index:1;background:#0f1117;min-width:260px;cursor:pointer}
+.gr-label .gr-job{font-weight:700;color:#e8e8e8;white-space:nowrap}
+.gr-label .gr-name{color:#ccc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
+.gr-label .gr-client{color:#888;font-size:.88em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px}
+.gr-cell{padding:4px 3px;border-bottom:1px solid #1e2230;background:#0f1117;position:relative;min-height:36px}
+.gantt-bar{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:4px;font-size:.88em;font-weight:600;color:#fff;white-space:nowrap;min-height:28px;cursor:pointer;transition:filter .15s}
+.gantt-bar:hover{filter:brightness(1.2)}
+.gantt-bar.done{opacity:.45}
+.gantt-bar.carry{border:2px dashed #e8a838}
+.gantt-bar .gb-hrs{color:rgba(255,255,255,.8);font-weight:500;font-size:.9em}
+.gantt-bar .gb-val{color:rgba(255,255,255,.8);font-weight:500;font-size:.9em}
+.gantt-bar .gb-due{font-size:.82em;padding:1px 5px;border-radius:3px;background:rgba(0,0,0,.3)}
+.gantt-bar .gb-due.over{background:#5a1515;color:#ff8888}
+.gantt-bar .gb-due.warn{background:#5a3e10;color:#ffcc66}
+.gantt-bar .gb-actions{display:flex;gap:4px;margin-left:auto;align-items:center}
+.gantt-bar .gb-actions .btn-sm{font-size:.82em;padding:2px 6px}
+.gantt-unsched{color:#666;font-style:italic;font-size:.8em;padding:4px 8px}
+.gr-sel{font-size:1.1em;cursor:pointer;flex-shrink:0}
+.gantt-row.selected .gr-label{background:#1a2a3a}
+.gantt-row.selected .gr-cell{background:#1a2a3a}
 .pct-btn{background:#1e2130;border:1px solid #3a3d4a;color:#777;padding:2px 7px;border-radius:10px;cursor:pointer;font-size:.6em;font-weight:700;transition:background .15s,color .15s,border-color .15s;user-select:none;line-height:1.3}
 .pct-btn:hover{background:#2a2d3a;color:#e8e8e8;border-color:#5a6a8a}
 .pct-btn.active{background:#8b9dc3;color:#000;border-color:#8b9dc3}
@@ -3893,20 +3922,101 @@ function renderDrill(){
   if(_drillStage==='metal'){
     document.getElementById('sdtable').innerHTML=renderDrillMetal(sorted);
   } else {
-    let html='<table class="wdt"><thead><tr><th style="width:30px"></th><th style="width:100px">Priority</th><th style="width:70px">Piece #</th><th style="min-width:180px">Description</th><th style="width:120px">Client</th><th style="width:80px">Edition</th><th style="width:90px">Due</th><th style="width:80px" class="tdval">Value</th><th style="width:70px" class="tdhrs">Hrs Bid</th><th style="width:200px">Progress</th><th style="width:80px">Done</th><th style="width:100px">Schedule</th></tr></thead><tbody>';
-    sorted.forEach(i=>{
-      const due=dueLabel(i.due);
-      const hrs=itemHours(i);
-      const a=_assignments[i.job]||{};
-      const isSel=_sdSelected.has(i.job);
-      const weekLabel=a.week?fmtWeekRange(a.week):'';
-      html+='<tr><td><span class="sd-cb" data-job="'+i.job+'" onclick="toggleSdSelect(\''+i.job+'\')" style="cursor:pointer;font-size:1.2em;color:'+(isSel?'#5ae8a8':'#555')+'">'+(isSel?'\u2611':'\u2610')+'</span></td><td class="tdpri">'+priBtns(i.job)+'</td><td class="tdpieces">#'+i.job+'</td><td class="tddesc">'+i.name+'</td><td class="tdclient">'+i.customer+'</td><td class="tdedition">'+((i.edition||'1')+' ed')+'</td><td class="tddue '+due.c+'">'+due.t+'</td><td class="tdval">'+fmt(i.price)+'</td><td class="tdhrs">'+fmtHrs(hrs)+'</td><td class="tdprog">'+stgPctBar(i)+'</td><td class="tddone"><button class="btn-complete'+(a.done?' active':'')+'" onclick="event.stopPropagation();toggleDoneNormalItem(\''+i.job+'\')">'+
-        (a.done?'✓ Done':'Done')+'</button></td>'+
-        '<td><button onclick="event.stopPropagation();sdScheduleOne(\''+i.job+'\')" style="padding:3px 8px;background:'+(a.week?'#1e3a2a':'#1e2a3a')+';border:1px solid '+(a.week?'#3a6a4a':'#3a4a6a')+';color:'+(a.week?'#5ae8a8':'#4db8b8')+';border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">'+(a.week?'\u2713 '+weekLabel:'\uD83D\uDCC5 Schedule')+'</button></td></tr>';
-    });
-    html+='</tbody></table>';
-    document.getElementById('sdtable').innerHTML=html;
+    document.getElementById('sdtable').innerHTML=renderDrillGantt(sorted,stg);
   }
+}
+
+/* ── Gantt chart renderer for drill-down ── */
+function renderDrillGantt(sorted,stg){
+  const today=getMonday(new Date().toISOString().slice(0,10));
+
+  // Collect all weeks from items in this department (not just filtered set)
+  const allDeptItems=_items.filter(i=>i.stage===_drillStage);
+  const weekSet=new Set();
+  allDeptItems.forEach(i=>{const a=_assignments[i.job];if(a&&a.week)weekSet.add(a.week);});
+  // Always include this week + next 3
+  for(let n=0;n<4;n++)weekSet.add(addWeeks(today,n));
+  const weeks=Array.from(weekSet).sort();
+  const numCols=weeks.length;
+
+  // Build grid with columns: label + N week columns
+  const colTemplate='260px '+weeks.map(()=>'1fr').join(' ');
+  let html='<div class="gantt-wrap"><div class="gantt" style="grid-template-columns:'+colTemplate+'">';
+
+  // Header row
+  html+='<div class="gantt-hdr">';
+  html+='<div class="gh-label">Item</div>';
+  weeks.forEach(w=>{
+    const isCur=w===today;
+    html+='<div class="gh-week'+(isCur?' current':'')+'">'+weekLabel(w)+'<br><span style="font-size:.82em;font-weight:400;color:#667">'+fmtWeekRange(w)+'</span></div>';
+  });
+  html+='</div>';
+
+  // Item rows
+  if(sorted.length===0){
+    html+='<div style="grid-column:1/-1;text-align:center;padding:30px;color:#555;font-size:.9em">No items in this view</div>';
+  }
+  sorted.forEach(i=>{
+    const a=_assignments[i.job]||{};
+    const isSel=_sdSelected.has(i.job);
+    const isDone=a.done;
+    const isCarry=a.carryover;
+    const due=dueLabel(i.due);
+    const hrs=itemHours(i);
+    const assignedWeek=a.week||null;
+    const priHtml=priTag(i.job);
+
+    html+='<div class="gantt-row'+(isSel?' selected':'')+'">';
+
+    // Label cell
+    html+='<div class="gr-label" onclick="toggleSdSelect(\''+i.job+'\')">';
+    html+='<span class="gr-sel sd-cb" data-job="'+i.job+'" style="color:'+(isSel?'#5ae8a8':'#555')+'">'+(isSel?'\u2611':'\u2610')+'</span>';
+    html+='<span class="gr-job">#'+i.job+'</span>';
+    html+='<span class="gr-name" title="'+i.name+'">'+i.name+'</span>';
+    html+='<span class="gr-client" title="'+i.customer+'">'+i.customer+'</span>';
+    if(i.monument)html+='<span style="color:#c45c8a;font-weight:700;font-size:.72em;background:#2a1525;padding:1px 4px;border-radius:3px">MON</span>';
+    html+=priHtml;
+    html+='</div>';
+
+    // Week cells — bar appears in the assigned week column
+    weeks.forEach(w=>{
+      html+='<div class="gr-cell">';
+      if(assignedWeek===w){
+        const barColor=stg.c;
+        html+='<div class="gantt-bar'+(isDone?' done':'')+(isCarry?' carry':'')+'" style="background:'+barColor+'" onclick="event.stopPropagation()">';
+        if(hrs)html+='<span class="gb-hrs">'+fmtHrs(hrs)+'</span>';
+        if(i.price)html+='<span class="gb-val">'+fmt(i.price)+'</span>';
+        if(due.t!=='—')html+='<span class="gb-due '+due.c+'">'+due.t+'</span>';
+        html+='<span class="gb-actions">';
+        html+='<button class="btn-sm done'+(isDone?' active':'')+'" onclick="event.stopPropagation();toggleDoneNormalItem(\''+i.job+'\')" style="font-size:.78em;padding:2px 6px;background:'+(isDone?'#2a4a2a':'#1a2a1a')+';border:1px solid '+(isDone?'#5a9e5a':'#3a5a3a')+';color:'+(isDone?'#5ae8a8':'#7a9a7a')+';border-radius:3px;cursor:pointer">'+(isDone?'✓':'Done')+'</button>';
+        html+='<select class="btn-sm" onchange="event.stopPropagation();if(this.value){sdMoveDept([\''+i.job+'\'],this.value);this.value=\'\'}" style="background:#1e1e2a;border:1px solid #3a3a5a;color:#c45c8a;padding:2px 4px;border-radius:3px;font-size:.72em;cursor:pointer;max-width:60px"><option value="">Move</option>'+MOVE_DEPTS.filter(s=>s.k!==realDeptKey(stg.k)).map(s=>'<option value="'+s.k+'">'+s.l+'</option>').join('')+'</select>';
+        html+='</span>';
+        html+='</div>';
+      }
+      html+='</div>';
+    });
+
+    html+='</div>';
+  });
+
+  // Also show unscheduled items at bottom if viewing all
+  if(!_drillWeek){
+    const unsched=sorted.filter(i=>!_assignments[i.job]||!_assignments[i.job].week);
+    if(unsched.length){
+      html+='<div style="grid-column:1/-1;padding:8px 10px;background:#1a1520;border-top:2px solid #3a2a4a;margin-top:4px">';
+      html+='<div style="font-size:.78em;color:#c45c8a;font-weight:700;letter-spacing:.5px;margin-bottom:6px">UNSCHEDULED ('+unsched.length+')</div>';
+      unsched.forEach(i=>{
+        const isSel=_sdSelected.has(i.job);
+        html+='<span onclick="toggleSdSelect(\''+i.job+'\')" class="sd-cb" data-job="'+i.job+'" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;margin:2px;border-radius:4px;background:#0f1117;border:1px solid #2a2d3a;cursor:pointer;font-size:.82em;color:'+(isSel?'#5ae8a8':'#aaa')+'">';
+        html+=(isSel?'\u2611':'\u2610')+' #'+i.job+' '+i.name;
+        html+='</span>';
+      });
+      html+='</div>';
+    }
+  }
+
+  html+='</div></div>';
+  return html;
 }
 function openDrill(stgKey,stgLabel,stgColor,week){
   _drillStage=stgKey;
