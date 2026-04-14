@@ -2476,6 +2476,12 @@ def move_items():
             for item in _cache.get('items', []):
                 if item['job'] in jobs:
                     item['stage'] = target_stage
+            # Reset done status so card starts fresh in new department
+            assignments = _schedule_data.get('assignments', {})
+            for job in jobs:
+                if job in assignments:
+                    assignments[job]['done'] = False
+        _save_schedule()
 
         # Queue DithTracker sync
         queued = False
