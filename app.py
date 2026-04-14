@@ -484,6 +484,10 @@ table.wdt tr:hover td{background:#1e2130}
         <button class="wdbtn" id="wdsortpri">Sort: Priority</button>
         <button id="wdselall" style="background:#1e3a2a;border-color:#3a6a4a;color:#5ae8a8;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;cursor:pointer">☐ Select All</button>
         <button id="wdaddweek" style="display:none;background:#1e2a3a;border-color:#3a6a4a;color:#4db8b8;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;cursor:pointer">📅 Add to Week (0)</button>
+        <span id="wdmovewrap" style="display:none;align-items:center;gap:4px">
+          <select id="wdmovedest" style="background:#0f1117;border:1px solid #3a4a6a;color:#e8e8e8;padding:4px 8px;border-radius:4px;font-size:.82em;cursor:pointer"></select>
+          <button id="wdmovebtn" style="background:#3a1e2a;border:1px solid #6a3a5a;color:#e05580;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;cursor:pointer">Move (0)</button>
+        </span>
         <button id="wdback">← Back to All</button>
       </div>
     </div>
@@ -902,6 +906,7 @@ function openDrill(stageKey,stageName,stageColor){
   _allSelectMode=false;
   document.getElementById('wdselall').textContent='\u2610 Select All';
   document.getElementById('wdaddweek').style.display='none';
+  document.getElementById('wdmovewrap').style.display='none';
   const hasTier=TIER_STAGES.includes(stageKey);
   document.getElementById('wdsorttier').style.display=hasTier?'':'none';
   _drillSort=hasTier?'tier':'due';
@@ -1249,11 +1254,19 @@ function toggleDrillSelect(job) {
 function updateDrillSelectUI() {
   const count = _drillSelected.size;
   const btn = document.getElementById('wdaddweek');
+  const moveWrap = document.getElementById('wdmovewrap');
+  const moveBtn = document.getElementById('wdmovebtn');
+  const moveDest = document.getElementById('wdmovedest');
   if (count > 0) {
     btn.style.display = '';
     btn.textContent = '\u{1F4C5} Add to Week (' + count + ')';
+    moveWrap.style.display = 'flex';
+    moveBtn.textContent = '\u27A1 Move (' + count + ')';
+    // Populate dept dropdown excluding current stage
+    moveDest.innerHTML = STAGES.filter(s=>s.k!==_drillStage).map(s=>'<option value="'+s.k+'">'+s.l+'</option>').join('');
   } else {
     btn.style.display = 'none';
+    moveWrap.style.display = 'none';
   }
   document.querySelectorAll('.drill-cb').forEach(cb => {
     cb.textContent = _drillSelected.has(cb.dataset.job) ? '\u2611' : '\u2610';
@@ -1278,6 +1291,19 @@ document.getElementById('wdselall').onclick = function() {
 document.getElementById('wdaddweek').onclick = function() {
   if (!_drillSelected.size) return;
   openWeekPicker(Array.from(_drillSelected));
+};
+
+document.getElementById('wdmovebtn').onclick = function() {
+  if (!_drillSelected.size) return;
+  const dest = document.getElementById('wdmovedest').value;
+  if (!dest) return;
+  const jobs = Array.from(_drillSelected);
+  moveItems(jobs, dest);
+  _drillSelected.clear();
+  updateDrillSelectUI();
+  renderDrill();
+  const stgLabel = STAGES.find(s=>s.k===dest)?.l || dest;
+  showToast(jobs.length + ' item(s) moved to ' + stgLabel);
 };
 
 function addWeeksW(base, n) {
@@ -2476,12 +2502,6 @@ def move_items():
             for item in _cache.get('items', []):
                 if item['job'] in jobs:
                     item['stage'] = target_stage
-            # Reset done status so card starts fresh in new department
-            assignments = _schedule_data.get('assignments', {})
-            for job in jobs:
-                if job in assignments:
-                    assignments[job]['done'] = False
-        _save_schedule()
 
         # Queue DithTracker sync
         queued = False
@@ -3323,7 +3343,13 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
         <button class="wdbtn" id="sdsortval">Sort: Value ↓</button>
         <button class="wdbtn" id="sdsortname">Sort: Name</button>
         <button class="wdbtn" id="sdsortpri">Sort: Priority</button>
-        <button id="sdback" style="background:#3a1e1e;border:1px solid #6a3a3a;color:#e05555;padding:6px 16px;border-radius:5px;cursor:pointer;font-weight:700">← Back</button>
+        <button id="sdselall" style="background:#1e3a2a;border:1px solid #3a6a4a;color:#5ae8a8;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;cursor:pointer">\u2610 Select All</button>
+        <button id="sdschedbtn" style="display:none;background:#1e2a3a;border:1px solid #3a6a4a;color:#4db8b8;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;cursor:pointer">\uD83D\uDCC5 Schedule (0)</button>
+        <span id="sdmovewrap" style="display:none;align-items:center;gap:4px">
+          <select id="sdmovedest" style="background:#0f1117;border:1px solid #3a4a6a;color:#e8e8e8;padding:4px 8px;border-radius:4px;font-size:.82em;cursor:pointer"></select>
+          <button id="sdmovebtn" style="background:#3a1e2a;border:1px solid #6a3a5a;color:#e05580;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;cursor:pointer">\u27A1 Move (0)</button>
+        </span>
+        <button id="sdback" style="background:#3a1e1e;border:1px solid #6a3a3a;color:#e05555;padding:6px 16px;border-radius:5px;cursor:pointer;font-weight:700">\u2190 Back</button>
       </div>
     </div>
     <div id="sdtable"></div>
@@ -3358,7 +3384,16 @@ let _selected=new Set(); // selected job ids (for multi-select in locked weeks)
 let _dragJob=null;
 let _pendingAction=null; // {type:'lock'|'unlock'|'move', dept, week, jobs:[]}
 let _drillStage=null, _drillSort='due'; // drill-down state
+let _sdSelected=new Set(); // selected jobs in schedule drill-down
+let _sdAllSelect=false;
 const TIER_STAGES=['waxpull','waxchase','sprue','metal','patina'];
+
+// Schedule-page STAGES list used for "move to dept" dropdown (flat, no filters)
+const MOVE_DEPTS=[
+  {k:'molds',l:'Molds'},{k:'creation',l:'Creation'},{k:'waxpull',l:'Wax Pull'},
+  {k:'waxchase',l:'Wax Chase'},{k:'sprue',l:'Sprue'},{k:'shell',l:'Shell/Pouryard'},
+  {k:'metal',l:'Metal Work'},{k:'patina',l:'Patina'},{k:'base',l:'Base'},{k:'ready',l:'Ready'}
+];
 
 // ========== DRILL-DOWN HELPERS ==========
 function dueLabel(d){
@@ -3468,27 +3503,33 @@ function renderDrillMetal(items){
     else small.push(i);
   });
 
-  let html='<table class="wdt"><thead><tr><th style="width:100px">Priority</th><th style="width:70px">Piece #</th><th style="min-width:180px">Description</th><th style="width:120px">Client</th><th style="width:80px">Edition</th><th style="width:90px">Due</th><th style="width:80px" class="tdval">Value</th><th style="width:70px" class="tdhrs">Hrs Bid</th><th style="width:200px">Progress</th><th style="width:80px">Done</th></tr></thead><tbody>';
+  let html='<table class="wdt"><thead><tr><th style="width:30px"></th><th style="width:100px">Priority</th><th style="width:70px">Piece #</th><th style="min-width:180px">Description</th><th style="width:120px">Client</th><th style="width:80px">Edition</th><th style="width:90px">Due</th><th style="width:80px" class="tdval">Value</th><th style="width:70px" class="tdhrs">Hrs Bid</th><th style="width:200px">Progress</th><th style="width:80px">Done</th><th style="width:100px">Schedule</th></tr></thead><tbody>';
 
   if(small.length){
-    html+='<tr style="background:#0a0f15"><td colspan="10" style="padding:6px 8px;color:#4db8b8;font-weight:700;font-size:.9em">Small / Regular</td></tr>';
+    html+='<tr style="background:#0a0f15"><td colspan="12" style="padding:6px 8px;color:#4db8b8;font-weight:700;font-size:.9em">Small / Regular</td></tr>';
     small.forEach(i=>{
       const due=dueLabel(i.due);
       const hrs=itemHours(i);
       const a=_assignments[i.job]||{};
-      html+='<tr><td class="tdpri">'+priBtns(i.job)+'</td><td class="tdpieces">#'+i.job+'</td><td class="tddesc">'+i.name+'</td><td class="tdclient">'+i.customer+'</td><td class="tdedition">'+((i.edition||'1')+' ed')+'</td><td class="tddue '+due.c+'">'+due.t+'</td><td class="tdval">'+fmt(i.price)+'</td><td class="tdhrs">'+fmtHrs(hrs)+'</td><td class="tdprog">'+pctBars(i)+'</td><td class="tddone"><button class="btn-complete'+(a.done?' active':'')+'" onclick="event.stopPropagation();toggleDoneMetalItem(\''+i.job+'\')">'+
-        (a.done?'✓ Done':'Done')+'</button></td></tr>';
+      const isSel=_sdSelected.has(i.job);
+      const weekLbl=a.week?fmtWeekRange(a.week):'';
+      html+='<tr><td><span class="sd-cb" data-job="'+i.job+'" onclick="toggleSdSelect(\''+i.job+'\')" style="cursor:pointer;font-size:1.2em;color:'+(isSel?'#5ae8a8':'#555')+'">'+(isSel?'\u2611':'\u2610')+'</span></td><td class="tdpri">'+priBtns(i.job)+'</td><td class="tdpieces">#'+i.job+'</td><td class="tddesc">'+i.name+'</td><td class="tdclient">'+i.customer+'</td><td class="tdedition">'+((i.edition||'1')+' ed')+'</td><td class="tddue '+due.c+'">'+due.t+'</td><td class="tdval">'+fmt(i.price)+'</td><td class="tdhrs">'+fmtHrs(hrs)+'</td><td class="tdprog">'+pctBars(i)+'</td><td class="tddone"><button class="btn-complete'+(a.done?' active':'')+'" onclick="event.stopPropagation();toggleDoneMetalItem(\''+i.job+'\')">'+
+        (a.done?'\u2713 Done':'Done')+'</button></td>'+
+        '<td><button onclick="event.stopPropagation();sdScheduleOne(\''+i.job+'\')" style="padding:3px 8px;background:'+(a.week?'#1e3a2a':'#1e2a3a')+';border:1px solid '+(a.week?'#3a6a4a':'#3a4a6a')+';color:'+(a.week?'#5ae8a8':'#4db8b8')+';border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">'+(a.week?'\u2713 '+weekLbl:'\uD83D\uDCC5 Schedule')+'</button></td></tr>';
     });
   }
 
   if(mon.length){
-    html+='<tr style="background:#0a0f15"><td colspan="10" style="padding:6px 8px;color:#c45c8a;font-weight:700;font-size:.9em">Monuments</td></tr>';
+    html+='<tr style="background:#0a0f15"><td colspan="12" style="padding:6px 8px;color:#c45c8a;font-weight:700;font-size:.9em">Monuments</td></tr>';
     mon.forEach(i=>{
       const due=dueLabel(i.due);
       const hrs=itemHours(i);
       const a=_assignments[i.job]||{};
-      html+='<tr><td class="tdpri">'+priBtns(i.job)+'</td><td class="tdpieces">#'+i.job+'</td><td class="tddesc">'+i.name+'</td><td class="tdclient">'+i.customer+'</td><td class="tdedition">'+((i.edition||'1')+' ed')+'</td><td class="tddue '+due.c+'">'+due.t+'</td><td class="tdval">'+fmt(i.price)+'</td><td class="tdhrs">'+fmtHrs(hrs)+'</td><td class="tdprog">'+pctBars(i)+'</td><td class="tddone"><button class="btn-complete'+(a.done?' active':'')+'" onclick="event.stopPropagation();toggleDoneMetalItem(\''+i.job+'\')">'+
-        (a.done?'✓ Done':'Done')+'</button></td></tr>';
+      const isSel=_sdSelected.has(i.job);
+      const weekLbl=a.week?fmtWeekRange(a.week):'';
+      html+='<tr><td><span class="sd-cb" data-job="'+i.job+'" onclick="toggleSdSelect(\''+i.job+'\')" style="cursor:pointer;font-size:1.2em;color:'+(isSel?'#5ae8a8':'#555')+'">'+(isSel?'\u2611':'\u2610')+'</span></td><td class="tdpri">'+priBtns(i.job)+'</td><td class="tdpieces">#'+i.job+'</td><td class="tddesc">'+i.name+'</td><td class="tdclient">'+i.customer+'</td><td class="tdedition">'+((i.edition||'1')+' ed')+'</td><td class="tddue '+due.c+'">'+due.t+'</td><td class="tdval">'+fmt(i.price)+'</td><td class="tdhrs">'+fmtHrs(hrs)+'</td><td class="tdprog">'+pctBars(i)+'</td><td class="tddone"><button class="btn-complete'+(a.done?' active':'')+'" onclick="event.stopPropagation();toggleDoneMetalItem(\''+i.job+'\')">'+
+        (a.done?'\u2713 Done':'Done')+'</button></td>'+
+        '<td><button onclick="event.stopPropagation();sdScheduleOne(\''+i.job+'\')" style="padding:3px 8px;background:'+(a.week?'#1e3a2a':'#1e2a3a')+';border:1px solid '+(a.week?'#3a6a4a':'#3a4a6a')+';color:'+(a.week?'#5ae8a8':'#4db8b8')+';border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">'+(a.week?'\u2713 '+weekLbl:'\uD83D\uDCC5 Schedule')+'</button></td></tr>';
     });
   }
 
@@ -3530,13 +3571,16 @@ function renderDrill(){
   if(_drillStage==='metal'){
     document.getElementById('sdtable').innerHTML=renderDrillMetal(sorted);
   } else {
-    let html='<table class="wdt"><thead><tr><th style="width:100px">Priority</th><th style="width:70px">Piece #</th><th style="min-width:180px">Description</th><th style="width:120px">Client</th><th style="width:80px">Edition</th><th style="width:90px">Due</th><th style="width:80px" class="tdval">Value</th><th style="width:70px" class="tdhrs">Hrs Bid</th><th style="width:200px">Progress</th><th style="width:80px">Done</th></tr></thead><tbody>';
+    let html='<table class="wdt"><thead><tr><th style="width:30px"></th><th style="width:100px">Priority</th><th style="width:70px">Piece #</th><th style="min-width:180px">Description</th><th style="width:120px">Client</th><th style="width:80px">Edition</th><th style="width:90px">Due</th><th style="width:80px" class="tdval">Value</th><th style="width:70px" class="tdhrs">Hrs Bid</th><th style="width:200px">Progress</th><th style="width:80px">Done</th><th style="width:100px">Schedule</th></tr></thead><tbody>';
     sorted.forEach(i=>{
       const due=dueLabel(i.due);
       const hrs=itemHours(i);
       const a=_assignments[i.job]||{};
-      html+='<tr><td class="tdpri">'+priBtns(i.job)+'</td><td class="tdpieces">#'+i.job+'</td><td class="tddesc">'+i.name+'</td><td class="tdclient">'+i.customer+'</td><td class="tdedition">'+((i.edition||'1')+' ed')+'</td><td class="tddue '+due.c+'">'+due.t+'</td><td class="tdval">'+fmt(i.price)+'</td><td class="tdhrs">'+fmtHrs(hrs)+'</td><td class="tdprog">'+stgPctBar(i)+'</td><td class="tddone"><button class="btn-complete'+(a.done?' active':'')+'" onclick="event.stopPropagation();toggleDoneNormalItem(\''+i.job+'\')">'+
-        (a.done?'✓ Done':'Done')+'</button></td></tr>';
+      const isSel=_sdSelected.has(i.job);
+      const weekLabel=a.week?fmtWeekRange(a.week):'';
+      html+='<tr><td><span class="sd-cb" data-job="'+i.job+'" onclick="toggleSdSelect(\''+i.job+'\')" style="cursor:pointer;font-size:1.2em;color:'+(isSel?'#5ae8a8':'#555')+'">'+(isSel?'\u2611':'\u2610')+'</span></td><td class="tdpri">'+priBtns(i.job)+'</td><td class="tdpieces">#'+i.job+'</td><td class="tddesc">'+i.name+'</td><td class="tdclient">'+i.customer+'</td><td class="tdedition">'+((i.edition||'1')+' ed')+'</td><td class="tddue '+due.c+'">'+due.t+'</td><td class="tdval">'+fmt(i.price)+'</td><td class="tdhrs">'+fmtHrs(hrs)+'</td><td class="tdprog">'+stgPctBar(i)+'</td><td class="tddone"><button class="btn-complete'+(a.done?' active':'')+'" onclick="event.stopPropagation();toggleDoneNormalItem(\''+i.job+'\')">'+
+        (a.done?'✓ Done':'Done')+'</button></td>'+
+        '<td><button onclick="event.stopPropagation();sdScheduleOne(\''+i.job+'\')" style="padding:3px 8px;background:'+(a.week?'#1e3a2a':'#1e2a3a')+';border:1px solid '+(a.week?'#3a6a4a':'#3a4a6a')+';color:'+(a.week?'#5ae8a8':'#4db8b8')+';border-radius:4px;cursor:pointer;font-size:.78em;white-space:nowrap">'+(a.week?'\u2713 '+weekLabel:'\uD83D\uDCC5 Schedule')+'</button></td></tr>';
     });
     html+='</tbody></table>';
     document.getElementById('sdtable').innerHTML=html;
@@ -3545,7 +3589,12 @@ function renderDrill(){
 function openDrill(stgKey,stgLabel,stgColor){
   _drillStage=stgKey;
   _drillSort='due';
+  _sdSelected.clear();
+  _sdAllSelect=false;
   document.getElementById('sdsearch').value='';
+  document.getElementById('sdschedbtn').style.display='none';
+  document.getElementById('sdmovewrap').style.display='none';
+  document.getElementById('sdselall').textContent='\u2610 Select All';
   renderDrill();
   document.getElementById('sdrillbg').style.display='block';
   // Wire up event handlers
@@ -3556,12 +3605,122 @@ function openDrill(stgKey,stgLabel,stgColor){
   document.getElementById('sdsortname').onclick=()=>{_drillSort='name';renderDrill();};
   document.getElementById('sdsortpri').onclick=()=>{_drillSort='pri';renderDrill();};
   document.getElementById('sdback').onclick=closeDrill;
+  document.getElementById('sdselall').onclick=function(){
+    _sdAllSelect=!_sdAllSelect;
+    if(_sdAllSelect){
+      document.querySelectorAll('.sd-cb').forEach(cb=>_sdSelected.add(cb.dataset.job));
+      this.textContent='\u2611 Deselect All';
+    } else {
+      _sdSelected.clear();
+      this.textContent='\u2610 Select All';
+    }
+    updateSdSelectUI();
+  };
+  document.getElementById('sdschedbtn').onclick=function(){
+    if(!_sdSelected.size)return;
+    // Quick schedule picker (use current week)
+    const today=getMonday(new Date().toISOString().slice(0,10));
+    sdScheduleWeekPicker(Array.from(_sdSelected));
+  };
+  document.getElementById('sdmovebtn').onclick=function(){
+    if(!_sdSelected.size)return;
+    const dest=document.getElementById('sdmovedest').value;
+    if(!dest)return;
+    sdMoveDept(Array.from(_sdSelected),dest);
+  };
+}
+
+// Week picker for schedule drill-down batch scheduling
+function sdScheduleWeekPicker(jobs){
+  const today=getMonday(new Date().toISOString().slice(0,10));
+  const weeks=[
+    {w:today,l:'This Week',d:fmtWeekRange(today)},
+    {w:addWeeks(today,1),l:'Next Week',d:fmtWeekRange(addWeeks(today,1))},
+    {w:addWeeks(today,2),l:'Week +2',d:fmtWeekRange(addWeeks(today,2))},
+    {w:addWeeks(today,3),l:'Week +3',d:fmtWeekRange(addWeeks(today,3))}
+  ];
+  const n=jobs.length;
+  let html='<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:600;display:flex;align-items:center;justify-content:center" id="sdWeekPickerBg" onclick="if(event.target===this)this.remove()">'+
+    '<div style="background:#12151f;border:1px solid #3a4a6a;border-radius:10px;padding:20px;max-width:400px;width:90%">'+
+    '<h3 style="color:#fff;margin:0 0 4px">Schedule '+n+' Item'+(n>1?'s':'')+'</h3>'+
+    '<p style="color:#888;font-size:.85em;margin:0 0 12px">Choose target week</p>'+
+    '<div style="display:flex;flex-direction:column;gap:6px">'+
+    weeks.map(w=>'<button onclick="sdScheduleJobs('+JSON.stringify(jobs)+',\''+w.w+'\');document.getElementById(\'sdWeekPickerBg\').remove();_sdSelected.clear();updateSdSelectUI();" style="display:flex;justify-content:space-between;padding:10px 14px;background:#1e2a3a;border:1px solid #3a4a6a;border-radius:6px;cursor:pointer;color:#fff;font-size:.88em;font-weight:600;transition:all .15s" onmouseover="this.style.borderColor=\'#4db8b8\'" onmouseout="this.style.borderColor=\'#3a4a6a\'"><span>'+w.l+'</span><span style="color:#888;font-weight:400">'+w.d+'</span></button>').join('')+
+    '</div>'+
+    '<button onclick="document.getElementById(\'sdWeekPickerBg\').remove()" style="margin-top:10px;width:100%;padding:8px;background:#2a2d3a;border:1px solid #3a3d4a;border-radius:5px;color:#aaa;cursor:pointer;font-size:.85em">Cancel</button>'+
+    '</div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
 }
 function closeDrill(){
   _drillStage=null;
+  _sdSelected.clear();
+  _sdAllSelect=false;
   document.getElementById('sdrillbg').style.display='none';
   render();
 }
+
+// ── Schedule drill-down selection & actions ──
+function toggleSdSelect(job){
+  if(_sdSelected.has(job))_sdSelected.delete(job);
+  else _sdSelected.add(job);
+  updateSdSelectUI();
+}
+function updateSdSelectUI(){
+  const count=_sdSelected.size;
+  const schedBtn=document.getElementById('sdschedbtn');
+  const moveWrap=document.getElementById('sdmovewrap');
+  const moveBtn=document.getElementById('sdmovebtn');
+  const moveDest=document.getElementById('sdmovedest');
+  if(count>0){
+    schedBtn.style.display='';
+    schedBtn.textContent='\uD83D\uDCC5 Schedule ('+count+')';
+    moveWrap.style.display='flex';
+    moveBtn.textContent='\u27A1 Move Dept ('+count+')';
+    const curStage=_drillStage==='metal_small'||_drillStage==='metal_mon'?'metal':_drillStage==='sprue_small'||_drillStage==='sprue_mon'?'sprue':_drillStage;
+    moveDest.innerHTML=MOVE_DEPTS.filter(s=>s.k!==curStage).map(s=>'<option value="'+s.k+'">'+s.l+'</option>').join('');
+  } else {
+    schedBtn.style.display='none';
+    moveWrap.style.display='none';
+  }
+  document.querySelectorAll('.sd-cb').forEach(cb=>{
+    const sel=_sdSelected.has(cb.dataset.job);
+    cb.textContent=sel?'\u2611':'\u2610';
+    cb.style.color=sel?'#5ae8a8':'#555';
+  });
+}
+function sdScheduleOne(job){
+  // Quick schedule: assign to current week
+  const today=getMonday(new Date().toISOString().slice(0,10));
+  sdScheduleJobs([job],today);
+}
+function sdScheduleJobs(jobs,week){
+  jobs.forEach(j=>{
+    const a=_assignments[j]||{};
+    _assignments[j]={week:week,carryover:a.carryover||false,original_week:a.original_week||null,done:a.done||false,auto:false};
+    fetch('/api/schedule/assign',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({job:j,week:week})}).catch(e=>console.error('assign failed',e));
+  });
+  showToast(jobs.length+' item(s) scheduled \u2192 '+weekLabel(week));
+  renderDrill();
+}
+function sdMoveDept(jobs,targetStage){
+  // Move items to different department locally + server
+  const pieceIds=[];
+  jobs.forEach(j=>{
+    const item=_items.find(i=>i.job===j);
+    if(item){item.stage=targetStage;if(item.pieceId)pieceIds.push(item.pieceId);}
+  });
+  fetch('/api/move-items',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({jobs,targetStage,pieceIds,dtStatusId:80})
+  }).then(r=>r.json()).then(d=>{
+    showToast(jobs.length+' item(s) moved to '+(MOVE_DEPTS.find(s=>s.k===targetStage)||{l:targetStage}).l);
+  }).catch(e=>console.error('move failed',e));
+  _sdSelected.clear();
+  updateSdSelectUI();
+  renderDrill();
+  render();
+}
+
 function toggleDoneMetalItem(job){
   const a=_assignments[job];if(!a)return;
   a.done=!a.done;
@@ -4031,6 +4190,7 @@ function render(){
                 (!isCurrent?'<button class="btn-sm rush" onclick="event.stopPropagation();rushToThisWeek(\''+i.job+'\')">⚡ Rush</button>':'')+
                 '<button class="btn-sm done'+(isDone?' active':'')+'" onclick="event.stopPropagation();toggleDone(\''+i.job+'\')">'+
                   (isDone?'✓ Done':'Done')+'</button>'+
+                '<select class="btn-sm" onchange="event.stopPropagation();if(this.value){sdMoveDept([\''+i.job+'\'],this.value);this.value=\'\'}" style="background:#1e1e2a;border:1px solid #3a3a5a;color:#c45c8a;padding:2px 4px;border-radius:3px;font-size:.72em;cursor:pointer;max-width:80px"><option value="">Move...</option>'+MOVE_DEPTS.filter(s=>s.k!==realDeptKey(stg.k)).map(s=>'<option value="'+s.k+'">'+s.l+'</option>').join('')+'</select>'+
               '</div>':'')+
             '</div>';
           }).join('')+
