@@ -3579,9 +3579,8 @@ function cyclePriTo(job,newVal){
 function priBtns(job){
   const p=getPri(job);
   return'<div style="display:flex;gap:2px">'+
-    '<button class="pri-btn p0'+(p===0?' active':'')+'" onclick="event.stopPropagation();cyclePriTo(\''+job+'\',0)">—</button>'+
-    '<button class="pri-btn p1'+(p===1?' active':'')+'" onclick="event.stopPropagation();cyclePriTo(\''+job+'\',1)">URG</button>'+
-    '<button class="pri-btn p2'+(p===2?' active':'')+'" onclick="event.stopPropagation();cyclePriTo(\''+job+'\',2)">HI</button>'+
+    '<button class="pri-btn'+(p===1?' p1':'')+'" onclick="event.stopPropagation();cyclePriTo(\''+job+'\','+(p===1?0:1)+')" title="Urgent">\uD83D\uDD34</button>'+
+    '<button class="pri-btn'+(p===2?' p2':'')+'" onclick="event.stopPropagation();cyclePriTo(\''+job+'\','+(p===2?0:2)+')" title="High">\uD83D\uDFE1</button>'+
   '</div>';
 }
 function metalPct(item){
@@ -3715,12 +3714,36 @@ function renderDrill(){
   const doneVal=sorted.filter(i=>_assignments[i.job]&&_assignments[i.job].done).reduce((a,i)=>a+(i.price||0),0);
 
   document.getElementById('sdtitle').textContent=stg.l;
-  const drillStats=deptPctCalc(sorted);
+
+  // Split items into monument and small groups
+  const monItems=sorted.filter(i=>i.monument);
+  const smallItems=sorted.filter(i=>!i.monument);
+  const hasMonAndSmall=monItems.length>0&&smallItems.length>0;
+
+  // Build health bar section — separate bars for monument/small when both exist
+  let healthHtml='';
+  if(hasMonAndSmall){
+    const monStats=deptPctCalc(monItems);
+    const smallStats=deptPctCalc(smallItems);
+    healthHtml=
+      '<div class="sdstat" style="min-width:200px">'+
+        '<div style="font-size:.68em;color:#c45c8a;font-weight:700;letter-spacing:.5px;margin-bottom:2px">MONUMENTS ('+monItems.length+')</div>'+
+        healthBarHtml(monStats,'#c45c8a',false)+
+      '</div>'+
+      '<div class="sdstat" style="min-width:200px">'+
+        '<div style="font-size:.68em;color:'+stg.c+';font-weight:700;letter-spacing:.5px;margin-bottom:2px">SMALLS ('+smallItems.length+')</div>'+
+        healthBarHtml(smallStats,stg.c,false)+
+      '</div>';
+  } else {
+    const drillStats=deptPctCalc(sorted);
+    healthHtml='<div class="sdstat" style="min-width:180px">'+healthBarHtml(drillStats,stg.c,false)+'</div>';
+  }
+
   document.getElementById('sdstats').innerHTML=
     '<div class="sdstat">Items: <strong>'+doneCount+'/'+sorted.length+'</strong></div>'+
     '<div class="sdstat">Hours: <strong>'+fmtHrs(doneHrs)+'/'+fmtHrs(totalHrs)+'</strong></div>'+
     '<div class="sdstat">Value: <strong>'+fmt(doneVal)+'/'+fmt(totalVal)+'</strong></div>'+
-    '<div class="sdstat" style="min-width:180px">'+healthBarHtml(drillStats,stg.c,false)+'</div>';
+    healthHtml;
 
   // Update sort buttons
   document.querySelectorAll('#sdtools .wdbtn').forEach(b=>{
