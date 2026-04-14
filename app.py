@@ -336,13 +336,16 @@ def _auto_fetch_wip():
     log.info('Auto-fetching WIP data from DithTracker...')
     try:
         all_items = []
-        url = f'{DITH_API_BASE}?activeFilter=Include&pageSize=500'
+        url = f'{DITH_API_BASE}?pageSize=500'
         r = requests.get(url, headers={
             'User-Agent': 'Mozilla/5.0',
             'Accept': 'application/json',
         }, timeout=30)
         r.raise_for_status()
-        body = r.json()
+        # Strip BOM if present and parse JSON
+        txt = r.text.lstrip('\ufeff').strip()
+        log.info(f'DithTracker response: status={r.status_code}, len={len(txt)}, first100={txt[:100]!r}')
+        body = json.loads(txt)
         raw = body.get('items', body) if isinstance(body, dict) else body
         all_items.extend(raw)
         total = body.get('totalCount', len(raw)) if isinstance(body, dict) else len(raw)
@@ -356,7 +359,7 @@ def _auto_fetch_wip():
                     'Accept': 'application/json',
                 }, timeout=30)
                 r2.raise_for_status()
-                b2 = r2.json()
+                b2 = json.loads(r2.text.lstrip('\ufeff').strip())
                 raw2 = b2.get('items', b2) if isinstance(b2, dict) else b2
                 all_items.extend(raw2)
         items = transform_rows(all_items)
