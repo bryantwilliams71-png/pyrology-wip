@@ -2669,7 +2669,8 @@ def move_items():
                 if item['job'] in jobs:
                     item['stage'] = target_stage
 
-        # Auto-assign moved items to next week (unless already in current week or manually overridden)
+        # Auto-assign moved items to next week on department change
+        # User can manually drag them back to current week afterward
         reassigned = []
         if auto_week:
             this_monday = _get_week_monday()
@@ -2679,15 +2680,13 @@ def move_items():
                 for j in jobs:
                     existing = assignments.get(j, {})
                     cur_week = existing.get('week', '')
-                    # Only reassign if NOT already in current week (user may have manually placed it there)
-                    if cur_week != this_monday:
-                        assignments[j] = {
-                            'week': next_monday,
-                            'carryover': False,
-                            'original_week': existing.get('original_week') or cur_week or None,
-                            'done': False,
-                        }
-                        reassigned.append(j)
+                    assignments[j] = {
+                        'week': next_monday,
+                        'carryover': False,
+                        'original_week': existing.get('original_week') or cur_week or None,
+                        'done': False,
+                    }
+                    reassigned.append(j)
             if reassigned:
                 _save_schedule()
                 log.info(f'Auto-assigned {len(reassigned)} moved items to next week ({next_monday})')
@@ -3964,12 +3963,9 @@ function sdMoveDept(jobs,targetStage){
   }).then(r=>r.json()).then(d=>{
     // Update local assignments to reflect next-week auto-assign
     if(d.reassigned>0){
-      const today=getMonday(new Date());
-      const nextMon=addWeeks(today,1);
+      const nextMon=addWeeks(getMonday(new Date()),1);
       jobs.forEach(j=>{
-        if(!_assignments[j]||_assignments[j].week!==today){
-          _assignments[j]={week:nextMon,carryover:false,original_week:(_assignments[j]||{}).week||null,done:false};
-        }
+        _assignments[j]={week:nextMon,carryover:false,original_week:(_assignments[j]||{}).week||null,done:false};
       });
     }
     const deptLabel=(MOVE_DEPTS.find(s=>s.k===targetStage)||{l:targetStage}).l;
