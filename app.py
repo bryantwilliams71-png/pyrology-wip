@@ -2635,16 +2635,14 @@ def metal_override():
             item = next((i for i in _cache['items'] if i['job'] == job), None)
         _save_overrides()
         log.info(f'Metal override set: job={job} pct={pct}%')
-        # KPI tracking
+        # KPI tracking: credit the incremental percentage of the item value
         if item and pct > pct_old:
             price = item.get('price') or 0
-            if item.get('monument'):
-                # Monument metal: any % increase records the full assigned price
-                _record_kpi_entry(job, item, price, 'monument_metal',
-                                  f'{pct_old}%→{pct}% progress')
-            elif pct == 100 and pct_old < 100:
-                # Small metal: only full completion counts
-                _record_kpi_entry(job, item, price, 'small_metal', '100% complete')
+            increment = pct - pct_old
+            credited_value = round(price * increment / 100, 2)
+            dept = 'monument_metal' if item.get('monument') else 'small_metal'
+            note = f'{pct}% complete' if pct == 100 else f'{pct_old}%→{pct}% ({increment}% of value)'
+            _record_kpi_entry(job, item, credited_value, dept, note)
         return jsonify({'ok': True, 'job': job, 'pct': pct})
     except Exception as e:
         log.error(f'Override failed: {e}')
@@ -2701,9 +2699,11 @@ def stage_override():
             item = next((i for i in _cache['items'] if i['job'] == job), None)
         _save_stage_overrides()
         log.info(f'Stage override set: job={job} pct={pct}%')
-        # KPI tracking: only record when hitting 100% from below 100%
-        if item and pct == 100 and pct_old < 100:
+        # KPI tracking: credit the incremental percentage of the item value
+        if item and pct > pct_old:
             price = item.get('price') or 0
+            increment = pct - pct_old
+            credited_value = round(price * increment / 100, 2)
             dept  = item.get('stage', 'unknown')
             # Metal items: differentiate small vs monument for KPI
             if dept == 'metal':
@@ -2711,7 +2711,8 @@ def stage_override():
             # Sprue items: differentiate small vs monument for KPI
             if dept == 'sprue':
                 dept = 'monument_sprue' if item.get('monument') else 'small_sprue'
-            _record_kpi_entry(job, item, price, dept, '100% complete')
+            note = f'{pct}% complete' if pct == 100 else f'{pct_old}%→{pct}% ({increment}% of value)'
+            _record_kpi_entry(job, item, credited_value, dept, note)
         return jsonify({'ok': True, 'job': job, 'pct': pct})
     except Exception as e:
         log.error(f'Stage override failed: {e}')
