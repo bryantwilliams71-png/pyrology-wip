@@ -67,6 +67,7 @@ _ship_data          = {'shipments': [], 'next_id': 1}
 _schedule_data      = {'assignments': {}, 'locked_weeks': []}  # job → {week:'YYYY-MM-DD', carryover:bool, original_week:'YYYY-MM-DD'}
 _dt_pending         = []    # pending DithTracker sync moves [{id, pieceIds, statusId, created}]
 _dt_pending_id      = 0
+_dt_session         = {}    # DithTracker session: {cookies: str, xsrf: str, updated: str}
 _lock            = threading.Lock()
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s  %(message)s', datefmt='%H:%M:%S')
@@ -445,6 +446,36 @@ def transform_rows(raw):
             'tier':          row.get('tierGrade'),
         })
     return items
+
+# ── Server-side DithTracker sync ──────────────────────────────────────────────
+def _dt_sync_now(piece_ids, status_id):
+    """Call DithTracker's bulk status API directly using stored session credentials.
+    Returns True on success, False on failure (will fall back to queue)."""
+    if not _dt_session or not _dt_session.get('cookies'):
+        log.info('DT sync: no session stored, will queue instead')
+        return False
+    try:
+        import urllib.request
+        url = 'https://dithtracker-reporting.azurewebsites.net/api/piece/state/__bulk'
+        payload = json.dumps({'pieceIds': piece_ids, 'statusId': status_id}).encode('utf-8')
+        headers = {
+            'Content-Type': 'application/json',
+            'Cookie': _dt_session['cookies'],
+            'User-Agent': 'Mozilla/5.0',
+            'Accept': 'application/json',
+            'Origin': 'https://dithtracker-reporting.azurewebsites.net',
+            'Referer': 'https://dithtracker-reporting.azurewebsites.net/Reports/Wip',
+        }
+        if _dt_session.get('xsrf'):
+            headers['X-XSRF-TOKEN'] = _dt_session['xsrf']
+        req = urllib.request.Request(url, data=payload, headers=headers, method='POST')
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            code = resp.getcode()
+            log.info(f'DT sync OK: {len(piece_ids)} pieces → status {status_id} (HTTP {code})')
+            return True
+    except Exception as e:
+        log.warning(f'DT sync failed: {e}')
+        return False
 
 # ── Server-side fetch ──────────────────────────────────────────────────────────
 def fetch():
@@ -1016,7 +1047,8 @@ function moveItems(jobs, targetStage){
   }).then(r => r.json()).then(d => {
     let msg = jobs.length + ' item(s) moved';
     if(d.reassigned > 0) msg += ' → scheduled next week';
-    if(d.dtQueued) msg += ' — DT sync queued (' + d.pendingCount + ' pending)';
+    if(d.dtSynced) msg += ' — DT updated';
+    else if(d.dtQueued) msg += ' — DT sync queued';
     showToast(msg);
   }).catch(e => console.error('move failed', e));
   _selectedJobs.clear();
@@ -2691,22 +2723,27 @@ def move_items():
                 _save_schedule()
                 log.info(f'Auto-assigned {len(reassigned)} moved items to next week ({next_monday})')
 
-        # Queue DithTracker sync
+        # Sync to DithTracker — try direct server-side call first, fall back to queue
+        dt_synced = False
         queued = False
         if piece_ids and dt_status_id:
-            _dt_pending_id += 1
-            _dt_pending.append({
-                'id': _dt_pending_id,
-                'pieceIds': [int(p) for p in piece_ids if p],
-                'statusId': int(dt_status_id),
-                'jobs': jobs,
-                'targetStage': target_stage,
-                'created': datetime.utcnow().isoformat() + 'Z'
-            })
-            queued = True
+            int_pieces = [int(p) for p in piece_ids if p]
+            int_status = int(dt_status_id)
+            dt_synced = _dt_sync_now(int_pieces, int_status)
+            if not dt_synced:
+                _dt_pending_id += 1
+                _dt_pending.append({
+                    'id': _dt_pending_id,
+                    'pieceIds': int_pieces,
+                    'statusId': int_status,
+                    'jobs': jobs,
+                    'targetStage': target_stage,
+                    'created': datetime.utcnow().isoformat() + 'Z'
+                })
+                queued = True
 
-        log.info(f'Moved {len(jobs)} items to {target_stage}. DT queued: {queued}')
-        return jsonify({'ok': True, 'moved': len(jobs), 'dtQueued': queued, 'pendingCount': len(_dt_pending), 'reassigned': len(reassigned)})
+        log.info(f'Moved {len(jobs)} items to {target_stage}. DT synced: {dt_synced}, queued: {queued}')
+        return jsonify({'ok': True, 'moved': len(jobs), 'dtSynced': dt_synced, 'dtQueued': queued, 'pendingCount': len(_dt_pending), 'reassigned': len(reassigned)})
     except Exception as e:
         log.error(f'Move failed: {e}')
         return jsonify({'error': str(e)}), 500
@@ -2872,21 +2909,36 @@ function stopSync() {
 
 @app.route('/dt-sync-worker.js')
 def dt_sync_worker_js():
-    """JavaScript file that starts the DT sync worker when loaded on the DithTracker tab."""
+    """JavaScript file that starts the DT sync worker when loaded on the DithTracker tab.
+    v4: Also sends session cookies to Pyrology server every 10s for server-side sync."""
     js = '''(function(){
   if(window._dtSyncRunning){console.log('[DT-Sync] Already running');return;}
   window._dtSyncRunning=true;
   window._dtSyncLog=[];
   var PYROLOGY='https://pyrology-wip.onrender.com';
-  var POLL_MS=5000;
+  var POLL_MS=10000;
   function log(m){var e=new Date().toLocaleTimeString()+' '+m;window._dtSyncLog.push(e);if(window._dtSyncLog.length>50)window._dtSyncLog.shift();console.log('[DT-Sync] '+e);}
+
+  /* Send session cookies to Pyrology so the server can call DT API directly */
+  async function sendSession(){
+    try{
+      var cookies=document.cookie;
+      var xsrf='';
+      var xc=cookies.split(';').map(function(c){return c.trim();}).find(function(c){return c.startsWith('XSRF-TOKEN=');});
+      if(xc)xsrf=decodeURIComponent(xc.split('=')[1]);
+      await fetch(PYROLOGY+'/api/dt-session',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({cookies:cookies,xsrf:xsrf})});
+    }catch(e){log('Session send err:'+e.message);}
+  }
+
+  /* Poll for any pending moves that server-side sync missed (fallback) */
   async function poll(){
     try{
       var res=await fetch(PYROLOGY+'/api/dt-pending');
       if(!res.ok){log('Poll fail:'+res.status);return;}
       var data=await res.json();var pending=data.moves||[];
       if(!pending.length)return;
-      log('Found '+pending.length+' pending');
+      log('Found '+pending.length+' pending (fallback)');
       for(var move of pending){
         try{
           log('Exec #'+move.id+': '+move.pieceIds.length+'pcs->status'+move.statusId);
@@ -2899,8 +2951,13 @@ def dt_sync_worker_js():
       }
     }catch(e){log('Poll err:'+e.message);}
   }
-  window._dtSyncInterval=setInterval(poll,POLL_MS);poll();
-  log('Sync worker started (v3)');
+
+  /* Combined tick: send session + check pending queue */
+  async function tick(){await sendSession();await poll();}
+
+  window._dtSyncInterval=setInterval(tick,POLL_MS);
+  tick();
+  log('Sync worker started (v4 — auto session, 10s interval)');
   var badge=document.createElement('div');
   badge.style.cssText='position:fixed;top:8px;right:8px;z-index:99999;background:#1b5e20;color:#4caf50;padding:6px 14px;border-radius:20px;font:bold 13px system-ui;cursor:pointer;border:1px solid #4caf50';
   badge.textContent='\\u{1f504} DT Sync Active';
@@ -2909,6 +2966,30 @@ def dt_sync_worker_js():
   document.body.appendChild(badge);
 })();'''
     return js, 200, {'Content-Type': 'application/javascript', 'Access-Control-Allow-Origin': '*'}
+
+@app.route('/api/dt-session', methods=['POST', 'OPTIONS'])
+def dt_session():
+    """Store DithTracker session credentials for server-side sync.
+    Called from the DithTracker browser tab to share cookies + XSRF token."""
+    global _dt_session
+    if request.method == 'OPTIONS':
+        return '', 204, {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type'}
+    try:
+        body = request.get_json(force=True)
+        cookies = body.get('cookies', '')
+        xsrf = body.get('xsrf', '')
+        if cookies:
+            _dt_session = {
+                'cookies': cookies,
+                'xsrf': xsrf,
+                'updated': datetime.utcnow().isoformat() + 'Z'
+            }
+            log.info(f'DT session stored (cookies: {len(cookies)} chars, xsrf: {"yes" if xsrf else "no"})')
+            return jsonify({'ok': True, 'stored': True})
+        return jsonify({'ok': False, 'error': 'no cookies provided'}), 400
+    except Exception as e:
+        log.error(f'DT session store failed: {e}')
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/dt-pending', methods=['GET'])
 def get_dt_pending():
@@ -3969,7 +4050,11 @@ function sdMoveDept(jobs,targetStage){
       });
     }
     const deptLabel=(MOVE_DEPTS.find(s=>s.k===targetStage)||{l:targetStage}).l;
-    showToast(jobs.length+' item(s) moved to '+deptLabel+(d.reassigned>0?' → scheduled next week':''));
+    let tmsg=jobs.length+' item(s) moved to '+deptLabel;
+    if(d.reassigned>0)tmsg+=' → next week';
+    if(d.dtSynced)tmsg+=' — DT updated';
+    else if(d.dtQueued)tmsg+=' — DT queued';
+    showToast(tmsg);
   }).catch(e=>console.error('move failed',e));
   _sdSelected.clear();
   updateSdSelectUI();
