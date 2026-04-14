@@ -3919,11 +3919,8 @@ function renderDrill(){
     if(b.id==='sdsortpri'&&_drillSort==='pri')b.classList.add('active');
   });
 
-  if(_drillStage==='metal'){
-    document.getElementById('sdtable').innerHTML=renderDrillMetal(sorted);
-  } else {
     document.getElementById('sdtable').innerHTML=renderDrillGantt(sorted,stg);
-  }
+
 }
 
 /* ── Gantt chart renderer for drill-down ── */
