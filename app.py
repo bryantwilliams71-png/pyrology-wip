@@ -3500,6 +3500,7 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
         <h2 id="sdtitle"></h2>
         <div id="sdstats"></div>
       </div>
+      <div id="sdweekfilter" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:2px"></div>
       <div id="sdtools">
         <input id="sdsearch" placeholder="Search pieces..." type="text"/>
         <button class="wdbtn active" id="sdsortdue">Sort: Due Date</button>
@@ -3547,7 +3548,7 @@ let _lockedWeeks={}; // 'dept-week' => true
 let _selected=new Set(); // selected job ids (for multi-select in locked weeks)
 let _dragJob=null;
 let _pendingAction=null; // {type:'lock'|'unlock'|'move', dept, week, jobs:[]}
-let _drillStage=null, _drillSort='due'; // drill-down state
+let _drillStage=null, _drillSort='due', _drillWeek=null; // drill-down state (week=null means all)
 let _sdSelected=new Set(); // selected jobs in schedule drill-down
 let _sdAllSelect=false;
 const TIER_STAGES=['waxpull','waxchase','sprue','metal','patina'];
@@ -3704,7 +3705,31 @@ function renderDrill(){
   const stg=STAGE_MAP[_drillStage];
   if(!stg)return;
 
-  const deptItems=_items.filter(i=>i.stage===_drillStage);
+  const allDeptItems=_items.filter(i=>i.stage===_drillStage);
+
+  // Build week filter buttons
+  const weekSet=new Set();
+  allDeptItems.forEach(i=>{const a=_assignments[i.job];if(a&&a.week)weekSet.add(a.week);});
+  const weekList=Array.from(weekSet).sort();
+  const unscheduledCount=allDeptItems.filter(i=>!_assignments[i.job]||!_assignments[i.job].week).length;
+  let wfHtml='<button class="wdbtn'+(!_drillWeek?' active':'')+'" onclick="_drillWeek=null;renderDrill()" style="font-size:.75em;padding:3px 10px">All ('+allDeptItems.length+')</button>';
+  weekList.forEach(w=>{
+    const wCount=allDeptItems.filter(i=>_assignments[i.job]&&_assignments[i.job].week===w).length;
+    const isActive=_drillWeek===w;
+    wfHtml+='<button class="wdbtn'+(isActive?' active':'')+'" onclick="_drillWeek=\''+w+'\';renderDrill()" style="font-size:.75em;padding:3px 10px">'+weekLabel(w)+' ('+wCount+')</button>';
+  });
+  if(unscheduledCount){
+    wfHtml+='<button class="wdbtn'+(_drillWeek==='unscheduled'?' active':'')+'" onclick="_drillWeek=\'unscheduled\';renderDrill()" style="font-size:.75em;padding:3px 10px;color:#888">Unscheduled ('+unscheduledCount+')</button>';
+  }
+  document.getElementById('sdweekfilter').innerHTML=wfHtml;
+
+  // Filter items by selected week
+  let deptItems=allDeptItems;
+  if(_drillWeek==='unscheduled'){
+    deptItems=allDeptItems.filter(i=>!_assignments[i.job]||!_assignments[i.job].week);
+  } else if(_drillWeek){
+    deptItems=allDeptItems.filter(i=>_assignments[i.job]&&_assignments[i.job].week===_drillWeek);
+  }
   const sorted=sortDrillItems(deptItems);
 
   const doneCount=sorted.filter(i=>_assignments[i.job]&&_assignments[i.job].done).length;
@@ -3713,7 +3738,7 @@ function renderDrill(){
   const totalVal=sorted.reduce((a,i)=>a+(i.price||0),0);
   const doneVal=sorted.filter(i=>_assignments[i.job]&&_assignments[i.job].done).reduce((a,i)=>a+(i.price||0),0);
 
-  document.getElementById('sdtitle').textContent=stg.l;
+  document.getElementById('sdtitle').textContent=stg.l+(_drillWeek&&_drillWeek!=='unscheduled'?' — '+weekLabel(_drillWeek):_drillWeek==='unscheduled'?' — Unscheduled':'');
 
   // Split items into monument and small groups
   const monItems=sorted.filter(i=>i.monument);
@@ -3773,9 +3798,10 @@ function renderDrill(){
     document.getElementById('sdtable').innerHTML=html;
   }
 }
-function openDrill(stgKey,stgLabel,stgColor){
+function openDrill(stgKey,stgLabel,stgColor,week){
   _drillStage=stgKey;
   _drillSort='due';
+  _drillWeek=week||null;
   _sdSelected.clear();
   _sdAllSelect=false;
   document.getElementById('sdsearch').value='';
@@ -4336,7 +4362,8 @@ function render(){
         'ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event,\''+stg.k+'\',\''+w+'\')">' +
         '<div class="wb-hdr" onclick="toggleWb(\''+wbId+'\')">'+
           '<span>'+(wLocked?'<span class="lock-icon">🔒</span>':'')+
-            '<span class="wlabel">'+weekLabel(w)+'</span><span class="wdates"> '+fmtWeekRange(w)+'</span></span>'+
+            '<span class="wlabel">'+weekLabel(w)+'</span><span class="wdates"> '+fmtWeekRange(w)+'</span>'+
+            '<button onclick="event.stopPropagation();openDrill(\''+(stg.filter?'metal':stg.k)+'\',\''+stg.l+'\',\''+stg.c+'\',\''+w+'\')" style="margin-left:6px;background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;padding:1px 6px;border-radius:3px;cursor:pointer;font-size:.65em;font-weight:700" title="Drill down this week">🔍</button></span>'+
           '<span class="wstats"><strong>'+wItems.length+'</strong> · '+fmtHrs(wHrs-doneHrsWeek)+' remaining · '+fmt(wVal-doneValWeek)+' remaining'+
             (doneCount?' · <span style="color:#5a9e5a">'+doneCount+'✓</span>':'')+'</span>'+
         '</div>'+
