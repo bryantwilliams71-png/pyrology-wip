@@ -14,7 +14,7 @@ import requests
 from flask import Flask, jsonify, Response, request
 from flask_cors import CORS
 
-# ââ Config âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# &#x2500;&#x2500; Config &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 API_URL    = os.getenv('WIP_API_URL',
              'https://dithtracker-reporting.azurewebsites.net/Api/Reports/Wip?pageSize=500')
 PORT       = int(os.getenv('PORT', 8080))
@@ -29,7 +29,7 @@ MAINTENANCE_FILE     = '/tmp/maintenance_data.json'
 SHIPPING_FILE        = '/tmp/shipping_data.json'
 SCHEDULE_FILE        = '/tmp/schedule_data.json'
 
-# ââ GitHub Persistence Config âââââââââââââââââââââââââââââââââââââââââââââââââ
+# &#x2500;&#x2500; GitHub Persistence Config &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 GH_REPO    = os.getenv('GH_REPO', 'bryantwilliams71-png/pyrology-wip')
 GH_TOKEN   = os.getenv('GH_TOKEN', '')
 GH_STATE_FILE = 'state.json'                     # file in repo root
@@ -41,7 +41,7 @@ GH_SAVE_DELAY = 5                                 # seconds to debounce before s
 # DithTracker auto-fetch config
 DITH_API_BASE = 'https://dithtracker-reporting.azurewebsites.net/Api/Reports/Wip'
 
-# ââ Status &rarr; Stage mapping âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# &#x2500;&#x2500; Status &rarr; Stage mapping &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 STATUS_MAP = {
     'Mold':'molds','Waiting on Creation/Mold':'molds','Scan':'molds',
     'Sculpt':'molds',
@@ -56,7 +56,7 @@ STATUS_MAP = {
     'Ready':'ready','Packing/Shipping':'ready',
 }
 
-# ââ Globals ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# &#x2500;&#x2500; Globals &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 _cache              = {'items': [], 'updated': None, 'error': None}
 _metal_overrides    = {}
 _stage_overrides    = {}
@@ -230,7 +230,7 @@ def _save_schedule():
         log.warning(f'Could not save schedule data: {e}')
     _schedule_github_save()
 
-# ââ GitHub State Persistence ââââââââââââââââââââââââââââââââââââââââââââââââââ
+# &#x2500;&#x2500; GitHub State Persistence &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 def _gh_headers():
     return {'Authorization': f'token {GH_TOKEN}',
             'Accept': 'application/vnd.github.v3+json',
@@ -331,7 +331,7 @@ def _persist():
     """Save to both local /tmp AND queue a debounced GitHub save."""
     _schedule_github_save()
 
-# ââ DithTracker Auto-Fetch âââââââââââââââââââââââââââââââââââââââââââââââââââ
+# &#x2500;&#x2500; DithTracker Auto-Fetch &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 def _auto_fetch_wip():
     """Fetch WIP items directly from DithTracker API (no auth needed)."""
     log.info('Auto-fetching WIP data from DithTracker...')
@@ -395,7 +395,7 @@ def _auto_rollover():
     if changed:
         _save_schedule()
 
-# ââ Init: Load state (GitHub first, then /tmp fallback) ââââââââââââââââââââââ
+# &#x2500;&#x2500; Init: Load state (GitHub first, then /tmp fallback) &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 _gh_loaded = _load_state_from_github()
 if not _gh_loaded:
     log.info('Falling back to /tmp file state...')
@@ -407,7 +407,7 @@ if not _gh_loaded:
     _load_shipping()
     _load_schedule()
 
-# ââ Transform raw API rows &rarr; internal format âââââââââââââââââââââââââââââââââââ
+# &#x2500;&#x2500; Transform raw API rows &rarr; internal format &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 def transform_rows(raw):
     items = []
     seen_jobs = set()
@@ -447,7 +447,7 @@ def transform_rows(raw):
         })
     return items
 
-# ââ Server-side DithTracker sync ââââââââââââââââââââââââââââââââââââââââââââââ
+# &#x2500;&#x2500; Server-side DithTracker sync &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 def _dt_sync_now(piece_ids, status_id):
     """Call DithTracker's bulk status API directly using stored session credentials.
     Returns True on success, False on failure (will fall back to queue)."""
@@ -477,7 +477,7 @@ def _dt_sync_now(piece_ids, status_id):
         log.warning(f'DT sync failed: {e}')
         return False
 
-# ââ Server-side fetch ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# &#x2500;&#x2500; Server-side fetch &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 def fetch():
     log.info('Fetching from Tracker API...')
     try:
@@ -512,7 +512,7 @@ def refresh_loop():
                 _cache['error'] = err
         time.sleep(CACHE_TTL)
 
-# ââ Dashboard HTML âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# &#x2500;&#x2500; Dashboard HTML &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 DASHBOARD_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -651,12 +651,12 @@ table.wdt tr:hover td{background:#1e2130}
 </div>
 <div id="werr"></div>
 <div id="wstats">
-  <div class="wstat">â TOTAL ITEMS <strong id="stotal">&mdash;</strong></div>
-  <div class="wstat teal">â TOTAL VALUE <strong id="svalue">&mdash;</strong></div>
-  <div class="wstat green">â READY <strong id="sready">&mdash;</strong></div>
-  <div class="wstat red">â OVERDUE <strong id="sover">&mdash;</strong></div>
-  <div class="wstat gold">â DUE THIS WEEK <strong id="sweek">&mdash;</strong></div>
-  <div class="wstat gold">â MONUMENTS <strong id="smon">&mdash;</strong></div>
+  <div class="wstat">&#x25CF; TOTAL ITEMS <strong id="stotal">&mdash;</strong></div>
+  <div class="wstat teal">&#x25CF; TOTAL VALUE <strong id="svalue">&mdash;</strong></div>
+  <div class="wstat green">&#x25CF; READY <strong id="sready">&mdash;</strong></div>
+  <div class="wstat red">&#x25CF; OVERDUE <strong id="sover">&mdash;</strong></div>
+  <div class="wstat gold">&#x25CF; DUE THIS WEEK <strong id="sweek">&mdash;</strong></div>
+  <div class="wstat gold">&#x25CF; MONUMENTS <strong id="smon">&mdash;</strong></div>
   <div class="pri-sort-legend"><span><span class="pri-dot p1"></span> Urgent</span><span><span class="pri-dot p2"></span> High</span><span style="color:#555">Right-click card to flag</span></div>
   <div id="wlive">Loading...</div>
 </div>
@@ -673,16 +673,16 @@ table.wdt tr:hover td{background:#1e2130}
         <input id="wdsearch" placeholder="Search pieces..." type="text"/>
         <button class="wdbtn active" id="wdsortdue">Sort: Due Date</button>
         <button class="wdbtn" id="wdsorttier" style="display:none">Sort: Tier</button>
-        <button class="wdbtn" id="wdsortval">Sort: Value â</button>
+        <button class="wdbtn" id="wdsortval">Sort: Value &#x2193;</button>
         <button class="wdbtn" id="wdsortname">Sort: Name</button>
         <button class="wdbtn" id="wdsortpri">Sort: Priority</button>
-        <button id="wdselall" style="background:#1e3a2a;border-color:#3a6a4a;color:#5ae8a8;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;cursor:pointer">â Select All</button>
+        <button id="wdselall" style="background:#1e3a2a;border-color:#3a6a4a;color:#5ae8a8;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;cursor:pointer">&#x2610; Select All</button>
         <button id="wdaddweek" style="display:none;background:#1e2a3a;border-color:#3a6a4a;color:#4db8b8;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;cursor:pointer">&#x1F4C5; Add to Week (0)</button>
         <span id="wdmovewrap" style="display:none;align-items:center;gap:4px">
           <select id="wdmovedest" style="background:#0f1117;border:1px solid #3a4a6a;color:#e8e8e8;padding:4px 8px;border-radius:4px;font-size:.82em;cursor:pointer"></select>
           <button id="wdmovebtn" style="background:#3a1e2a;border:1px solid #6a3a5a;color:#e05580;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;cursor:pointer">Move (0)</button>
         </span>
-        <button id="wdback">â Back to All</button>
+        <button id="wdback">&#x2190; Back to All</button>
       </div>
     </div>
     <div id="wdtable"></div>
@@ -738,7 +738,7 @@ function schedBadge(job){
   if(w===today){label='THIS WEEK';color='#4db8b8';}
   else if(w>today){const diff=Math.round((new Date(w)-new Date(today))/(7*86400000));label=diff===1?'NEXT WEEK':`+${diff}W`;color='#5ae8a8';}
   else{label='PAST';color='#888';}
-  if(a.carryover){label='â  CARRY';color='#e8a838';}
+  if(a.carryover){label='&#x26A0; CARRY';color='#e8a838';}
   if(a.done){label='&#10003; SCHED';color='#5a9e5a';}
   return`<span style="font-size:.6em;font-weight:700;padding:1px 4px;border-radius:3px;background:${color}22;color:${color};margin-left:3px">${label}</span>`;
 }
@@ -751,7 +751,7 @@ function dueLabel(d){
   return{t:d,c:'ok'};
 }
 
-/* ââ priority helpers ââ */
+/* &#x2500;&#x2500; priority helpers &#x2500;&#x2500; */
 function getPri(job){return _priorityOverrides[job]||0;}
 function cyclePri(job,e){
   if(e){e.preventDefault();e.stopPropagation();}
@@ -796,7 +796,7 @@ function cyclePriTo(job,pri){
   if(_drillStage)renderDrill();
 }
 
-/* ââ progress bar helper ââ */
+/* &#x2500;&#x2500; progress bar helper &#x2500;&#x2500; */
 function metalPct(item){
   if(Object.prototype.hasOwnProperty.call(_metalOverrides,item.job))return _metalOverrides[item.job];
   const bid=(item.hMetal||0)+(item.hPolish||0);
@@ -845,7 +845,7 @@ function pctBars(item){
   </div>`;
 }
 
-/* ââ Stage (non-metal) progress bar helpers ââ */
+/* &#x2500;&#x2500; Stage (non-metal) progress bar helpers &#x2500;&#x2500; */
 function stagePct(item){
   if(Object.prototype.hasOwnProperty.call(_stageOverrides,item.job))return _stageOverrides[item.job];
   return 0;
@@ -891,7 +891,7 @@ function stgPctBar(item){
   </div>`;
 }
 
-/* ââ Stage scoreboard summary bar (shared by all non-monument sections) ââ */
+/* &#x2500;&#x2500; Stage scoreboard summary bar (shared by all non-monument sections) &#x2500;&#x2500; */
 function stgSummaryBar(items,stageColor){
   if(!items.length)return'';
   const totalVal=items.reduce((a,i)=>a+(i.price||0),0);
@@ -952,7 +952,7 @@ function renderBoard(){
         ${s.sub?`<div class="wcsub">${s.sub}</div>`:''}
         <div class="wccount">${sd.items.length} ITEMS</div>
         <div class="wcval">${fmt(sd.val)}</div>
-        ${sd.hrs>0?`<div class="wchrs">â± ${fmtH(sd.hrs)}</div>`:''}
+        ${sd.hrs>0?`<div class="wchrs">&#x23F1; ${fmtH(sd.hrs)}</div>`:''}
       </div>
       <div class="wcbody">
         ${shown.map(item=>{
@@ -985,7 +985,7 @@ function renderBoard(){
   initDragDrop();
 }
 
-// ââ Drag & Drop + Batch Move ââââââââââââââââââââââââââââââââââââââââââââââ
+// &#x2500;&#x2500; Drag & Drop + Batch Move &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 let _selectedJobs = new Set();
 let _moveToolbarEl = null;
 
@@ -1123,7 +1123,7 @@ document.getElementById('wdsortval').onclick=function(){_drillSort='val';documen
 document.getElementById('wdsortname').onclick=function(){_drillSort='name';document.querySelectorAll('.wdbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderDrill();};
 document.getElementById('wdsortpri').onclick=function(){_drillSort='pri';document.querySelectorAll('.wdbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderDrill();};
 
-/* ââ Metal Work special drill-down ââ */
+/* &#x2500;&#x2500; Metal Work special drill-down &#x2500;&#x2500; */
 function renderDrillMetal(q){
   let all=_items.filter(i=>i.stage==='metal');
   if(q)all=all.filter(i=>(i.name+' '+i.customer+' '+i.job).toLowerCase().includes(q));
@@ -1249,7 +1249,7 @@ function renderDrillMetal(q){
     monTable(mon);
 }
 
-/* ââ Wax Sprue special drill-down ââ */
+/* &#x2500;&#x2500; Wax Sprue special drill-down &#x2500;&#x2500; */
 function renderDrillSprue(q){
   let all=_items.filter(i=>i.stage==='sprue');
   if(q)all=all.filter(i=>(i.name+' '+i.customer+' '+i.job).toLowerCase().includes(q));
@@ -1437,7 +1437,7 @@ function updateClock(){
 }
 setInterval(updateClock,1000);updateClock();
 
-// ââ Drill-down selection & Add to Week ââ
+// &#x2500;&#x2500; Drill-down selection & Add to Week &#x2500;&#x2500;
 let _drillSelected = new Set();
 let _allSelectMode = false;
 
@@ -1622,7 +1622,7 @@ function loadData(){
   fetch('/api/wip').then(r=>r.json()).then(d=>{
     if(d.error){
       document.getElementById('werr').style.display='block';
-      document.getElementById('werr').textContent='â  '+d.error;
+      document.getElementById('werr').textContent='⚠ '+d.error;
     } else {
       document.getElementById('werr').style.display='none';
     }
@@ -1634,11 +1634,11 @@ function loadData(){
       _items=d.items;
       renderBoard();
       if(_drillStage)renderDrill();
-      document.getElementById('wlive').textContent='â Live &middot; Updated '+new Date(d.updated).toLocaleTimeString();
+      document.getElementById('wlive').textContent='● Live \u00B7 Updated '+new Date(d.updated).toLocaleTimeString();
     }
   }).catch(()=>{
     document.getElementById('werr').style.display='block';
-    document.getElementById('werr').textContent='â  Cannot reach server.';
+    document.getElementById('werr').textContent='⚠ Cannot reach server.';
   });
 }
 loadData();
@@ -1647,7 +1647,7 @@ setInterval(loadData,60000);
 </body>
 </html>"""
 
-# ââ KPI Page HTML ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── KPI Page HTML ──────&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 KPI_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1839,8 +1839,8 @@ function renderKPI(data){
         <td style="color:#888;font-size:.85em" id="knote-${e._idx}">${e.note||''}</td>
         <td style="color:#666;font-size:.85em">${fmtDate(e.completed_at)}</td>
         <td class="kpi-actions">
-          <button class="kpi-btn" onclick="editEntry(${e._idx})" title="Edit value/note">âï¸</button>
-          <button class="kpi-btn del" onclick="deleteEntry(${e._idx})" title="Delete entry">â</button>
+          <button class="kpi-btn" onclick="editEntry(${e._idx})" title="Edit value/note">&#x270F;&#xEF;&#xB8;&#x8F;</button>
+          <button class="kpi-btn del" onclick="deleteEntry(${e._idx})" title="Delete entry">&#x2715;</button>
         </td>
       </tr>`).join('')
     : '<tr><td colspan="8" style="color:#555;text-align:center;padding:18px">No completions recorded this week yet.</td></tr>';
@@ -1903,7 +1903,7 @@ function editEntry(idx){
   noteTd.innerHTML=`<input class="kpi-edit-note" type="text" value="${curNote}" id="kedit-note-${idx}">`;
   // Replace action buttons with save/cancel
   const actTd=row.querySelector('.kpi-actions');
-  actTd.innerHTML=`<button class="kpi-btn" onclick="saveEntry(${idx})" style="color:#5a9e5a;border-color:#3a6a3a" title="Save">&#10003;</button><button class="kpi-btn" onclick="loadKPI()" title="Cancel">â</button>`;
+  actTd.innerHTML=`<button class="kpi-btn" onclick="saveEntry(${idx})" style="color:#5a9e5a;border-color:#3a6a3a" title="Save">&#10003;</button><button class="kpi-btn" onclick="loadKPI()" title="Cancel">&#x2715;</button>`;
   document.getElementById('kedit-val-'+idx).focus();
 }
 
@@ -1916,7 +1916,7 @@ function saveEntry(idx){
     .catch(()=>alert('Server error'));
 }
 
-/* ââ PIN modal helpers ââ */
+/* &#x2500;&#x2500; PIN modal helpers &#x2500;&#x2500; */
 let _pinCallback=null;
 let _pinAction='';
 function showPin(title,sub,action,isDanger,callback){
@@ -1981,7 +1981,7 @@ setInterval(loadKPI,30000);
 </body>
 </html>"""
 
-# ââ Maintenance Request HTML ââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── Maintenance Request HTML ─────&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 MAINTENANCE_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2306,7 +2306,7 @@ a:hover{text-decoration:underline;}
 .nav-link{display:inline-flex;align-items:center;gap:5px;background:#1e2a3a;border:1px solid #3a4a6a;color:#4db8b8;text-decoration:none;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;letter-spacing:.5px;}
 .nav-link:hover{background:#2a3a4a;}
 
-/* ââ Toggle form ââ */
+/* &#x2500;&#x2500; Toggle form &#x2500;&#x2500; */
 .toggle-form-btn{background:#3a6a9a;color:#fff;border:1px solid #5a8aca;padding:10px 20px;border-radius:6px;cursor:pointer;font-weight:700;font-size:.95em;margin:16px 20px 0;display:inline-flex;align-items:center;gap:6px;}
 .toggle-form-btn:hover{background:#4a7aaa;}
 .ship-form{background:#1a2332;border:1px solid #3a4a6a;border-radius:8px;padding:20px;margin:12px 20px 0;display:none;}
@@ -2320,7 +2320,7 @@ a:hover{text-decoration:underline;}
 .btn-submit,.btn-save{background:#3a6a9a;color:#fff;border:1px solid #5a8aca;padding:8px 18px;border-radius:4px;cursor:pointer;font-weight:700;font-size:.9em;}
 .btn-submit:hover,.btn-save:hover{background:#4a7aaa;}
 
-/* ââ Board layout ââ */
+/* &#x2500;&#x2500; Board layout &#x2500;&#x2500; */
 .board-wrapper{padding:16px 20px;overflow-x:auto;}
 .board{display:flex;gap:14px;min-height:calc(100vh - 200px);align-items:flex-start;}
 .board-col{flex:1 1 0;min-width:260px;background:#141c26;border:1px solid #2a3a4a;border-radius:8px;display:flex;flex-direction:column;max-height:calc(100vh - 180px);}
@@ -2332,7 +2332,7 @@ a:hover{text-decoration:underline;}
 .board-col.shipped .col-header{border-color:#81c784;color:#81c784;}
 .col-body{padding:10px;overflow-y:auto;flex:1;}
 
-/* ââ Cards ââ */
+/* &#x2500;&#x2500; Cards &#x2500;&#x2500; */
 .req-card{background:#1a2332;border:1px solid #2e3e52;border-radius:6px;padding:12px;margin-bottom:10px;cursor:default;transition:border-color .15s;}
 .req-card:hover{border-color:#4a6a8a;}
 .req-card .c-job{font-weight:700;font-size:1em;color:#ddd;margin-bottom:2px;}
@@ -2347,7 +2347,7 @@ a:hover{text-decoration:underline;}
 .btn-edit:hover{background:#3a4a5a;}.btn-del:hover{background:#7a3a3a;}
 .empty-col{text-align:center;padding:30px 10px;color:#555;font-size:.9em;}
 
-/* ââ Edit overlay ââ */
+/* &#x2500;&#x2500; Edit overlay &#x2500;&#x2500; */
 .edit-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:100;}
 .edit-panel{background:#1a2332;border:1px solid #3a5a8a;border-radius:10px;padding:24px;width:560px;max-width:95vw;max-height:90vh;overflow-y:auto;}
 .edit-panel h3{margin-bottom:12px;color:#ddd;}
@@ -2361,7 +2361,7 @@ a:hover{text-decoration:underline;}
 .edit-btns .btn-save{background:#3a6a9a;color:#fff;border-color:#5a8aca;}
 .edit-btns .btn-cancel{background:#2a3a4a;color:#ccc;}
 
-/* ââ Responsive ââ */
+/* &#x2500;&#x2500; Responsive &#x2500;&#x2500; */
 @media(max-width:900px){.board{flex-direction:column;}.board-col{flex:none;width:100%;max-height:none;}}
 </style>
 </head>
@@ -2380,7 +2380,7 @@ a:hover{text-decoration:underline;}
   </div>
 </div>
 
-<button class="toggle-form-btn" onclick="toggleForm()">â New Shipping Request</button>
+<button class="toggle-form-btn" onclick="toggleForm()">&#x2795; New Shipping Request</button>
 
 <div class="ship-form" id="reqForm">
   <h3 style="margin-bottom:4px;">&#x1F4E6; Add Shipping Request</h3>
@@ -2452,7 +2452,7 @@ let _shipments=[];
 const STATUSES=['requested','approved','packed','shipped'];
 const STATUS_CFG={
   requested:{icon:'&#x1F4DD;',label:'Requested'},
-  approved:{icon:'â',label:'Approved'},
+  approved:{icon:'&#x2705;',label:'Approved'},
   packed:{icon:'&#x1F4E6;',label:'Packed'},
   shipped:{icon:'&#x1F69A;',label:'Shipped'}
 };
@@ -2526,7 +2526,7 @@ function openEdit(id){
   document.getElementById('editRoot').innerHTML=`
   <div class="edit-overlay" onclick="if(event.target===this)closeEdit()">
     <div class="edit-panel">
-      <h3>âï¸ Edit Shipment &mdash; ${s.job}</h3>
+      <h3>&#x270F;&#xEF;&#xB8;&#x8F; Edit Shipment &mdash; ${s.job}</h3>
       <div class="form-grid">
         <div><label>Job / Order #</label><input id="ef-job" value="${s.job||''}"></div>
         <div><label>Client</label><input id="ef-client" value="${s.client||''}"></div>
@@ -2604,8 +2604,8 @@ function renderBoard(){
             <select onchange="updateStatus(${s.id},this.value)">
               ${STATUSES.map(o=>`<option value="${o}"${o===st?' selected':''}>${STATUS_CFG[o].icon} ${STATUS_CFG[o].label}</option>`).join('')}
             </select>
-            <button class="btn-edit" onclick="openEdit(${s.id})">âï¸</button>
-            <button class="btn-del" onclick="deleteRequest(${s.id})">â</button>
+            <button class="btn-edit" onclick="openEdit(${s.id})">&#x270F;&#xEF;&#xB8;&#x8F;</button>
+            <button class="btn-del" onclick="deleteRequest(${s.id})">&#x2715;</button>
           </div>
         </div>`;
       });
@@ -2631,7 +2631,7 @@ setInterval(loadShipments,30000);
 </body>
 </html>"""
 
-# ââ Flask app ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# &#x2500;&#x2500; Flask app &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 app = Flask(__name__)
 CORS(app, origins='*')
 
@@ -3170,7 +3170,7 @@ def kpi_delete_week():
         log.error(f'Delete week failed: {e}')
         return jsonify({'error': str(e)}), 500
 
-# ââ Maintenance routes ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# &#x2500;&#x2500; Maintenance routes &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 @app.route('/maintenance')
 def maintenance_page():
     return Response(MAINTENANCE_HTML, mimetype='text/html; charset=utf-8')
@@ -3267,7 +3267,7 @@ def maint_delete():
         log.error(f'Maintenance delete failed: {e}')
         return jsonify({'error': str(e)}), 500
 
-# ââ Shipping routes ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# &#x2500;&#x2500; Shipping routes &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 @app.route('/shipping')
 def shipping_page():
     return Response(SHIPPING_HTML, mimetype='text/html; charset=utf-8')
@@ -3404,7 +3404,7 @@ def ship_delete():
         log.error(f'Shipping delete failed: {e}')
         return jsonify({'error': str(e)}), 500
 
-# ââ Schedule Page HTML âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# &#x2500;&#x2500; Schedule Page HTML &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 SCHEDULE_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3517,7 +3517,7 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
 .prog-pct{font-size:.65em;font-weight:700;width:30px;text-align:right;flex-shrink:0}
 .prog-val{font-size:.6em;color:#aaa;margin-top:0;text-align:right}
 .pct-btns{display:flex;gap:3px;margin-top:4px;flex-wrap:wrap;justify-content:center}
-/* ââ Gantt Chart ââ */
+/* &#x2500;&#x2500; Gantt Chart &#x2500;&#x2500; */
 .gantt-wrap{width:100%;overflow-x:auto;margin-top:8px}
 .gantt{display:grid;min-width:700px;font-size:.82em}
 .gantt-hdr{display:contents}
@@ -3642,7 +3642,7 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
         <input id="sdsearch" placeholder="Search pieces..." type="text"/>
         <button class="wdbtn active" id="sdsortdue">Sort: Due Date</button>
         <button class="wdbtn" id="sdsorttier" style="display:none">Sort: Tier</button>
-        <button class="wdbtn" id="sdsortval">Sort: Value â</button>
+        <button class="wdbtn" id="sdsortval">Sort: Value &#x2193;</button>
         <button class="wdbtn" id="sdsortname">Sort: Name</button>
         <button class="wdbtn" id="sdsortpri">Sort: Priority</button>
         <button id="sdselall" style="background:#1e3a2a;border:1px solid #3a6a4a;color:#5ae8a8;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;cursor:pointer">\u2610 Select All</button>
@@ -3927,7 +3927,7 @@ function renderDrill(){
 
 }
 
-/* ââ Gantt chart renderer for drill-down ââ */
+/* &#x2500;&#x2500; Gantt chart renderer for drill-down &#x2500;&#x2500; */
 function renderDrillGantt(sorted,stg){
   const today=getMonday(new Date().toISOString().slice(0,10));
   const allDeptItems=_items.filter(i=>i.stage===_drillStage);
@@ -4027,7 +4027,7 @@ function renderDrillGantt(sorted,stg){
           html+='</span>';
           // If monument in metal, show extend button
           if(isMon&&isMetal){
-            html+='<button onclick="event.stopPropagation();sdExtendWeek(\''+i.job+'\')" style="padding:1px 5px;font-size:.68em;background:rgba(0,0,0,.3);border:1px solid #c45c8a;color:#c45c8a;border-radius:2px;cursor:pointer" title="Extend to multiple weeks">â«</button>';
+            html+='<button onclick="event.stopPropagation();sdExtendWeek(\''+i.job+'\')" style="padding:1px 5px;font-size:.68em;background:rgba(0,0,0,.3);border:1px solid #c45c8a;color:#c45c8a;border-radius:2px;cursor:pointer" title="Extend to multiple weeks">&#x27EB;</button>';
           }
           html+='</div>';
         }
@@ -4213,7 +4213,7 @@ function closeDrill(){
   render();
 }
 
-// ââ Schedule drill-down selection & actions ââ
+// &#x2500;&#x2500; Schedule drill-down selection & actions &#x2500;&#x2500;
 function toggleSdSelect(job){
   if(_sdSelected.has(job))_sdSelected.delete(job);
   else _sdSelected.add(job);
@@ -4743,7 +4743,7 @@ function render(){
             return '<div class="scard'+(isCarry?' carry':'')+(isDone?' done-item':'')+(isSel?' selected':'')+'" '+
               'data-job="'+i.job+'" '+dragHandler+' '+clickHandler+
               ' style="border-left-color:'+stg.c+'">'+
-              '<div class="s-title">'+(!isSel?'â ':'â ')+
+              '<div class="s-title">'+(!isSel?'&#x2610; ':'&#x2611; ')+
                 '#'+i.job+' '+i.name+
                 (i.monument?'<span class="wcmon">MON</span>':'')+
                 (isCarry?'<span class="co-badge">CARRY</span>':'')+priTag(i.job)+
@@ -4755,7 +4755,7 @@ function render(){
                 dueTag(i.due)+
               '</div>'+
               (!wLocked?'<div class="s-actions">'+
-                (!isCurrent?'<button class="btn-sm rush" onclick="event.stopPropagation();rushToThisWeek(\''+i.job+'\')">â¡ Rush</button>':'')+
+                (!isCurrent?'<button class="btn-sm rush" onclick="event.stopPropagation();rushToThisWeek(\''+i.job+'\')">&#x26A1; Rush</button>':'')+
                 '<button class="btn-sm done'+(isDone?' active':'')+'" onclick="event.stopPropagation();toggleDone(\''+i.job+'\')">'+
                   (isDone?'&#10003; Done':'Done')+'</button>'+
                 '<select class="btn-sm" onchange="event.stopPropagation();if(this.value){sdMoveDept([\''+i.job+'\'],this.value);this.value=\'\'}" style="background:#1e1e2a;border:1px solid #3a3a5a;color:#c45c8a;padding:2px 4px;border-radius:3px;font-size:.72em;cursor:pointer;max-width:80px"><option value="">Move...</option>'+MOVE_DEPTS.filter(s=>s.k!==realDeptKey(stg.k)).map(s=>'<option value="'+s.k+'">'+s.l+'</option>').join('')+'</select>'+
@@ -4990,7 +4990,7 @@ def schedule_batch_assign():
         log.error(f'Schedule batch-assign failed: {e}')
         return jsonify({'error': str(e)}), 500
 
-# ââ Startup ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# &#x2500;&#x2500; Startup &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 if SESSION_COOKIE:
     log.info('SESSION_COOKIE set &mdash; running initial server-side fetch...')
     items, err = fetch()
@@ -5001,7 +5001,7 @@ if SESSION_COOKIE:
             log.info(f'&#10003;  {len(items)} items loaded.')
         else:
             _cache['error'] = err
-            log.warning(f'â   Initial fetch failed: {err}')
+            log.warning(f'&#x26A0;  Initial fetch failed: {err}')
     t = threading.Thread(target=refresh_loop, daemon=True)
     t.start()
 else:
