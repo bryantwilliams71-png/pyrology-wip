@@ -1798,7 +1798,7 @@ function weekRange(startIso){
   const s=new Date(startIso+'T00:00:00');
   const e=new Date(s); e.setDate(e.getDate()+6);
   const opts={month:'short',day:'numeric'};
-  return s.toLocaleDateString('en-US',opts)+' &ndash; '+e.toLocaleDateString('en-US',{...opts,year:'numeric'});
+  return s.toLocaleDateString('en-US',opts)+' - '+e.toLocaleDateString('en-US',{...opts,year:'numeric'});
 }
 
 function renderKPI(data){
@@ -4321,7 +4321,7 @@ function addWeeks(monday,n){const d=new Date(monday+'T00:00:00');d.setDate(d.get
 function fmtWeekRange(monday){
   const d=new Date(monday+'T00:00:00');const end=new Date(d);end.setDate(end.getDate()+6);
   const mo={month:'short',day:'numeric'};
-  return d.toLocaleDateString('en-US',mo)+' &ndash; '+end.toLocaleDateString('en-US',mo);
+  return d.toLocaleDateString('en-US',mo)+' - '+end.toLocaleDateString('en-US',mo);
 }
 function weekLabel(monday){
   const today=getMonday(new Date().toISOString().slice(0,10));
