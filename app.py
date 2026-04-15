@@ -193,7 +193,7 @@ def _save_maintenance():
     _schedule_github_save()
 
 def _load_shipping():
-    global _ship_data
+    global _ship_data, _notes_data, _employee_data, _history_data, _team_members
     try:
         with open(SHIPPING_FILE) as f:
             _ship_data = json.load(f)
@@ -271,6 +271,10 @@ def _load_state_from_github():
             _maint_data = state['maint_data']
         if 'ship_data' in state:
             _ship_data = state['ship_data']
+            _notes_data = state.get('notes_data', {})
+            _employee_data = state.get('employee_data', {})
+            _history_data = state.get('history_data', {})
+            _team_members = state.get('team_members', [])
         log.info(f'&#10003; State restored from GitHub (sha={_gh_state_sha[:8]})')
         # Also write to /tmp files so existing save functions work locally
         _save_schedule(); _save_stage_overrides(); _save_priority_overrides()
@@ -290,6 +294,10 @@ def _build_state_blob():
         'kpi_data':           _kpi_data,
         'maint_data':         _maint_data,
         'ship_data':          _ship_data,
+        'notes_data':         _notes_data,
+        'employee_data':      _employee_data,
+        'history_data':       _history_data,
+        'team_members':       _team_members,
         'saved_at':           datetime.utcnow().isoformat() + 'Z',
     }
 
@@ -1622,7 +1630,7 @@ function loadData(){
   fetch('/api/wip').then(r=>r.json()).then(d=>{
     if(d.error){
       document.getElementById('werr').style.display='block';
-      document.getElementById('werr').textContent='⚠ '+d.error;
+      document.getElementById('werr').textContent='â  '+d.error;
     } else {
       document.getElementById('werr').style.display='none';
     }
@@ -1634,11 +1642,11 @@ function loadData(){
       _items=d.items;
       renderBoard();
       if(_drillStage)renderDrill();
-      document.getElementById('wlive').textContent='● Live \u00B7 Updated '+new Date(d.updated).toLocaleTimeString();
+      document.getElementById('wlive').textContent='â Live \u00B7 Updated '+new Date(d.updated).toLocaleTimeString();
     }
   }).catch(()=>{
     document.getElementById('werr').style.display='block';
-    document.getElementById('werr').textContent='⚠ Cannot reach server.';
+    document.getElementById('werr').textContent='â  Cannot reach server.';
   });
 }
 loadData();
@@ -1647,7 +1655,7 @@ setInterval(loadData,60000);
 </body>
 </html>"""
 
-# ── KPI Page HTML ──────&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
+# ââ KPI Page HTML ââââââ&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 KPI_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1981,7 +1989,7 @@ setInterval(loadKPI,30000);
 </body>
 </html>"""
 
-# ── Maintenance Request HTML ─────&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
+# ââ Maintenance Request HTML âââââ&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 MAINTENANCE_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5019,6 +5027,715 @@ else:
 # Mark GitHub persistence as ready (prevents saves during init)
 _gh_ready = True
 log.info('&#10003; GitHub persistence armed &mdash; state changes will auto-save.')
+
+
+# ============================================================
+# NEW FEATURE: Data Stores
+# ============================================================
+_notes_data = {}
+_employee_data = {}
+_history_data = {}
+_team_members = []
+
+NOTES_FILE = '/tmp/notes.json'
+EMPLOYEE_FILE = '/tmp/employees.json'
+HISTORY_FILE = '/tmp/history.json'
+TEAM_FILE = '/tmp/team.json'
+
+def _load_notes():
+    global _notes_data
+    try:
+        with open(NOTES_FILE) as f:
+            _notes_data = json.load(f)
+    except Exception:
+        _notes_data = {}
+
+def _save_notes():
+    try:
+        with open(NOTES_FILE, 'w') as f:
+            json.dump(_notes_data, f)
+    except Exception:
+        pass
+
+def _load_employees():
+    global _employee_data
+    try:
+        with open(EMPLOYEE_FILE) as f:
+            _employee_data = json.load(f)
+    except Exception:
+        _employee_data = {}
+
+def _save_employees():
+    try:
+        with open(EMPLOYEE_FILE, 'w') as f:
+            json.dump(_employee_data, f)
+    except Exception:
+        pass
+
+def _load_history():
+    global _history_data
+    try:
+        with open(HISTORY_FILE) as f:
+            _history_data = json.load(f)
+    except Exception:
+        _history_data = {}
+
+def _save_history():
+    try:
+        with open(HISTORY_FILE, 'w') as f:
+            json.dump(_history_data, f)
+    except Exception:
+        pass
+
+def _load_team():
+    global _team_members
+    try:
+        with open(TEAM_FILE) as f:
+            _team_members = json.load(f)
+    except Exception:
+        _team_members = []
+
+def _save_team():
+    try:
+        with open(TEAM_FILE, 'w') as f:
+            json.dump(_team_members, f)
+    except Exception:
+        pass
+
+# ============================================================
+# NEW FEATURE: API Endpoints
+# ============================================================
+
+@app.route('/api/notes/<piece_id>')
+def api_get_notes(piece_id):
+    pid = str(piece_id)
+    return jsonify(_notes_data.get(pid, []))
+
+@app.route('/api/notes/add', methods=['POST'])
+def api_add_note():
+    global _notes_data
+    d = request.get_json(force=True)
+    pid = str(d.get('pieceId', ''))
+    if not pid:
+        return jsonify({'error': 'Missing pieceId'}), 400
+    if pid not in _notes_data:
+        _notes_data[pid] = []
+    _notes_data[pid].insert(0, {
+        'text': d.get('text', ''),
+        'author': d.get('author', 'Unknown'),
+        'type': d.get('type', 'note'),
+        'timestamp': datetime.utcnow().isoformat() + 'Z'
+    })
+    _save_notes()
+    _persist()
+    return jsonify({'ok': True})
+
+@app.route('/api/notes/delete', methods=['POST'])
+def api_delete_note():
+    global _notes_data
+    d = request.get_json(force=True)
+    pid = str(d.get('pieceId', ''))
+    idx = d.get('index', -1)
+    if pid in _notes_data and 0 <= idx < len(_notes_data[pid]):
+        _notes_data[pid].pop(idx)
+        _save_notes()
+        _persist()
+    return jsonify({'ok': True})
+
+@app.route('/api/employees/assign', methods=['POST'])
+def api_assign_employee():
+    global _employee_data
+    d = request.get_json(force=True)
+    pid = str(d.get('pieceId', ''))
+    dept = d.get('department', '')
+    emp = d.get('employee', '')
+    if not pid:
+        return jsonify({'error': 'Missing pieceId'}), 400
+    if pid not in _employee_data:
+        _employee_data[pid] = {}
+    _employee_data[pid][dept] = emp
+    _save_employees()
+    _persist()
+    return jsonify({'ok': True})
+
+@app.route('/api/employees/<piece_id>')
+def api_get_employees(piece_id):
+    pid = str(piece_id)
+    return jsonify(_employee_data.get(pid, {}))
+
+@app.route('/api/history/<piece_id>')
+def api_get_history(piece_id):
+    pid = str(piece_id)
+    return jsonify(_history_data.get(pid, []))
+
+@app.route('/api/history/log', methods=['POST'])
+def api_log_history():
+    global _history_data
+    d = request.get_json(force=True)
+    pid = str(d.get('pieceId', ''))
+    if not pid:
+        return jsonify({'error': 'Missing pieceId'}), 400
+    if pid not in _history_data:
+        _history_data[pid] = []
+    _history_data[pid].insert(0, {
+        'from_dept': d.get('from_dept', ''),
+        'to_dept': d.get('to_dept', ''),
+        'by': d.get('by', ''),
+        'timestamp': datetime.utcnow().isoformat() + 'Z'
+    })
+    _save_history()
+    _persist()
+    return jsonify({'ok': True})
+
+@app.route('/api/rework/log', methods=['POST'])
+def api_log_rework():
+    global _notes_data, _history_data
+    d = request.get_json(force=True)
+    pid = str(d.get('pieceId', ''))
+    if not pid:
+        return jsonify({'error': 'Missing pieceId'}), 400
+    if pid not in _history_data:
+        _history_data[pid] = []
+    _history_data[pid].insert(0, {
+        'from_dept': d.get('from_dept', ''),
+        'to_dept': d.get('to_dept', ''),
+        'by': d.get('by', ''),
+        'reason': d.get('reason', ''),
+        'rework': True,
+        'timestamp': datetime.utcnow().isoformat() + 'Z'
+    })
+    if pid not in _notes_data:
+        _notes_data[pid] = []
+    _notes_data[pid].insert(0, {
+        'text': 'REWORK: ' + d.get('reason', 'No reason given') + ' (from ' + d.get('from_dept','') + ' back to ' + d.get('to_dept','') + ')',
+        'author': d.get('by', 'Unknown'),
+        'type': 'rework',
+        'timestamp': datetime.utcnow().isoformat() + 'Z'
+    })
+    _save_history()
+    _save_notes()
+    _persist()
+    return jsonify({'ok': True})
+
+@app.route('/api/team', methods=['GET'])
+def api_get_team():
+    return jsonify(_team_members)
+
+@app.route('/api/team/add', methods=['POST'])
+def api_add_team_member():
+    global _team_members
+    d = request.get_json(force=True)
+    name = d.get('name', '').strip()
+    if name and name not in _team_members:
+        _team_members.append(name)
+        _save_team()
+        _persist()
+    return jsonify({'ok': True, 'members': _team_members})
+
+@app.route('/api/team/remove', methods=['POST'])
+def api_remove_team_member():
+    global _team_members
+    d = request.get_json(force=True)
+    name = d.get('name', '').strip()
+    if name in _team_members:
+        _team_members.remove(name)
+        _save_team()
+        _persist()
+    return jsonify({'ok': True, 'members': _team_members})
+
+@app.route('/api/analytics/bottlenecks')
+def api_bottlenecks():
+    items = _cache.get('items', [])
+    today = datetime.utcnow().date()
+    result = []
+    for it in items:
+        due = it.get('due', '')
+        days_overdue = 0
+        if due:
+            try:
+                due_date = datetime.strptime(due, '%Y-%m-%d').date()
+                days_overdue = (today - due_date).days
+            except Exception:
+                pass
+        result.append({
+            'pieceId': it.get('pieceId'),
+            'job': it.get('job'),
+            'name': it.get('name'),
+            'customer': it.get('customer'),
+            'stage': it.get('stage'),
+            'status': it.get('status'),
+            'price': it.get('price', 0),
+            'due': due,
+            'daysOverdue': days_overdue,
+            'monument': it.get('monument', False)
+        })
+    result.sort(key=lambda x: x['daysOverdue'], reverse=True)
+    return jsonify(result)
+
+@app.route('/api/analytics/client-summary')
+def api_client_summary():
+    items = _cache.get('items', [])
+    clients = {}
+    today = datetime.utcnow().date()
+    for it in items:
+        c = it.get('customer', 'Unknown')
+        if c not in clients:
+            clients[c] = {'name': c, 'pieces': 0, 'totalValue': 0, 'departments': {}, 'items': []}
+        clients[c]['pieces'] += 1
+        clients[c]['totalValue'] += it.get('price', 0)
+        dept = it.get('status', 'Unknown')
+        clients[c]['departments'][dept] = clients[c]['departments'].get(dept, 0) + 1
+        due = it.get('due', '')
+        days_overdue = 0
+        if due:
+            try:
+                due_date = datetime.strptime(due, '%Y-%m-%d').date()
+                days_overdue = (today - due_date).days
+            except Exception:
+                pass
+        clients[c]['items'].append({
+            'pieceId': it.get('pieceId'),
+            'job': it.get('job'),
+            'name': it.get('name'),
+            'status': it.get('status'),
+            'stage': it.get('stage'),
+            'price': it.get('price', 0),
+            'due': due,
+            'daysOverdue': days_overdue
+        })
+    result = sorted(clients.values(), key=lambda x: x['totalValue'], reverse=True)
+    return jsonify(result)
+
+@app.route('/api/analytics/trends')
+def api_trends():
+    return jsonify({
+        'kpiHistory': _kpi_data.get('history', []),
+        'currentWeek': _kpi_data.get('week_start', ''),
+        'entries': _kpi_data.get('entries', [])
+    })
+
+@app.route('/api/search')
+def api_search():
+    q = request.args.get('q', '').lower().strip()
+    if not q:
+        return jsonify([])
+    items = _cache.get('items', [])
+    results = []
+    for it in items:
+        if (q in str(it.get('name', '')).lower() or
+            q in str(it.get('job', '')).lower() or
+            q in str(it.get('customer', '')).lower() or
+            q in str(it.get('pieceId', '')).lower()):
+            results.append(it)
+    return jsonify(results[:50])
+
+
+# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# NEW FEATURE PAGES - Auto-generated
+# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+
+_PAGE_CSS = "*{margin:0;padding:0;box-sizing:border-box}\nbody{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f1923;color:#e0e0e0;min-height:100vh}\n.container{max-width:1400px;margin:0 auto;padding:80px 20px 20px}\n.card{background:#1a2634;border:1px solid #2a3a4a;border-radius:12px;padding:20px;margin-bottom:16px}\n.card-header{font-size:18px;font-weight:700;color:#4fd1c5;margin-bottom:12px}\n.btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-size:13px;transition:all 0.2s}\n.btn-primary{background:#4fd1c5;color:#0f1923}\n.btn-primary:hover{background:#38b2ac}\n.btn-danger{background:#e53e3e;color:white}\n.btn-sm{padding:4px 10px;font-size:12px}\ninput,select,textarea{background:#0f1923;border:1px solid #2a3a4a;color:#e0e0e0;padding:8px 12px;border-radius:8px;font-size:14px;width:100%}\ninput:focus,select:focus,textarea:focus{outline:none;border-color:#4fd1c5}\ntable{width:100%;border-collapse:collapse}\nth{text-align:left;padding:10px 12px;border-bottom:2px solid #2a3a4a;color:#4fd1c5;font-size:12px;text-transform:uppercase;letter-spacing:1px}\ntd{padding:10px 12px;border-bottom:1px solid #1a2634}\ntr:hover{background:rgba(79,209,197,0.05)}\n.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}\n.stat-card{text-align:center;padding:20px}\n.stat-value{font-size:28px;font-weight:800;color:#4fd1c5}\n.stat-label{font-size:12px;color:#8a9bb0;text-transform:uppercase;letter-spacing:1px;margin-top:4px}\n.search-box{position:relative;margin-bottom:20px}\n.search-box input{padding:12px 16px;font-size:16px;border-radius:12px}\nh1{font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:2px;margin-bottom:4px}\nh2{font-size:18px;font-weight:700;color:#4fd1c5;margin-bottom:12px}\n.subtitle{font-size:14px;color:#8a9bb0}\n.grid{display:grid;gap:16px}\n.grid-2{grid-template-columns:repeat(2,1fr)}\n.grid-3{grid-template-columns:repeat(3,1fr)}\n.grid-4{grid-template-columns:repeat(4,1fr)}\n.grid-5{grid-template-columns:repeat(5,1fr)}\n@media(max-width:1024px){.grid-4,.grid-5{grid-template-columns:repeat(2,1fr)}}\n@media(max-width:768px){.grid-2,.grid-3,.grid-4,.grid-5{grid-template-columns:1fr}.container{padding:70px 10px 10px}}\n.overdue-severe{background:rgba(229,62,62,0.15)}\n.overdue-high{background:rgba(237,137,54,0.12)}\n.overdue-medium{background:rgba(236,201,75,0.1)}\n.text-red{color:#fc8181}\n.text-orange{color:#f6ad55}\n.text-yellow{color:#ecc94b}\n.text-green{color:#68d391}\n.text-teal{color:#4fd1c5}\na{color:#4fd1c5;text-decoration:none}\na:hover{text-decoration:underline}\n"
+_PAGE_NAV = "<div style=\"position:fixed;top:0;right:0;z-index:1000;display:flex;gap:8px;padding:12px 18px;flex-wrap:wrap;align-items:center;background:rgba(15,25,35,0.95);backdrop-filter:blur(8px);border-bottom-left-radius:12px\">\n<a href=\"/\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(79,209,197,0.15);color:#4fd1c5;border:1px solid rgba(79,209,197,0.3)\">&#127981; Dashboard</a>\n<a href=\"/schedule\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(79,209,197,0.15);color:#4fd1c5;border:1px solid rgba(79,209,197,0.3)\">&#128197; Schedule</a>\n<a href=\"/kpi\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(79,209,197,0.15);color:#4fd1c5;border:1px solid rgba(79,209,197,0.3)\">&#128202; KPI</a>\n<a href=\"/maintenance\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(79,209,197,0.15);color:#4fd1c5;border:1px solid rgba(79,209,197,0.3)\">&#128295; Maintenance</a>\n<a href=\"/shipping\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(79,209,197,0.15);color:#4fd1c5;border:1px solid rgba(79,209,197,0.3)\">&#128230; Shipping</a>\n<span style=\"width:1px;height:20px;background:#2a3a4a;margin:0 4px\"></span>\n<a href=\"/clients\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(255,183,77,0.12);color:#ffb74d;border:1px solid rgba(255,183,77,0.3)\">&#128101; Clients</a>\n<a href=\"/reports\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(255,183,77,0.12);color:#ffb74d;border:1px solid rgba(255,183,77,0.3)\">&#128200; Reports</a>\n<a href=\"/bottlenecks\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(255,183,77,0.12);color:#ffb74d;border:1px solid rgba(255,183,77,0.3)\">&#9888; Bottlenecks</a>\n<a href=\"/due-dates\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(255,183,77,0.12);color:#ffb74d;border:1px solid rgba(255,183,77,0.3)\">&#128197; Due Dates</a>\n<a href=\"/team\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(255,183,77,0.12);color:#ffb74d;border:1px solid rgba(255,183,77,0.3)\">&#128119; Team</a>\n<a href=\"/quality\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(255,183,77,0.12);color:#ffb74d;border:1px solid rgba(255,183,77,0.3)\">&#9989; Quality</a>\n</div>"
+
+def _page_html(title, subtitle, body_js, extra_head=""):
+    return """<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>""" + title + """ - Pyrology WIP</title>
+<style>""" + _PAGE_CSS + """</style>
+""" + extra_head + """
+</head><body>
+""" + _PAGE_NAV + """
+<div class="container">
+<h1>""" + title + """</h1>
+<p class="subtitle">""" + subtitle + """</p>
+<div id="app" style="margin-top:20px"></div>
+</div>
+<script>
+const API = window.location.origin;
+function $(s){ return document.querySelector(s); }
+function $$(s){ return document.querySelectorAll(s); }
+function fe(url,opt){ return fetch(API+url,opt).then(r=>r.json()); }
+function post(url,data){ return fe(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}); }
+""" + body_js + """
+</script></body></html>"""
+
+
+CLIENTS_HTML = _page_html("Clients", "Customer lookup &amp; project overview", """
+let items=[], filtered=[];
+async function load(){
+  let r=await fe('/api/wip'); items=r.items||[];
+  let cs={}; items.forEach(i=>{if(!cs[i.customer])cs[i.customer]={name:i.customer,total:0,stages:{},value:0};
+    cs[i.customer].total++; let s=i.stage||'unknown'; cs[i.customer].stages[s]=(cs[i.customer].stages[s]||0)+1;
+    cs[i.customer].value+=(parseFloat(i.price)||0);});
+  filtered=Object.values(cs).sort((a,b)=>b.total-a.total); render();
+}
+function render(){
+  let q=($('#sq')||{}).value||''; let f=filtered;
+  if(q) f=f.filter(c=>c.name.toLowerCase().includes(q.toLowerCase()));
+  let h='<div class="search-box"><input id="sq" placeholder="Search clients..." oninput="render()" value="'+q+'"></div>';
+  h+='<div class="grid grid-4" style="margin-bottom:20px">';
+  h+='<div class="card stat-card"><div class="stat-value">'+filtered.length+'</div><div class="stat-label">Total Clients</div></div>';
+  h+='<div class="card stat-card"><div class="stat-value">'+items.length+'</div><div class="stat-label">Total Pieces</div></div>';
+  let tv=filtered.reduce((s,c)=>s+c.value,0);
+  h+='<div class="card stat-card"><div class="stat-value">$'+tv.toLocaleString(undefined,{maximumFractionDigits:0})+'</div><div class="stat-label">Total Value</div></div>';
+  let avg=filtered.length?Math.round(items.length/filtered.length):0;
+  h+='<div class="card stat-card"><div class="stat-value">'+avg+'</div><div class="stat-label">Avg Pieces/Client</div></div>';
+  h+='</div>';
+  h+='<table><thead><tr><th>Customer</th><th>Pieces</th><th>Value</th><th>Stage Breakdown</th></tr></thead><tbody>';
+  f.forEach(c=>{
+    let sb=Object.entries(c.stages).map(([k,v])=>'<span class="badge" style="background:rgba(79,209,197,0.15);color:#4fd1c5;margin:2px">'+k+': '+v+'</span>').join(' ');
+    h+='<tr><td><a href="/clients/'+encodeURIComponent(c.name)+'">'+c.name+'</a></td><td>'+c.total+'</td><td>$'+(c.value||0).toLocaleString()+'</td><td>'+sb+'</td></tr>';
+  });
+  h+='</tbody></table>';
+  $('#app').innerHTML=h;
+}
+load();
+""")
+
+@app.route('/clients')
+def clients_page():
+    return Response(CLIENTS_HTML, content_type='text/html')
+
+
+@app.route('/clients/<path:cname>')
+def client_detail_page(cname):
+    body_js = """
+    const CNAME='"""+cname.replace("'","\\'").replace('"','&quot;')+"""';
+    let items=[];
+    async function load(){
+      let r=await fe('/api/wip'); items=(r.items||[]).filter(i=>i.customer===CNAME); render();
+    }
+    function render(){
+      let h='<h2 style="margin-bottom:16px">'+CNAME+' - '+items.length+' pieces</h2>';
+      h+='<a href="/clients" class="btn btn-primary btn-sm" style="margin-bottom:16px;display:inline-block">&larr; Back to Clients</a>';
+      h+='<table><thead><tr><th>Piece</th><th>Job</th><th>Stage</th><th>Due</th><th>Price</th><th>Monument</th></tr></thead><tbody>';
+      items.forEach(i=>{
+        h+='<tr><td><a href="/piece/'+i.pieceId+'">'+i.name+'</a></td><td>'+i.job+'</td><td><span class="badge" style="background:rgba(79,209,197,0.15);color:#4fd1c5">'+i.stage+'</span></td><td>'+(i.due||'N/A')+'</td><td>$'+(parseFloat(i.price)||0).toLocaleString()+'</td><td>'+(i.monument||'N/A')+'</td></tr>';
+      });
+      h+='</tbody></table>';
+      $('#app').innerHTML=h;
+    }
+    load();
+    """
+    return Response(_page_html(cname, "Client project detail", body_js), content_type='text/html')
+
+
+@app.route('/piece/<piece_id>')
+def piece_detail_page(piece_id):
+    body_js = """
+    const PID='"""+piece_id+"""';
+    async function load(){
+      let r=await fe('/api/wip'); let item=(r.items||[]).find(i=>i.pieceId===PID);
+      if(!item){$('#app').innerHTML='<div class="card"><p>Piece not found</p></div>';return;}
+      let notes=await fe('/api/notes/'+PID);
+      let hist=await fe('/api/history/'+PID);
+      let emp=await fe('/api/employees/'+PID);
+      render(item,notes,hist,emp);
+    }
+    function render(item,notes,hist,emp){
+      let h='<a href="/clients" class="btn btn-primary btn-sm" style="margin-bottom:16px;display:inline-block">&larr; Back</a>';
+      h+='<div class="grid grid-2">';
+      // Info card
+      h+='<div class="card"><div class="card-header">Piece Information</div>';
+      h+='<table>';
+      let fields=[["Name",item.name],["Job",item.job],["Customer",item.customer],["Stage",item.stage],["Status",item.status],["Due",item.due||"N/A"],["Price","$"+(parseFloat(item.price)||0).toLocaleString()],["Monument",item.monument||"N/A"],["Edition",item.edition||"N/A"],["Tier",item.tier||"N/A"],["Metal",item.hMetal||"N/A"]];
+      fields.forEach(f=>{h+='<tr><td style="color:#8a9bb0;width:120px">'+f[0]+'</td><td>'+f[1]+'</td></tr>';});
+      h+='</table></div>';
+      // Hours card
+      h+='<div class="card"><div class="card-header">Hours Tracking</div><table>';
+      let hrs=[["Wax Pull",item.hWaxPull],["Wax",item.hWax],["Sprue",item.hSprue],["Metal",item.hMetalWorked],["Basing",item.hBasing],["Patina",item.hPatina],["Polish",item.hPolishWorked]];
+      hrs.forEach(f=>{h+='<tr><td style="color:#8a9bb0;width:120px">'+f[0]+'</td><td>'+(f[1]||'0')+'</td></tr>';});
+      h+='</table></div></div>';
+      // Assigned employee
+      h+='<div class="card" style="margin-top:16px"><div class="card-header">Assigned Employee</div>';
+      if(emp.employee){h+='<p>'+emp.employee+'</p>';}else{h+='<p style="color:#8a9bb0">Unassigned</p>';}
+      h+='<div style="margin-top:8px"><input id="aemp" placeholder="Employee name" style="width:200px;display:inline-block"><button class="btn btn-primary btn-sm" style="margin-left:8px" onclick="assignEmp()">Assign</button></div></div>';
+      // Notes
+      h+='<div class="card" style="margin-top:16px"><div class="card-header">Notes &amp; Communication</div>';
+      if(notes.notes&&notes.notes.length){
+        notes.notes.forEach(n=>{h+='<div style="padding:8px 0;border-bottom:1px solid #2a3a4a"><span style="color:#4fd1c5;font-size:12px">'+n.author+' - '+n.timestamp+'</span><p style="margin-top:4px">'+n.text+'</p></div>';});
+      }else{h+='<p style="color:#8a9bb0">No notes yet</p>';}
+      h+='<div style="margin-top:12px"><textarea id="nt" rows="2" placeholder="Add a note..."></textarea><button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="addNote()">Add Note</button></div></div>';
+      // History
+      h+='<div class="card" style="margin-top:16px"><div class="card-header">History Log</div>';
+      if(hist.history&&hist.history.length){
+        hist.history.forEach(e=>{h+='<div style="padding:6px 0;border-bottom:1px solid #2a3a4a"><span style="color:#8a9bb0;font-size:12px">'+e.timestamp+'</span> - '+e.event+'</div>';});
+      }else{h+='<p style="color:#8a9bb0">No history</p>';}
+      h+='</div>';
+      $('#app').innerHTML=h;
+    }
+    async function assignEmp(){
+      let n=$('#aemp').value.trim(); if(!n)return;
+      await post('/api/employees/assign',{piece_id:PID,employee:n}); load();
+    }
+    async function addNote(){
+      let t=$('#nt').value.trim(); if(!t)return;
+      await post('/api/notes/add',{piece_id:PID,text:t,author:'Manager'}); load();
+    }
+    load();
+    """
+    return Response(_page_html("Piece Detail", piece_id, body_js), content_type='text/html')
+
+
+REPORTS_HTML = _page_html("Reports & Trends", "Production analytics &amp; visualizations", """
+let items=[];
+async function load(){
+  let r=await fe('/api/wip'); items=r.items||[];
+  renderStageChart(); renderValueChart(); renderTrends();
+}
+function renderStageChart(){
+  let sc={}; items.forEach(i=>{let s=i.stage||'unknown';sc[s]=(sc[s]||0)+1;});
+  let labels=Object.keys(sc), data=Object.values(sc);
+  let colors=['#4fd1c5','#38b2ac','#81e6d9','#f6ad55','#fc8181','#68d391','#ecc94b','#b794f4','#f687b3'];
+  new Chart($('#stageChart'),{type:'doughnut',data:{labels:labels,datasets:[{data:data,backgroundColor:colors.slice(0,labels.length)}]},options:{responsive:true,plugins:{legend:{labels:{color:'#e0e0e0'}}}}});
+}
+function renderValueChart(){
+  let cv={}; items.forEach(i=>{let c=i.customer;if(!cv[c])cv[c]=0;cv[c]+=(parseFloat(i.price)||0);});
+  let sorted=Object.entries(cv).sort((a,b)=>b[1]-a[1]).slice(0,15);
+  new Chart($('#valueChart'),{type:'bar',data:{labels:sorted.map(s=>s[0].substring(0,20)),datasets:[{label:'Value ($)',data:sorted.map(s=>s[1]),backgroundColor:'rgba(79,209,197,0.6)',borderColor:'#4fd1c5',borderWidth:1}]},options:{responsive:true,indexAxis:'y',scales:{x:{ticks:{color:'#8a9bb0'},grid:{color:'#2a3a4a'}},y:{ticks:{color:'#e0e0e0',font:{size:10}},grid:{display:false}}},plugins:{legend:{display:false}}}});
+}
+function renderTrends(){
+  let sm={}; items.forEach(i=>{let s=i.stage||'unknown';if(!sm[s])sm[s]=0;sm[s]++;});
+  let h='<div class="grid grid-3" style="margin-top:20px">';
+  Object.entries(sm).sort((a,b)=>b[1]-a[1]).forEach(([s,c])=>{
+    let pct=Math.round(c/items.length*100);
+    h+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-weight:700;color:#4fd1c5">'+s+'</span><span class="badge" style="background:rgba(79,209,197,0.15);color:#4fd1c5">'+c+' ('+pct+'%)</span></div>';
+    h+='<div style="margin-top:8px;height:6px;background:#0f1923;border-radius:3px"><div style="height:100%;width:'+pct+'%;background:#4fd1c5;border-radius:3px"></div></div></div>';
+  });
+  h+='</div>';
+  $('#trends').innerHTML=h;
+}
+load();
+""", '<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>')
+
+# Override body for reports to include chart canvases
+REPORTS_HTML = REPORTS_HTML.replace('<div id="app" style="margin-top:20px"></div>', """<div style="margin-top:20px">
+<div class="grid grid-2">
+<div class="card"><div class="card-header">Stage Distribution</div><canvas id="stageChart" height="250"></canvas></div>
+<div class="card"><div class="card-header">Top Clients by Value</div><canvas id="valueChart" height="250"></canvas></div>
+</div>
+<div id="trends"></div>
+</div><div id="app"></div>""")
+
+@app.route('/reports')
+def reports_page():
+    return Response(REPORTS_HTML, content_type='text/html')
+
+
+BOTTLENECKS_HTML = _page_html("Bottleneck Analysis", "Identify production slowdowns &amp; aging work", """
+let items=[];
+async function load(){
+  let r=await fe('/api/wip'); items=r.items||[];
+  render();
+}
+function daysBetween(d){
+  if(!d)return null;
+  let parts=d.split('/'); if(parts.length!==3)return null;
+  let dt=new Date(parts[2],parts[0]-1,parts[1]);
+  return Math.floor((new Date()-dt)/(1000*60*60*24));
+}
+function render(){
+  // Stage bottlenecks
+  let sc={}; items.forEach(i=>{let s=i.stage||'unknown';if(!sc[s])sc[s]=[];sc[s].push(i);});
+  let sorted=Object.entries(sc).sort((a,b)=>b[1].length-a[1].length);
+  let maxCount=sorted.length?sorted[0][1].length:1;
+  let h='<div class="card" style="margin-bottom:20px"><div class="card-header">Stage Heatmap</div>';
+  h+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">';
+  sorted.forEach(([s,arr])=>{
+    let intensity=Math.round(arr.length/maxCount*255);
+    let bg='rgba('+intensity+','+(80-intensity*0.3)+',60,0.4)';
+    if(arr.length<maxCount*0.3)bg='rgba(79,209,197,0.15)';
+    else if(arr.length<maxCount*0.6)bg='rgba(236,201,75,0.2)';
+    else bg='rgba(229,62,62,0.25)';
+    h+='<div style="padding:12px 20px;border-radius:8px;background:'+bg+';border:1px solid #2a3a4a;text-align:center;min-width:120px"><div style="font-size:24px;font-weight:800;color:#e0e0e0">'+arr.length+'</div><div style="font-size:12px;color:#8a9bb0;margin-top:4px">'+s+'</div></div>';
+  });
+  h+='</div></div>';
+  // Overdue / aging
+  let overdue=items.filter(i=>{let d=daysBetween(i.due);return d!==null&&d>0;}).sort((a,b)=>daysBetween(b.due)-daysBetween(a.due));
+  h+='<div class="card"><div class="card-header">Overdue Items ('+overdue.length+')</div>';
+  if(overdue.length){
+    h+='<table><thead><tr><th>Piece</th><th>Customer</th><th>Stage</th><th>Due Date</th><th>Days Overdue</th></tr></thead><tbody>';
+    overdue.slice(0,50).forEach(i=>{
+      let d=daysBetween(i.due);
+      let cls=d>60?'overdue-severe':d>30?'overdue-high':'overdue-medium';
+      h+='<tr class="'+cls+'"><td><a href="/piece/'+i.pieceId+'">'+i.name+'</a></td><td>'+i.customer+'</td><td>'+i.stage+'</td><td>'+i.due+'</td><td style="font-weight:700;color:'+(d>60?'#fc8181':d>30?'#f6ad55':'#ecc94b')+'">'+d+' days</td></tr>';
+    });
+    h+='</tbody></table>';
+  }else{h+='<p style="color:#68d391">No overdue items!</p>';}
+  h+='</div>';
+  $('#app').innerHTML=h;
+}
+load();
+""")
+
+@app.route('/bottlenecks')
+def bottlenecks_page():
+    return Response(BOTTLENECKS_HTML, content_type='text/html')
+
+
+DUE_DATES_HTML = _page_html("Due Date Manager", "Track &amp; manage production deadlines", """
+let items=[], sortCol='due', sortDir=1, filterStage='all';
+async function load(){
+  let r=await fe('/api/wip'); items=r.items||[]; render();
+}
+function parseDue(d){
+  if(!d)return new Date('2099-01-01');
+  let p=d.split('/'); return new Date(p[2],p[0]-1,p[1]);
+}
+function daysBetween(d){
+  if(!d)return null;
+  let p=d.split('/'); if(p.length!==3)return null;
+  let dt=new Date(p[2],p[0]-1,p[1]);
+  return Math.floor((dt-new Date())/(1000*60*60*24));
+}
+function render(){
+  let f=items.slice();
+  if(filterStage!=='all')f=f.filter(i=>i.stage===filterStage);
+  f.sort((a,b)=>{
+    if(sortCol==='due')return sortDir*(parseDue(a.due)-parseDue(b.due));
+    if(sortCol==='name')return sortDir*a.name.localeCompare(b.name);
+    if(sortCol==='customer')return sortDir*a.customer.localeCompare(b.customer);
+    return 0;
+  });
+  let stages=[...new Set(items.map(i=>i.stage))].sort();
+  let h='<div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">';
+  h+='<select id="sf" onchange="filterStage=this.value;render()" style="width:auto"><option value="all">All Stages</option>';
+  stages.forEach(s=>{h+='<option value="'+s+'"'+(filterStage===s?' selected':'')+'>'+s+'</option>';});
+  h+='</select>';
+  // Stats
+  let due7=items.filter(i=>{let d=daysBetween(i.due);return d!==null&&d>=0&&d<=7;}).length;
+  let due30=items.filter(i=>{let d=daysBetween(i.due);return d!==null&&d>=0&&d<=30;}).length;
+  let overdue=items.filter(i=>{let d=daysBetween(i.due);return d!==null&&d<0;}).length;
+  h+='<span class="badge" style="background:rgba(229,62,62,0.2);color:#fc8181">'+overdue+' Overdue</span>';
+  h+='<span class="badge" style="background:rgba(236,201,75,0.2);color:#ecc94b">'+due7+' Due This Week</span>';
+  h+='<span class="badge" style="background:rgba(79,209,197,0.15);color:#4fd1c5">'+due30+' Due This Month</span>';
+  h+='</div>';
+  h+='<table><thead><tr><th style="cursor:pointer" onclick="sortCol=\'name\';sortDir=-sortDir;render()">Piece</th><th style="cursor:pointer" onclick="sortCol=\'customer\';sortDir=-sortDir;render()">Customer</th><th>Stage</th><th style="cursor:pointer" onclick="sortCol=\'due\';sortDir=-sortDir;render()">Due Date</th><th>Days Left</th><th>Price</th></tr></thead><tbody>';
+  f.forEach(i=>{
+    let d=daysBetween(i.due);
+    let cls='', color='#68d391';
+    if(d!==null&&d<0){cls='overdue-severe';color='#fc8181';}
+    else if(d!==null&&d<=7){cls='overdue-high';color='#f6ad55';}
+    else if(d!==null&&d<=30){cls='overdue-medium';color='#ecc94b';}
+    h+='<tr class="'+cls+'"><td><a href="/piece/'+i.pieceId+'">'+i.name+'</a></td><td>'+i.customer+'</td><td><span class="badge" style="background:rgba(79,209,197,0.15);color:#4fd1c5">'+i.stage+'</span></td><td>'+(i.due||'N/A')+'</td><td style="font-weight:700;color:'+color+'">'+(d!==null?d+' days':'N/A')+'</td><td>$'+(parseFloat(i.price)||0).toLocaleString()+'</td></tr>';
+  });
+  h+='</tbody></table>';
+  $('#app').innerHTML=h;
+}
+load();
+""")
+
+@app.route('/due-dates')
+def due_dates_page():
+    return Response(DUE_DATES_HTML, content_type='text/html')
+
+
+TEAM_HTML = _page_html("Team Management", "Employee roster &amp; assignments", """
+let team=[], items=[];
+async function load(){
+  let r=await fe('/api/team'); team=r.members||[];
+  let w=await fe('/api/wip'); items=w.items||[];
+  render();
+}
+function render(){
+  let h='<div class="card" style="margin-bottom:20px"><div class="card-header">Add Team Member</div>';
+  h+='<div style="display:flex;gap:8px"><input id="nm" placeholder="Name" style="width:200px"><input id="rl" placeholder="Role (e.g. Wax, Metal, Patina)" style="width:200px"><button class="btn btn-primary" onclick="addMember()">Add</button></div></div>';
+  h+='<div class="grid grid-3">';
+  team.forEach((m,idx)=>{
+    let name=typeof m==='string'?m:m.name;
+    let role=typeof m==='string'?'':m.role||'';
+    h+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><div><span style="font-weight:700;font-size:16px;color:#e0e0e0">'+name+'</span>';
+    if(role)h+='<br><span style="font-size:12px;color:#8a9bb0">'+role+'</span>';
+    h+='</div><button class="btn btn-danger btn-sm" onclick="removeMember(\''+name+'\')">Remove</button></div></div>';
+  });
+  if(!team.length)h+='<div class="card"><p style="color:#8a9bb0">No team members added yet</p></div>';
+  h+='</div>';
+  $('#app').innerHTML=h;
+}
+async function addMember(){
+  let n=$('#nm').value.trim(), r=$('#rl').value.trim();
+  if(!n)return;
+  await post('/api/team/add',{name:n,role:r}); load();
+}
+async function removeMember(name){
+  await post('/api/team/remove',{name:name}); load();
+}
+load();
+""")
+
+@app.route('/team')
+def team_page():
+    return Response(TEAM_HTML, content_type='text/html')
+
+
+QUALITY_HTML = _page_html("Quality & Rework", "Track quality holds, rework &amp; inspections", """
+let items=[], reworkLog=[];
+async function load(){
+  let r=await fe('/api/wip'); items=r.items||[];
+  render();
+}
+function render(){
+  let q=($('#qq')||{}).value||'';
+  let h='<div class="search-box"><input id="qq" placeholder="Search pieces to log quality issue..." oninput="render()" value="'+q+'"></div>';
+  // Stats
+  let holds=items.filter(i=>i.status==='hold'||i.status==='rework');
+  h+='<div class="grid grid-3" style="margin-bottom:20px">';
+  h+='<div class="card stat-card"><div class="stat-value">'+holds.length+'</div><div class="stat-label">On Hold / Rework</div></div>';
+  let reworkPct=items.length?Math.round(holds.length/items.length*100):0;
+  h+='<div class="card stat-card"><div class="stat-value">'+reworkPct+'%</div><div class="stat-label">Rework Rate</div></div>';
+  let activeCount=items.filter(i=>i.status==='active'||i.status==='Active').length;
+  h+='<div class="card stat-card"><div class="stat-value text-green">'+activeCount+'</div><div class="stat-label">Active / On Track</div></div>';
+  h+='</div>';
+  // Log rework form
+  if(q){
+    let matches=items.filter(i=>i.name.toLowerCase().includes(q.toLowerCase())||i.pieceId.toLowerCase().includes(q.toLowerCase())).slice(0,10);
+    if(matches.length){
+      h+='<div class="card" style="margin-bottom:16px"><div class="card-header">Log Quality Issue</div>';
+      h+='<table><thead><tr><th>Piece</th><th>Customer</th><th>Stage</th><th>Action</th></tr></thead><tbody>';
+      matches.forEach(i=>{
+        h+='<tr><td>'+i.name+'</td><td>'+i.customer+'</td><td>'+i.stage+'</td><td><button class="btn btn-danger btn-sm" onclick="logRework(\''+i.pieceId+'\',\''+i.name.replace(/'/g,"")+'\')">Log Rework</button></td></tr>';
+      });
+      h+='</tbody></table></div>';
+    }
+  }
+  // Current holds
+  h+='<div class="card"><div class="card-header">Quality Holds &amp; Rework Items</div>';
+  if(holds.length){
+    h+='<table><thead><tr><th>Piece</th><th>Customer</th><th>Stage</th><th>Status</th><th>Detail</th></tr></thead><tbody>';
+    holds.forEach(i=>{
+      h+='<tr class="overdue-medium"><td><a href="/piece/'+i.pieceId+'">'+i.name+'</a></td><td>'+i.customer+'</td><td>'+i.stage+'</td><td><span class="badge" style="background:rgba(229,62,62,0.2);color:#fc8181">'+i.status+'</span></td><td><a href="/piece/'+i.pieceId+'">View</a></td></tr>';
+    });
+    h+='</tbody></table>';
+  }else{h+='<p style="color:#68d391">No quality holds currently</p>';}
+  h+='</div>';
+  $('#app').innerHTML=h;
+}
+async function logRework(pid,name){
+  let reason=prompt('Reason for rework on '+name+'?');
+  if(!reason)return;
+  await post('/api/rework/log',{piece_id:pid,reason:reason,logged_by:'Manager'});
+  alert('Rework logged for '+name);
+  load();
+}
+load();
+""")
+
+@app.route('/quality')
+def quality_page():
+    return Response(QUALITY_HTML, content_type='text/html')
+
+
+@app.route('/api/search')
+def api_search():
+    q = request.args.get('q', '').lower()
+    if not q:
+        return jsonify({'results': []})
+    results = []
+    for item in _cache.get('items', []):
+        if q in item.get('name', '').lower() or q in item.get('customer', '').lower() or q in item.get('job', '').lower() or q in str(item.get('pieceId', '')).lower():
+            results.append(item)
+    return jsonify({'results': results[:50]})
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT, debug=False, use_reloader=False)
