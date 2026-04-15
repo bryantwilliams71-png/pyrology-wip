@@ -2646,7 +2646,7 @@ CORS(app, origins='*')
 
 
 # --- Mobile switch button (auto-injected into all desktop HTML pages) ---
-MOBILE_BTN_SNIPPET = '<div id="mobileSwitch" style="position:fixed;top:12px;left:12px;z-index:9999"><a href="/m/" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#4fd1c5;color:#0f1923;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,0.3);font-family:-apple-system,BlinkMacSystemFont,sans-serif">&#x1F4F1; Mobile</a></div>'
+MOBILE_BTN_SNIPPET = '<script>(function(){var a=document.createElement("a");a.href="/m/";a.textContent="\u{1F4F1} Mobile";a.style.cssText="padding:5px 13px;border-radius:5px;font-weight:700;font-size:13px;text-decoration:none;border:1px solid #3a4a6a;background:#1e2a3a;color:#4fd1c5;white-space:nowrap;display:inline-flex;align-items:center;gap:4px";var t=document.getElementById("wtop")||document.querySelector(".top-bar")||document.body.children[0];if(!t)return;var nav=(t.children.length===2&&t.children[1].querySelector("a"))?t.children[1]:t;nav.insertBefore(a,nav.firstChild);})()</script>'
 
 @app.after_request
 def inject_mobile_btn(response):
