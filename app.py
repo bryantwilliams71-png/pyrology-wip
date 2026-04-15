@@ -5725,17 +5725,5 @@ def quality_page():
     return Response(QUALITY_HTML, content_type='text/html')
 
 
-@app.route('/api/search')
-def api_search():
-    q = request.args.get('q', '').lower()
-    if not q:
-        return jsonify({'results': []})
-    results = []
-    for item in _cache.get('items', []):
-        if q in item.get('name', '').lower() or q in item.get('customer', '').lower() or q in item.get('job', '').lower() or q in str(item.get('pieceId', '')).lower():
-            results.append(item)
-    return jsonify({'results': results[:50]})
-
-
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT, debug=False, use_reloader=False)
