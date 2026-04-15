@@ -2643,6 +2643,20 @@ setInterval(loadShipments,30000);
 app = Flask(__name__)
 CORS(app, origins='*')
 
+
+
+# --- Mobile switch button (auto-injected into all desktop HTML pages) ---
+MOBILE_BTN_SNIPPET = '<div id="mobileSwitch" style="position:fixed;top:12px;left:12px;z-index:9999"><a href="/m/" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#4fd1c5;color:#0f1923;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,0.3);font-family:-apple-system,BlinkMacSystemFont,sans-serif">&#x1F4F1; Mobile</a></div>'
+
+@app.after_request
+def inject_mobile_btn(response):
+    if response.content_type and 'text/html' in response.content_type and not request.path.startswith('/m/'):
+        data = response.get_data(as_text=True)
+        if '</body>' in data:
+            data = data.replace('</body>', MOBILE_BTN_SNIPPET + '</body>', 1)
+            response.set_data(data)
+    return response
+
 @app.route('/')
 def dashboard():
     return Response(DASHBOARD_HTML, mimetype='text/html; charset=utf-8')
