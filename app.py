@@ -5205,6 +5205,18 @@ def api_log_history():
     _persist()
     return jsonify({'ok': True})
 
+# Production stages (mirrors JS STAGES const)
+STAGES = [
+    {'k': 'molds',    'l': 'Molds',          'c': '#4a6fa5'},
+    {'k': 'creation', 'l': 'Creation',       'c': '#7b5ea7'},
+    {'k': 'waxpull',  'l': 'Wax Pull',       'c': '#e8a838'},
+    {'k': 'waxchase', 'l': 'Wax Chase',      'c': '#d4763b'},
+    {'k': 'shell',    'l': 'Shell/Pouryard', 'c': '#5a9e6f'},
+    {'k': 'patina',   'l': 'Patina',         'c': '#c45c8a'},
+    {'k': 'base',     'l': 'Base',           'c': '#4db8b8'},
+    {'k': 'ready',    'l': 'Ready',          'c': '#5a9e5a'},
+]
+
 # NCR cause code registry (edit to customize)
 NCR_CAUSE_CODES = [
     {'code': 'mold_defect',   'label': 'Mold/Creation Defect'},
