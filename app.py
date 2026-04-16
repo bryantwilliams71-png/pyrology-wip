@@ -2645,16 +2645,20 @@ CORS(app, origins='*')
 
 
 
-# --- Mobile switch button (auto-injected into all desktop HTML pages) ---
-MOBILE_BTN_SNIPPET = '<script>(function(){var a=document.createElement("a");a.href="/m/";a.textContent="\u{1F4F1} Mobile";a.style.cssText="padding:5px 13px;border-radius:5px;font-weight:700;font-size:13px;text-decoration:none;border:1px solid #3a4a6a;background:#1e2a3a;color:#4fd1c5;white-space:nowrap;display:inline-flex;align-items:center;gap:4px";var t=document.getElementById("wtop")||document.querySelector(".top-bar")||document.body.children[0];if(!t)return;var nav=(t.children.length===2&&t.children[1].querySelector("a"))?t.children[1]:t;nav.insertBefore(a,nav.firstChild);})()</script>'
+# --- Nav injection: Mobile + TV + Rework buttons (server-rendered into every desktop page) ---
+NAV_INJECT_HTML = '<a href="/m/" style="padding:5px 13px;border-radius:5px;font-weight:700;font-size:13px;text-decoration:none;border:1px solid #3a4a6a;background:#1e2a3a;color:#4fd1c5;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;margin-right:4px">\U0001F4F1 Mobile</a><a href="/tv" target="_blank" style="padding:5px 13px;border-radius:5px;font-weight:700;font-size:13px;text-decoration:none;border:1px solid #3a4a6a;background:#1e2a3a;color:#4fd1c5;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;margin-right:4px">\U0001F4FA TV</a><a href="/rework" style="padding:5px 13px;border-radius:5px;font-weight:700;font-size:13px;text-decoration:none;border:1px solid #3a4a6a;background:#1e2a3a;color:#4fd1c5;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;margin-right:4px">\U0001F527 Rework</a>'
 
 @app.after_request
 def inject_mobile_btn(response):
-    if response.content_type and 'text/html' in response.content_type and not request.path.startswith('/m/'):
+    if response.content_type and 'text/html' in response.content_type and not request.path.startswith('/m/') and not request.path.startswith('/tv'):
         data = response.get_data(as_text=True)
-        if '</body>' in data:
-            data = data.replace('</body>', MOBILE_BTN_SNIPPET + '</body>', 1)
-            response.set_data(data)
+        body_idx = data.find('<body>')
+        if body_idx >= 0:
+            after_body = body_idx + 6
+            first_a = data.find('<a ', after_body)
+            if first_a >= 0:
+                data = data[:first_a] + NAV_INJECT_HTML + data[first_a:]
+                response.set_data(data)
     return response
 
 @app.route('/')
@@ -5201,6 +5205,23 @@ def api_log_history():
     _persist()
     return jsonify({'ok': True})
 
+# NCR cause code registry (edit to customize)
+NCR_CAUSE_CODES = [
+    {'code': 'mold_defect',   'label': 'Mold/Creation Defect'},
+    {'code': 'wax_defect',    'label': 'Wax Pull/Chase Defect'},
+    {'code': 'cast_defect',   'label': 'Cast/Metal Defect'},
+    {'code': 'finish_defect', 'label': 'Finish/Patina/Base Defect'},
+    {'code': 'dimensional',   'label': 'Dimensional'},
+    {'code': 'damage',        'label': 'Handling Damage'},
+    {'code': 'material',      'label': 'Material Quality'},
+    {'code': 'other',         'label': 'Other'},
+]
+NCR_VALID_CODES = {c['code'] for c in NCR_CAUSE_CODES}
+
+import secrets as _secrets
+def _mk_event_id():
+    return 'rw_' + datetime.utcnow().strftime('%Y%m%d%H%M%S') + '_' + _secrets.token_hex(2)
+
 @app.route('/api/rework/log', methods=['POST'])
 def api_log_rework():
     global _notes_data, _history_data
@@ -5208,32 +5229,395 @@ def api_log_rework():
     pid = str(d.get('pieceId', ''))
     if not pid:
         return jsonify({'error': 'Missing pieceId'}), 400
+    cause_code = d.get('cause_code', '')
+    if cause_code and cause_code not in NCR_VALID_CODES:
+        cause_code = 'other'
     if pid not in _history_data:
         _history_data[pid] = []
-    _history_data[pid].insert(0, {
+    evt = {
+        'event_id': _mk_event_id(),
         'from_dept': d.get('from_dept', ''),
         'to_dept': d.get('to_dept', ''),
         'by': d.get('by', ''),
         'reason': d.get('reason', ''),
+        'cause_code': cause_code,
+        'cause_other': d.get('cause_other', '') if cause_code == 'other' else '',
+        'stage': d.get('stage', ''),
         'rework': True,
-        'timestamp': datetime.utcnow().isoformat() + 'Z'
-    })
+        'resolved': False,
+        'resolved_by': '',
+        'resolved_at': '',
+        'fix_note': '',
+        'timestamp': datetime.utcnow().isoformat() + 'Z',
+    }
+    _history_data[pid].insert(0, evt)
     if pid not in _notes_data:
         _notes_data[pid] = []
+    note_text = '[REWORK] ' + (d.get('reason', '') or '(no reason)')
+    if cause_code:
+        note_text += ' (' + cause_code + ')'
     _notes_data[pid].insert(0, {
-        'text': 'REWORK: ' + d.get('reason', 'No reason given') + ' (from ' + d.get('from_dept','') + ' back to ' + d.get('to_dept','') + ')',
-        'author': d.get('by', 'Unknown'),
+        'text': note_text,
+        'by': d.get('by', ''),
+        'timestamp': evt['timestamp'],
         'type': 'rework',
-        'timestamp': datetime.utcnow().isoformat() + 'Z'
+        'event_id': evt['event_id'],
     })
     _save_history()
     _save_notes()
     _persist()
+    return jsonify({'ok': True, 'event_id': evt['event_id']})
+
+@app.route('/api/rework/resolve', methods=['POST'])
+def api_resolve_rework():
+    global _history_data
+    d = request.get_json(force=True)
+    pid = str(d.get('pieceId', ''))
+    eid = d.get('event_id', '')
+    if not pid or not eid:
+        return jsonify({'error': 'Missing pieceId or event_id'}), 400
+    events = _history_data.get(pid, [])
+    target = None
+    for e in events:
+        if e.get('event_id') == eid and e.get('rework'):
+            target = e
+            break
+    if not target:
+        return jsonify({'error': 'Rework event not found'}), 404
+    target['resolved'] = True
+    target['resolved_by'] = d.get('resolved_by', '')
+    target['resolved_at'] = datetime.utcnow().isoformat() + 'Z'
+    target['fix_note'] = d.get('fix_note', '')
+    _save_history()
+    _persist()
     return jsonify({'ok': True})
 
+@app.route('/api/rework/open')
+def api_open_rework():
+    '''Return all unresolved rework events across all pieces.'''
+    out = []
+    for pid, events in _history_data.items():
+        for e in events:
+            if e.get('rework') and not e.get('resolved'):
+                out.append({
+                    'piece_id': pid,
+                    'event_id': e.get('event_id', ''),
+                    'reason': e.get('reason', ''),
+                    'cause_code': e.get('cause_code', ''),
+                    'cause_other': e.get('cause_other', ''),
+                    'stage': e.get('stage', ''),
+                    'by': e.get('by', ''),
+                    'timestamp': e.get('timestamp', ''),
+                })
+    out.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+    return jsonify({'events': out, 'count': len(out), 'cause_codes': NCR_CAUSE_CODES})
 @app.route('/api/team', methods=['GET'])
 def api_get_team():
     return jsonify(_team_members)
+
+@app.route('/api/tv')
+def api_tv():
+    '''Aggregated data for /tv kiosk view.'''
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    with _lock:
+        raw_items = _cache.get('items', []) if isinstance(_cache, dict) else []
+        items = list(raw_items)
+        stage_ov = dict(_stage_overrides or {})
+        hist = {pid: list(ev) for pid, ev in (_history_data or {}).items()}
+    # Counts per stage (apply overrides)
+    stage_counts = {}
+    pieces_with_stage = []
+    for p in items:
+        pid = str(p.get('pieceId', ''))
+        st = stage_ov.get(pid, p.get('stage', ''))
+        stage_counts[st] = stage_counts.get(st, 0) + 1
+        pieces_with_stage.append((p, pid, st))
+    # Heatmap in STAGES order, exclude 'ready'
+    heatmap = []
+    for s in STAGES:
+        if s.get('k') == 'ready':
+            continue
+        c = stage_counts.get(s['k'], 0)
+        if c == 0:
+            andon = 'idle'
+        elif c > 60:
+            andon = 'red'
+        elif c > 25:
+            andon = 'yellow'
+        else:
+            andon = 'green'
+        heatmap.append({'key': s['k'], 'label': s['l'], 'color': s['c'], 'count': c, 'andon': andon})
+    ready_count = stage_counts.get('ready', 0)
+    total_active = sum(h['count'] for h in heatmap)
+    # Stalled: time since last to_dept == current stage
+    stalled = []
+    for p, pid, st in pieces_with_stage:
+        if st == 'ready' or not st:
+            continue
+        events = hist.get(pid, [])
+        arrival = None
+        for e in events:
+            if e.get('rework'):
+                continue
+            if e.get('to_dept') == st:
+                arrival = e.get('timestamp')
+                break
+        if not arrival:
+            continue
+        try:
+            at = datetime.fromisoformat(arrival.replace('Z', '+00:00'))
+            hours = (now - at).total_seconds() / 3600.0
+        except Exception:
+            continue
+        if hours < 24:
+            continue
+        stage_label = next((s['l'] for s in STAGES if s['k'] == st), st)
+        if hours > 72:
+            aging = 'red'
+        elif hours > 48:
+            aging = 'orange'
+        else:
+            aging = 'yellow'
+        stalled.append({
+            'piece_id': pid,
+            'name': p.get('name', '') or p.get('monument', '') or pid,
+            'customer': p.get('customer', ''),
+            'job': p.get('job', ''),
+            'stage': st,
+            'stage_label': stage_label,
+            'hours': round(hours, 1),
+            'aging': aging,
+        })
+    stalled.sort(key=lambda x: x['hours'], reverse=True)
+    stalled_top = stalled[:15]
+    # Open rework count
+    open_rework = 0
+    for pid, events in hist.items():
+        for e in events:
+            if e.get('rework') and not e.get('resolved'):
+                open_rework += 1
+    return jsonify({
+        'heatmap': heatmap,
+        'total_active': total_active,
+        'ready_count': ready_count,
+        'total_pieces': len(items),
+        'stalled': stalled_top,
+        'stalled_count': len(stalled),
+        'open_rework': open_rework,
+        'generated_at': now.isoformat(),
+    })
+
+TV_PAGE_HTML = '''<!DOCTYPE html><html><head><meta charset="utf-8"><title>TV Board - Pyrology</title><style>
+*{box-sizing:border-box}html,body{margin:0;padding:0;background:#0a0e1a;color:#e0e6ed;font-family:-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden;height:100%;width:100%}
+.panel{position:fixed;inset:0;padding:40px;opacity:0;transition:opacity .6s;pointer-events:none}
+.panel.active{opacity:1}
+.hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.hdr h1{font-size:56px;margin:0;letter-spacing:-.02em;font-weight:800}
+.hdr .right{font-size:26px;opacity:.7;font-variant-numeric:tabular-nums}
+.dot{display:inline-block;width:14px;height:14px;border-radius:50%;background:#4ade80;margin-right:10px;vertical-align:middle;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.heatmap{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.tile{background:linear-gradient(135deg,#1e2a3a 0%,#152030 100%);border:3px solid #3a4a6a;border-radius:18px;padding:30px;min-height:180px;display:flex;flex-direction:column;justify-content:space-between;transition:all .3s}
+.tile .count{font-size:112px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.tile .label{font-size:28px;font-weight:600;opacity:.85}
+.tile.red{border-color:#ef4444;box-shadow:0 0 50px rgba(239,68,68,.35);background:linear-gradient(135deg,#2a1520 0%,#1a0f18 100%)}
+.tile.red .count{color:#ff6b6b}
+.tile.yellow{border-color:#f59e0b;box-shadow:0 0 30px rgba(245,158,11,.2)}
+.tile.yellow .count{color:#fbbf24}
+.tile.green{border-color:#10b981}
+.tile.green .count{color:#4ade80}
+.tile.idle{opacity:.4}
+.tile.idle .count{color:#64748b}
+.stalled-list{display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 220px);overflow:hidden}
+.stall-row{display:grid;grid-template-columns:1fr 220px 140px;gap:18px;padding:16px 24px;background:#1e2a3a;border-radius:12px;align-items:center;border-left:8px solid #f59e0b}
+.stall-row.red{border-left-color:#ef4444;background:#2a1520}
+.stall-row.orange{border-left-color:#fb7c0c}
+.stall-row .name{font-size:24px;font-weight:700}
+.stall-row .sub{font-size:16px;opacity:.6;font-weight:400;margin-top:2px}
+.stall-row .stage{font-size:22px;opacity:.85}
+.stall-row .hours{font-size:36px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums}
+.stall-row.red .hours{color:#ff6b6b}
+.stall-row.orange .hours{color:#fb923c}
+.stall-row.yellow .hours{color:#fbbf24}
+.footer{position:fixed;bottom:20px;left:40px;right:40px;display:flex;justify-content:space-between;font-size:18px;opacity:.55}
+.empty{text-align:center;padding:120px 40px;font-size:40px;opacity:.7;line-height:1.3}
+.badges{display:flex;gap:14px;margin-top:8px}
+.badge{padding:6px 14px;border-radius:999px;font-size:18px;font-weight:600;background:#1e2a3a;border:1px solid #3a4a6a}
+.badge.hot{background:#2a1520;border-color:#ef4444;color:#ff6b6b}
+</style></head><body>
+<div id="panel-heatmap" class="panel active">
+  <div class="hdr"><div><h1>Station Load</h1><div class="badges"><div class="badge" id="b-active">-</div><div class="badge" id="b-ready">-</div><div class="badge" id="b-rework">-</div></div></div><div class="right"><span class="dot"></span><span id="tm1">--:--</span></div></div>
+  <div class="heatmap" id="hm-grid"></div>
+  <div class="footer"><div>Green &lt;26 &middot; Yellow 26-60 &middot; Red &gt;60 WIP</div><div>Pyrology Production Board</div></div>
+</div>
+<div id="panel-stalled" class="panel">
+  <div class="hdr"><div><h1>Stalled Pieces</h1><div class="badges"><div class="badge" id="b-stall-count">-</div></div></div><div class="right"><span class="dot"></span><span id="tm2">--:--</span></div></div>
+  <div class="stalled-list" id="st-list"></div>
+  <div class="footer"><div>Yellow 24-48h &middot; Orange 48-72h &middot; Red &gt;72h since last stage change</div><div>Pyrology Production Board</div></div>
+</div>
+<script>
+var panels=["panel-heatmap","panel-stalled"];var idx=0;var data=null;
+function fmtTime(){var d=new Date();return d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]})}
+function renderHeatmap(){var g=document.getElementById("hm-grid");if(!data||!data.heatmap)return;g.innerHTML=data.heatmap.map(function(h){return "<div class=\"tile "+h.andon+"\"><div class=\"count\">"+h.count+"</div><div class=\"label\">"+esc(h.label)+"</div></div>"}).join("");document.getElementById("b-active").textContent=data.total_active+" active";document.getElementById("b-ready").textContent=data.ready_count+" ready to ship";var br=document.getElementById("b-rework");br.textContent=(data.open_rework||0)+" open rework";br.className="badge"+(data.open_rework>0?" hot":"")}
+function renderStalled(){var g=document.getElementById("st-list");if(!data)return;if(!data.stalled||data.stalled.length===0){g.innerHTML="<div class=\"empty\">No pieces stalled over 24 hours.<br>All stations moving normally.</div>";document.getElementById("b-stall-count").textContent="0 stalled";return}g.innerHTML=data.stalled.map(function(s){return "<div class=\"stall-row "+s.aging+"\"><div><div class=\"name\">"+esc(s.name)+"</div><div class=\"sub\">"+esc(s.customer||s.job||"")+"</div></div><div class=\"stage\">"+esc(s.stage_label)+"</div><div class=\"hours\">"+s.hours+"h</div></div>"}).join("");document.getElementById("b-stall-count").textContent=data.stalled_count+" stalled"}
+function tick(){var t=fmtTime();document.getElementById("tm1").textContent=t;document.getElementById("tm2").textContent=t}
+async function refresh(){try{var r=await fetch("/api/tv",{cache:"no-store"});data=await r.json();renderHeatmap();renderStalled()}catch(e){}}
+function rotate(){document.getElementById(panels[idx]).classList.remove("active");idx=(idx+1)%panels.length;document.getElementById(panels[idx]).classList.add("active")}
+refresh();tick();setInterval(refresh,30000);setInterval(tick,15000);setInterval(rotate,12000);
+</script></body></html>'''
+
+@app.route('/tv')
+def tv_page():
+    return TV_PAGE_HTML
+
+@app.route('/api/quality/summary')
+def api_quality_summary():
+    '''Aggregated quality data: open rework queue + first-pass yield per station.'''
+    with _lock:
+        raw_items = _cache.get('items', []) if isinstance(_cache, dict) else []
+        items = list(raw_items)
+        hist = {pid: list(ev) for pid, ev in (_history_data or {}).items()}
+    # Open rework queue with piece context
+    piece_by_id = {str(p.get('pieceId', '')): p for p in items}
+    open_queue = []
+    resolved_count = 0
+    for pid, events in hist.items():
+        for e in events:
+            if not e.get('rework'):
+                continue
+            if e.get('resolved'):
+                resolved_count += 1
+                continue
+            p = piece_by_id.get(pid, {})
+            open_queue.append({
+                'piece_id': pid,
+                'event_id': e.get('event_id', ''),
+                'name': p.get('name') or p.get('monument') or pid,
+                'customer': p.get('customer', ''),
+                'stage': p.get('stage', '') or e.get('stage', ''),
+                'cause_code': e.get('cause_code', ''),
+                'cause_other': e.get('cause_other', ''),
+                'reason': e.get('reason', ''),
+                'by': e.get('by', ''),
+                'timestamp': e.get('timestamp', ''),
+            })
+    open_queue.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+    # First-pass yield per stage: pieces that reached stage without rework / total reached
+    # Approximation: for each stage, count pieces currently at or past it vs those with rework logged at that stage
+    stage_order = [s['k'] for s in STAGES]
+    stage_pos = {k: i for i, k in enumerate(stage_order)}
+    fpy = []
+    for s in STAGES:
+        k = s['k']
+        if k == 'ready':
+            continue
+        # Pieces that have reached this stage (currently at or past it)
+        reached = 0
+        cur_idx = stage_pos.get(k, -1)
+        for p in items:
+            cs = p.get('stage', '')
+            if stage_pos.get(cs, -1) >= cur_idx:
+                reached += 1
+        # Pieces with a rework event logged at this stage
+        rw_at_stage = 0
+        for pid, events in hist.items():
+            if any(e.get('rework') and e.get('stage') == k for e in events):
+                rw_at_stage += 1
+        yield_pct = round(100.0 * (reached - rw_at_stage) / reached, 1) if reached > 0 else None
+        fpy.append({'stage': k, 'label': s['l'], 'reached': reached, 'reworked': rw_at_stage, 'yield_pct': yield_pct})
+    return jsonify({
+        'open_queue': open_queue,
+        'open_count': len(open_queue),
+        'resolved_count': resolved_count,
+        'fpy': fpy,
+        'cause_codes': NCR_CAUSE_CODES,
+    })
+
+REWORK_PAGE_HTML = '''<!DOCTYPE html><html><head><meta charset="utf-8"><title>Rework Queue - Pyrology</title><style>
+*{box-sizing:border-box}body{margin:0;background:#0f1520;color:#e0e6ed;font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:14px}
+#wtop{display:flex;align-items:center;gap:12px;padding:10px 20px;background:#0a0e1a;border-bottom:2px solid #3a4a6a}
+#wtop a{padding:5px 13px;border-radius:5px;font-weight:700;font-size:13px;text-decoration:none;border:1px solid #3a4a6a;background:#1e2a3a;color:#4fd1c5;display:inline-flex;align-items:center;gap:4px}
+#wtop a.active{background:#4fd1c5;color:#0a0e1a;border-color:#4fd1c5}
+#wtop h1{font-size:18px;margin:0 0 0 10px;font-weight:700}
+.wrap{padding:20px;max-width:1400px;margin:0 auto}
+.row{display:grid;grid-template-columns:2fr 1fr;gap:24px;margin-bottom:24px}
+@media(max-width:900px){.row{grid-template-columns:1fr}}
+.card{background:#1e2a3a;border:1px solid #3a4a6a;border-radius:10px;padding:18px}
+.card h2{font-size:18px;margin:0 0 14px;font-weight:700;color:#4fd1c5}
+.kpis{display:flex;gap:12px;margin-bottom:18px}
+.kpi{flex:1;background:#1e2a3a;border:1px solid #3a4a6a;border-radius:10px;padding:16px;text-align:center}
+.kpi .n{font-size:40px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.kpi .l{font-size:12px;opacity:.7;margin-top:6px;text-transform:uppercase;letter-spacing:.05em}
+.kpi.hot .n{color:#ff6b6b}.kpi.warm .n{color:#fbbf24}.kpi.cool .n{color:#4fd1c5}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 10px;background:#0a0e1a;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#4fd1c5;border-bottom:1px solid #3a4a6a}
+td{padding:10px;border-bottom:1px solid #2a3a55;vertical-align:top}
+tr:hover td{background:#243245}
+.cause-chip{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:#3a4a6a;color:#e0e6ed}
+.btn{padding:5px 12px;border-radius:5px;border:1px solid #3a4a6a;background:#1e2a3a;color:#4fd1c5;font-weight:600;cursor:pointer;font-size:12px;text-decoration:none;display:inline-block}
+.btn.primary{background:#4fd1c5;color:#0a0e1a;border-color:#4fd1c5}
+.btn.warn{background:#7a2020;color:#ffb3b3;border-color:#a33}
+.fpy-bar{background:#0a0e1a;border-radius:4px;height:8px;overflow:hidden;margin-top:4px}
+.fpy-bar-fill{height:100%;background:linear-gradient(90deg,#10b981,#4fd1c5)}
+.fpy-bar-fill.warn{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+.fpy-bar-fill.low{background:linear-gradient(90deg,#ef4444,#ff6b6b)}
+.empty{text-align:center;padding:40px;opacity:.6}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);align-items:center;justify-content:center;z-index:100}
+.modal.open{display:flex}
+.modal-inner{background:#1e2a3a;border:2px solid #4fd1c5;border-radius:12px;padding:24px;width:min(520px,90vw)}
+.modal h3{margin:0 0 14px;color:#4fd1c5}
+.modal label{display:block;font-size:12px;opacity:.7;margin:10px 0 4px;text-transform:uppercase;letter-spacing:.05em}
+.modal input,.modal textarea{width:100%;padding:8px 10px;background:#0a0e1a;border:1px solid #3a4a6a;border-radius:6px;color:#e0e6ed;font-family:inherit;font-size:14px}
+.modal textarea{min-height:60px;resize:vertical}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+</style></head><body>
+<div id="wtop"><h1>Pyrology Rework</h1><a href="/">Dashboard</a><a href="/quality">Quality</a><a href="/rework" class="active">Rework Queue</a><a href="/tv">TV Board</a><a href="/m/">Mobile</a><button class="btn primary" style="margin-left:auto;padding:6px 14px;font-size:13px" onclick="openLog()">+ Log NCR</button></div>
+<div class="wrap">
+  <div class="kpis">
+    <div class="kpi hot"><div class="n" id="k-open">-</div><div class="l">Open NCRs</div></div>
+    <div class="kpi cool"><div class="n" id="k-resolved">-</div><div class="l">Resolved</div></div>
+    <div class="kpi warm"><div class="n" id="k-top-cause">-</div><div class="l">Top Cause</div></div>
+    <div class="kpi cool"><div class="n" id="k-avg-fpy">-</div><div class="l">Avg FPY</div></div>
+  </div>
+  <div class="row">
+    <div class="card">
+      <h2>Open Rework Queue</h2>
+      <div id="queue-wrap"></div>
+    </div>
+    <div class="card">
+      <h2>First-Pass Yield by Station</h2>
+      <div id="fpy-wrap"></div>
+    </div>
+  </div>
+</div>
+<div class="modal" id="logModal">  <div class="modal-inner">    <h3>Log New NCR / Rework</h3>    <label>Piece ID</label><input id="lg-pid" placeholder="e.g. 24061">    <label>Cause Code</label><select id="lg-cause" style="width:100%;padding:8px 10px;background:#0a0e1a;border:1px solid #3a4a6a;border-radius:6px;color:#e0e6ed;font-family:inherit;font-size:14px"></select>    <label id="lg-other-label" style="display:none">Other cause (describe)</label><input id="lg-other" style="display:none" placeholder="Describe the cause">    <label>Stage where found</label><select id="lg-stage" style="width:100%;padding:8px 10px;background:#0a0e1a;border:1px solid #3a4a6a;border-radius:6px;color:#e0e6ed;font-family:inherit;font-size:14px"></select>    <label>Reason / description</label><textarea id="lg-reason" placeholder="Describe the defect"></textarea>    <label>Logged by</label><input id="lg-by" placeholder="Your name">    <div class="modal-actions"><button class="btn" onclick="closeLog()">Cancel</button><button class="btn primary" onclick="doLog()">Log NCR</button></div>  </div></div><div class="modal" id="resolveModal">
+  <div class="modal-inner">
+    <h3>Resolve Rework</h3>
+    <div id="resolve-ctx" style="font-size:13px;opacity:.8;margin-bottom:10px"></div>
+    <label>Resolved by</label><input id="rv-by" placeholder="Your name">
+    <label>Fix note (what did you do?)</label><textarea id="rv-note" placeholder="e.g. Re-polished the base, passed QC"></textarea>
+    <div class="modal-actions"><button class="btn" onclick="closeResolve()">Cancel</button><button class="btn primary" onclick="doResolve()">Resolve</button></div>
+  </div>
+</div>
+<script>
+var CAUSE_LABELS={};var currentEvent=null;var currentPiece=null;
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]})}
+function fmtAgo(iso){if(!iso)return "";try{var d=new Date(iso);var mins=Math.round((Date.now()-d.getTime())/60000);if(mins<60)return mins+"m ago";var h=Math.round(mins/60);if(h<24)return h+"h ago";return Math.round(h/24)+"d ago"}catch(e){return iso}}
+function renderQueue(data){var g=document.getElementById("queue-wrap");if(!data.open_queue||data.open_queue.length===0){g.innerHTML="<div class=\"empty\">No open rework. Nice work.</div>";return}var rows=data.open_queue.map(function(e){var label=CAUSE_LABELS[e.cause_code]||e.cause_code||"";if(e.cause_code=="other"&&e.cause_other)label+=": "+e.cause_other;return "<tr><td><a href=\"/piece/"+esc(e.piece_id)+"\" style=\"color:#4fd1c5;text-decoration:none;font-weight:600\">"+esc(e.name)+"</a><div style=\"font-size:11px;opacity:.6\">"+esc(e.customer||"")+"</div></td><td>"+esc(e.stage||"")+"</td><td><span class=\"cause-chip\">"+esc(label)+"</span></td><td style=\"max-width:260px\">"+esc(e.reason||"")+"</td><td>"+esc(e.by||"")+"<div style=\"font-size:11px;opacity:.6\">"+fmtAgo(e.timestamp)+"</div></td><td><button class=\"btn primary\" onclick='openResolve(\""+e.piece_id+"\",\""+e.event_id+"\",\""+e.name.replace(/\"/g,"")+"\")'>Resolve</button></td></tr>"}).join("");g.innerHTML="<table><thead><tr><th>Piece</th><th>Stage</th><th>Cause</th><th>Reason</th><th>Logged</th><th></th></tr></thead><tbody>"+rows+"</tbody></table>"}
+function renderFpy(data){var g=document.getElementById("fpy-wrap");if(!data.fpy){g.innerHTML="";return}var rows=data.fpy.map(function(f){var pct=f.yield_pct;var pctTxt=pct==null?"-":pct.toFixed(1)+"%";var cls="";if(pct!=null){if(pct<90)cls="low";else if(pct<97)cls="warn"}var w=pct==null?0:Math.max(5,pct);return "<div style=\"margin-bottom:10px\"><div style=\"display:flex;justify-content:space-between;font-size:13px\"><span>"+esc(f.label)+"</span><span style=\"font-weight:700\">"+pctTxt+"</span></div><div class=\"fpy-bar\"><div class=\"fpy-bar-fill "+cls+"\" style=\"width:"+w+"%\"></div></div><div style=\"font-size:11px;opacity:.55;margin-top:2px\">"+f.reworked+" reworked of "+f.reached+" reached</div></div>"}).join("");g.innerHTML=rows}
+function renderKpis(data){document.getElementById("k-open").textContent=data.open_count||0;document.getElementById("k-resolved").textContent=data.resolved_count||0;var counts={};(data.open_queue||[]).forEach(function(e){counts[e.cause_code]=(counts[e.cause_code]||0)+1});var top="-";var max=0;Object.keys(counts).forEach(function(k){if(counts[k]>max){max=counts[k];top=CAUSE_LABELS[k]||k}});document.getElementById("k-top-cause").textContent=top;var ys=(data.fpy||[]).map(function(f){return f.yield_pct}).filter(function(y){return y!=null});var avg=ys.length?Math.round(ys.reduce(function(a,b){return a+b},0)/ys.length*10)/10:"-";document.getElementById("k-avg-fpy").textContent=(avg=="-"?"-":avg+"%")}
+function openResolve(pid,eid,name){currentPiece=pid;currentEvent=eid;document.getElementById("resolve-ctx").textContent=name+" ("+pid+")";document.getElementById("rv-by").value="";document.getElementById("rv-note").value="";document.getElementById("resolveModal").classList.add("open")}
+function closeResolve(){document.getElementById("resolveModal").classList.remove("open")}
+async function doResolve(){var by=document.getElementById("rv-by").value.trim();if(!by){alert("Please enter your name");return}var note=document.getElementById("rv-note").value.trim();var r=await fetch("/api/rework/resolve",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pieceId:currentPiece,event_id:currentEvent,resolved_by:by,fix_note:note})});if(r.ok){closeResolve();load()}else{alert("Failed to resolve")}}
+async function load(){var r=await fetch("/api/quality/summary",{cache:"no-store"});var data=await r.json();(data.cause_codes||[]).forEach(function(c){CAUSE_LABELS[c.code]=c.label});window._causeCodes=data.cause_codes||[];renderKpis(data);renderQueue(data);renderFpy(data)}
+function openLog(){var sel=document.getElementById("lg-cause");sel.innerHTML=(window._causeCodes||[]).map(function(c){return "<option value=\""+c.code+"\">"+c.label+"</option>"}).join("");var st=document.getElementById("lg-stage");var stages=[{k:"molds",l:"Molds"},{k:"creation",l:"Creation"},{k:"waxpull",l:"Wax Pull"},{k:"waxchase",l:"Wax Chase"},{k:"sprue",l:"Sprue"},{k:"shell",l:"Shell/Pouryard"},{k:"metal",l:"Metal Work"},{k:"patina",l:"Patina"},{k:"base",l:"Base"}];st.innerHTML=stages.map(function(s){return "<option value=\""+s.k+"\">"+s.l+"</option>"}).join("");document.getElementById("lg-pid").value="";document.getElementById("lg-reason").value="";document.getElementById("lg-by").value="";document.getElementById("lg-other").value="";document.getElementById("lg-other").style.display="none";document.getElementById("lg-other-label").style.display="none";sel.onchange=function(){var show=sel.value=="other";document.getElementById("lg-other").style.display=show?"block":"none";document.getElementById("lg-other-label").style.display=show?"block":"none"};document.getElementById("logModal").classList.add("open")}function closeLog(){document.getElementById("logModal").classList.remove("open")}async function doLog(){var pid=document.getElementById("lg-pid").value.trim();var by=document.getElementById("lg-by").value.trim();if(!pid){alert("Piece ID required");return}if(!by){alert("Logged by required");return}var body={pieceId:pid,cause_code:document.getElementById("lg-cause").value,cause_other:document.getElementById("lg-other").value,stage:document.getElementById("lg-stage").value,reason:document.getElementById("lg-reason").value,by:by};var r=await fetch("/api/rework/log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});if(r.ok){closeLog();load()}else{var err=await r.json().catch(function(){return{}});alert("Failed to log: "+(err.error||r.status))}}load();setInterval(load,60000);
+</script></body></html>'''
+
+@app.route('/rework')
+def rework_page():
+    return REWORK_PAGE_HTML
 
 @app.route('/api/team/add', methods=['POST'])
 def api_add_team_member():
