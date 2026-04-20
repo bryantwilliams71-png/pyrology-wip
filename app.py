@@ -2646,11 +2646,11 @@ CORS(app, origins='*')
 
 
 # --- Nav injection: Mobile + TV + Rework buttons (server-rendered into every desktop page) ---
-NAV_INJECT_HTML = '<a href="/m/" style="padding:5px 13px;border-radius:5px;font-weight:700;font-size:13px;text-decoration:none;border:1px solid #3a4a6a;background:#1e2a3a;color:#4fd1c5;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;margin-right:4px">\U0001F4F1 Mobile</a><a href="/tv" target="_blank" style="padding:5px 13px;border-radius:5px;font-weight:700;font-size:13px;text-decoration:none;border:1px solid #3a4a6a;background:#1e2a3a;color:#4fd1c5;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;margin-right:4px">\U0001F4FA TV</a><a href="/rework" style="padding:5px 13px;border-radius:5px;font-weight:700;font-size:13px;text-decoration:none;border:1px solid #3a4a6a;background:#1e2a3a;color:#4fd1c5;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;margin-right:4px">\U0001F527 Rework</a>'
+NAV_INJECT_HTML = '<a href="/m/" style="padding:5px 13px;border-radius:5px;font-weight:700;font-size:13px;text-decoration:none;border:1px solid #3a4a6a;background:#1e2a3a;color:#4fd1c5;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;margin-right:4px">\U0001F4F1 Mobile</a><a href="/rework" style="padding:5px 13px;border-radius:5px;font-weight:700;font-size:13px;text-decoration:none;border:1px solid #3a4a6a;background:#1e2a3a;color:#4fd1c5;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;margin-right:4px">\U0001F527 Rework</a>'
 
 @app.after_request
 def inject_mobile_btn(response):
-    if response.content_type and 'text/html' in response.content_type and not request.path.startswith('/m/') and not request.path.startswith('/tv'):
+    if response.content_type and 'text/html' in response.content_type and not request.path.startswith('/m/'):
         data = response.get_data(as_text=True)
         body_idx = data.find('<body>')
         if body_idx >= 0:
@@ -5327,162 +5327,7 @@ def api_open_rework():
 def api_get_team():
     return jsonify(_team_members)
 
-@app.route('/api/tv')
-def api_tv():
-    '''Aggregated data for /tv kiosk view.'''
-    from datetime import datetime, timezone
-    now = datetime.now(timezone.utc)
-    with _lock:
-        raw_items = _cache.get('items', []) if isinstance(_cache, dict) else []
-        items = list(raw_items)
-        stage_ov = dict(_stage_overrides or {})
-        hist = {pid: list(ev) for pid, ev in (_history_data or {}).items()}
-    # Counts per stage (apply overrides)
-    stage_counts = {}
-    pieces_with_stage = []
-    for p in items:
-        pid = str(p.get('pieceId', ''))
-        st = stage_ov.get(pid, p.get('stage', ''))
-        stage_counts[st] = stage_counts.get(st, 0) + 1
-        pieces_with_stage.append((p, pid, st))
-    # Heatmap in STAGES order, exclude 'ready'
-    heatmap = []
-    for s in STAGES:
-        if s.get('k') == 'ready':
-            continue
-        c = stage_counts.get(s['k'], 0)
-        if c == 0:
-            andon = 'idle'
-        elif c > 60:
-            andon = 'red'
-        elif c > 25:
-            andon = 'yellow'
-        else:
-            andon = 'green'
-        heatmap.append({'key': s['k'], 'label': s['l'], 'color': s['c'], 'count': c, 'andon': andon})
-    ready_count = stage_counts.get('ready', 0)
-    total_active = sum(h['count'] for h in heatmap)
-    # Stalled: time since last to_dept == current stage
-    stalled = []
-    for p, pid, st in pieces_with_stage:
-        if st == 'ready' or not st:
-            continue
-        events = hist.get(pid, [])
-        arrival = None
-        for e in events:
-            if e.get('rework'):
-                continue
-            if e.get('to_dept') == st:
-                arrival = e.get('timestamp')
-                break
-        if not arrival:
-            continue
-        try:
-            at = datetime.fromisoformat(arrival.replace('Z', '+00:00'))
-            hours = (now - at).total_seconds() / 3600.0
-        except Exception:
-            continue
-        if hours < 24:
-            continue
-        stage_label = next((s['l'] for s in STAGES if s['k'] == st), st)
-        if hours > 72:
-            aging = 'red'
-        elif hours > 48:
-            aging = 'orange'
-        else:
-            aging = 'yellow'
-        stalled.append({
-            'piece_id': pid,
-            'name': p.get('name', '') or p.get('monument', '') or pid,
-            'customer': p.get('customer', ''),
-            'job': p.get('job', ''),
-            'stage': st,
-            'stage_label': stage_label,
-            'hours': round(hours, 1),
-            'aging': aging,
-        })
-    stalled.sort(key=lambda x: x['hours'], reverse=True)
-    stalled_top = stalled[:15]
-    # Open rework count
-    open_rework = 0
-    for pid, events in hist.items():
-        for e in events:
-            if e.get('rework') and not e.get('resolved'):
-                open_rework += 1
-    return jsonify({
-        'heatmap': heatmap,
-        'total_active': total_active,
-        'ready_count': ready_count,
-        'total_pieces': len(items),
-        'stalled': stalled_top,
-        'stalled_count': len(stalled),
-        'open_rework': open_rework,
-        'generated_at': now.isoformat(),
-    })
 
-TV_PAGE_HTML = '''<!DOCTYPE html><html><head><meta charset="utf-8"><title>TV Board - Pyrology</title><style>
-*{box-sizing:border-box}html,body{margin:0;padding:0;background:#0a0e1a;color:#e0e6ed;font-family:-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden;height:100%;width:100%}
-.panel{position:fixed;inset:0;padding:40px;opacity:0;transition:opacity .6s;pointer-events:none}
-.panel.active{opacity:1}
-.hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
-.hdr h1{font-size:56px;margin:0;letter-spacing:-.02em;font-weight:800}
-.hdr .right{font-size:26px;opacity:.7;font-variant-numeric:tabular-nums}
-.dot{display:inline-block;width:14px;height:14px;border-radius:50%;background:#4ade80;margin-right:10px;vertical-align:middle;animation:pulse 2s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-.heatmap{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
-.tile{background:linear-gradient(135deg,#1e2a3a 0%,#152030 100%);border:3px solid #3a4a6a;border-radius:18px;padding:30px;min-height:180px;display:flex;flex-direction:column;justify-content:space-between;transition:all .3s}
-.tile .count{font-size:112px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
-.tile .label{font-size:28px;font-weight:600;opacity:.85}
-.tile.red{border-color:#ef4444;box-shadow:0 0 50px rgba(239,68,68,.35);background:linear-gradient(135deg,#2a1520 0%,#1a0f18 100%)}
-.tile.red .count{color:#ff6b6b}
-.tile.yellow{border-color:#f59e0b;box-shadow:0 0 30px rgba(245,158,11,.2)}
-.tile.yellow .count{color:#fbbf24}
-.tile.green{border-color:#10b981}
-.tile.green .count{color:#4ade80}
-.tile.idle{opacity:.4}
-.tile.idle .count{color:#64748b}
-.stalled-list{display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 220px);overflow:hidden}
-.stall-row{display:grid;grid-template-columns:1fr 220px 140px;gap:18px;padding:16px 24px;background:#1e2a3a;border-radius:12px;align-items:center;border-left:8px solid #f59e0b}
-.stall-row.red{border-left-color:#ef4444;background:#2a1520}
-.stall-row.orange{border-left-color:#fb7c0c}
-.stall-row .name{font-size:24px;font-weight:700}
-.stall-row .sub{font-size:16px;opacity:.6;font-weight:400;margin-top:2px}
-.stall-row .stage{font-size:22px;opacity:.85}
-.stall-row .hours{font-size:36px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums}
-.stall-row.red .hours{color:#ff6b6b}
-.stall-row.orange .hours{color:#fb923c}
-.stall-row.yellow .hours{color:#fbbf24}
-.footer{position:fixed;bottom:20px;left:40px;right:40px;display:flex;justify-content:space-between;font-size:18px;opacity:.55}
-.empty{text-align:center;padding:120px 40px;font-size:40px;opacity:.7;line-height:1.3}
-.badges{display:flex;gap:14px;margin-top:8px}
-.badge{padding:6px 14px;border-radius:999px;font-size:18px;font-weight:600;background:#1e2a3a;border:1px solid #3a4a6a}
-.badge.hot{background:#2a1520;border-color:#ef4444;color:#ff6b6b}
-</style></head><body>
-<div id="panel-heatmap" class="panel active">
-  <div class="hdr"><div><h1>Station Load</h1><div class="badges"><div class="badge" id="b-active">-</div><div class="badge" id="b-ready">-</div><div class="badge" id="b-rework">-</div></div></div><div class="right"><span class="dot"></span><span id="tm1">--:--</span></div></div>
-  <div class="heatmap" id="hm-grid"></div>
-  <div class="footer"><div>Green &lt;26 &middot; Yellow 26-60 &middot; Red &gt;60 WIP</div><div>Pyrology Production Board</div></div>
-</div>
-<div id="panel-stalled" class="panel">
-  <div class="hdr"><div><h1>Stalled Pieces</h1><div class="badges"><div class="badge" id="b-stall-count">-</div></div></div><div class="right"><span class="dot"></span><span id="tm2">--:--</span></div></div>
-  <div class="stalled-list" id="st-list"></div>
-  <div class="footer"><div>Yellow 24-48h &middot; Orange 48-72h &middot; Red &gt;72h since last stage change</div><div>Pyrology Production Board</div></div>
-</div>
-<script>
-var panels=["panel-heatmap","panel-stalled"];var idx=0;var data=null;
-function fmtTime(){var d=new Date();return d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}
-function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\\x22":"&quot;"}[c]})}
-function renderHeatmap(){var g=document.getElementById("hm-grid");if(!data||!data.heatmap)return;g.innerHTML=data.heatmap.map(function(h){return "<div class=\\"tile "+h.andon+"\\"><div class=\\"count\\">"+h.count+"</div><div class=\\"label\\">"+esc(h.label)+"</div></div>"}).join("");document.getElementById("b-active").textContent=data.total_active+" active";document.getElementById("b-ready").textContent=data.ready_count+" ready to ship";var br=document.getElementById("b-rework");br.textContent=(data.open_rework||0)+" open rework";br.className="badge"+(data.open_rework>0?" hot":"")}
-function renderStalled(){var g=document.getElementById("st-list");if(!data)return;if(!data.stalled||data.stalled.length===0){g.innerHTML="<div class=\\"empty\\">No pieces stalled over 24 hours.<br>All stations moving normally.</div>";document.getElementById("b-stall-count").textContent="0 stalled";return}g.innerHTML=data.stalled.map(function(s){return "<div class=\\"stall-row "+s.aging+"\\"><div><div class=\\"name\\">"+esc(s.name)+"</div><div class=\\"sub\\">"+esc(s.customer||s.job||"")+"</div></div><div class=\\"stage\\">"+esc(s.stage_label)+"</div><div class=\\"hours\\">"+s.hours+"h</div></div>"}).join("");document.getElementById("b-stall-count").textContent=data.stalled_count+" stalled"}
-function tick(){var t=fmtTime();document.getElementById("tm1").textContent=t;document.getElementById("tm2").textContent=t}
-async function refresh(){try{var r=await fetch("/api/tv",{cache:"no-store"});data=await r.json();renderHeatmap();renderStalled()}catch(e){}}
-function rotate(){document.getElementById(panels[idx]).classList.remove("active");idx=(idx+1)%panels.length;document.getElementById(panels[idx]).classList.add("active")}
-refresh();tick();setInterval(refresh,30000);setInterval(tick,15000);setInterval(rotate,12000);
-</script></body></html>'''
-
-@app.route('/tv')
-def tv_page():
-    return TV_PAGE_HTML
 
 @app.route('/api/quality/summary')
 def api_quality_summary():
@@ -5585,7 +5430,7 @@ tr:hover td{background:#243245}
 .modal textarea{min-height:60px;resize:vertical}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 </style></head><body>
-<div id="wtop"><h1>Pyrology Rework</h1><a href="/">Dashboard</a><a href="/quality">Quality</a><a href="/rework" class="active">Rework Queue</a><a href="/tv">TV Board</a><a href="/m/">Mobile</a><button class="btn primary" style="margin-left:auto;padding:6px 14px;font-size:13px" onclick="openLog()">+ Log NCR</button></div>
+<div id="wtop"><h1>Pyrology Rework</h1><a href="/">Dashboard</a><a href="/quality">Quality</a><a href="/rework" class="active">Rework Queue</a><a href="/m/">Mobile</a><button class="btn primary" style="margin-left:auto;padding:6px 14px;font-size:13px" onclick="openLog()">+ Log NCR</button></div>
 <div class="wrap">
   <div class="kpis">
     <div class="kpi hot"><div class="n" id="k-open">-</div><div class="l">Open NCRs</div></div>
