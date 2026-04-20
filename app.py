@@ -5430,7 +5430,7 @@ tr:hover td{background:#243245}
 .modal textarea{min-height:60px;resize:vertical}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 </style></head><body>
-<div id="wtop"><h1>Pyrology Rework</h1><a href="/">Dashboard</a><a href="/quality">Quality</a><a href="/rework" class="active">Rework Queue</a><a href="/m/">Mobile</a><button class="btn primary" style="margin-left:auto;padding:6px 14px;font-size:13px" onclick="openLog()">+ Log NCR</button></div>
+<div id="wtop"><h1>Pyrology Rework</h1><a href="/">Dashboard</a><a href="/quality">Quality</a><a href="/rework" class="active">Rework Queue</a><button class="btn primary" style="margin-left:auto;padding:6px 14px;font-size:13px" onclick="openLog()">+ Log NCR</button></div>
 <div class="wrap">
   <div class="kpis">
     <div class="kpi hot"><div class="n" id="k-open">-</div><div class="l">Open NCRs</div></div>
