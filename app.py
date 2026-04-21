@@ -5206,6 +5206,366 @@ def api_log_history():
     return jsonify({'ok': True})
 
 # Production stages (mirrors JS STAGES const)
+
+# ─── TV Department Views ──────────────────────────────────────────
+TV_DEPTS = {
+    'molds':       {'l': 'Molds',           'stage': 'molds',    'c': '#4a6fa5', 'monument': None},
+    'creation':    {'l': 'Creation',        'stage': 'creation', 'c': '#7b5ea7', 'monument': None},
+    'waxpull':     {'l': 'Wax Pull',        'stage': 'waxpull',  'c': '#e8a838', 'monument': None},
+    'waxchase':    {'l': 'Wax Chase',       'stage': 'waxchase', 'c': '#d4763b', 'monument': None},
+    'sprue_small': {'l': 'Small Sprue',     'stage': 'sprue',    'c': '#c97a3b', 'monument': False},
+    'sprue_mon':   {'l': 'Monument Sprue',  'stage': 'sprue',    'c': '#7b5ea7', 'monument': True},
+    'shell':       {'l': 'Shell',           'stage': 'shell',    'c': '#5a9e6f', 'monument': None},
+    'metal_small': {'l': 'Small Metal',     'stage': 'metal',    'c': '#4db8b8', 'monument': False},
+    'metal_mon':   {'l': 'Monument Metal',  'stage': 'metal',    'c': '#c45c8a', 'monument': True},
+    'patina':      {'l': 'Patina',          'stage': 'patina',   'c': '#c45c8a', 'monument': None},
+    'base':        {'l': 'Base',            'stage': 'base',     'c': '#4db8b8', 'monument': None},
+    'ready':       {'l': 'Ready',           'stage': 'ready',    'c': '#5a9e5a', 'monument': None},
+}
+
+TV_DEPT_PAGE_HTML = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{DEPT_LABEL}} - Pyrology TV</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0e17;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overflow:hidden;height:100vh}
+.header{display:flex;align-items:center;justify-content:space-between;padding:18px 32px;background:linear-gradient(135deg,{{DEPT_COLOR}}22,#0d1117);border-bottom:3px solid {{DEPT_COLOR}}}
+.dept-name{font-size:42px;font-weight:800;color:{{DEPT_COLOR}};text-transform:uppercase;letter-spacing:2px}
+.clock{font-size:32px;font-weight:600;color:#8899aa;font-variant-numeric:tabular-nums}
+.status-bar{display:flex;gap:24px;padding:12px 32px;background:#0d1117;border-bottom:1px solid #1a2332;font-size:16px;color:#6a7a8a}
+.status-bar .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;background:#3fb950;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.content{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:20px 32px;height:calc(100vh - 160px);overflow:hidden}
+.panel{background:#111820;border:1px solid #1a2332;border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.panel-header{padding:16px 20px;font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1a2332}
+.panel-header .count{background:{{DEPT_COLOR}};color:#fff;padding:2px 12px;border-radius:12px;font-size:16px;font-weight:600}
+.panel-body{padding:12px;overflow-y:auto;flex:1}
+.week-label{font-size:16px;color:{{DEPT_COLOR}};font-weight:700;margin:8px 0 6px;padding:4px 12px;background:{{DEPT_COLOR}}15;border-radius:6px;display:inline-block}
+.card{background:#1a2332;border:1px solid #252d3a;border-radius:8px;padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;transition:border-color .2s}
+.card:hover{border-color:{{DEPT_COLOR}}60}
+.card-left{flex:1}
+.card-id{font-size:20px;font-weight:700;color:#e0e0e0}
+.card-desc{font-size:15px;color:#8899aa;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:400px}
+.card-client{font-size:13px;color:#6a7a8a;margin-top:2px}
+.card-right{text-align:right}
+.card-value{font-size:18px;font-weight:700;color:#3fb950}
+.card-hours{font-size:13px;color:#8899aa}
+.badge-done{background:#3fb95030;color:#3fb950;padding:2px 10px;border-radius:6px;font-size:13px;font-weight:600}
+.badge-carry{background:#d2992230;color:#d29922;padding:2px 10px;border-radius:6px;font-size:13px;font-weight:600}
+.rework-card{background:#1a2332;border-left:4px solid #f85149;border-radius:8px;padding:14px 16px;margin-bottom:8px}
+.rework-card .rc-top{display:flex;justify-content:space-between;align-items:center}
+.rework-card .rc-id{font-size:18px;font-weight:700;color:#f85149}
+.rework-card .rc-cause{font-size:14px;color:#8899aa;background:#f8514915;padding:2px 10px;border-radius:6px}
+.rework-card .rc-desc{font-size:14px;color:#8899aa;margin-top:4px}
+.rework-card .rc-date{font-size:12px;color:#6a7a8a;margin-top:4px}
+.empty{text-align:center;color:#4a5568;font-size:18px;padding:40px 20px}
+.progress-row{display:flex;align-items:center;gap:12px;padding:8px 20px;background:#0d111a}
+.progress-bar{flex:1;height:8px;background:#1a2332;border-radius:4px;overflow:hidden}
+.progress-fill{height:100%;background:{{DEPT_COLOR}};border-radius:4px;transition:width .5s}
+.progress-text{font-size:14px;color:#8899aa;min-width:80px;text-align:right}
+.refresh-indicator{font-size:12px;color:#4a5568}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="dept-name">{{DEPT_LABEL}}</div>
+  <div class="clock" id="clock"></div>
+</div>
+<div class="status-bar">
+  <span><span class="dot"></span>Live &mdash; refreshes every 60s</span>
+  <span id="stats-summary"></span>
+  <span style="margin-left:auto" class="refresh-indicator" id="refresh-timer"></span>
+</div>
+<div class="content">
+  <div class="panel">
+    <div class="panel-header">
+      <span>Schedule</span>
+      <span class="count" id="sched-count">0</span>
+    </div>
+    <div id="sched-progress" class="progress-row" style="display:none">
+      <div class="progress-bar"><div class="progress-fill" id="sched-fill"></div></div>
+      <div class="progress-text" id="sched-pct">0%</div>
+    </div>
+    <div class="panel-body" id="sched-body">
+      <div class="empty">Loading...</div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-header">
+      <span>Open Rework / NCRs</span>
+      <span class="count" id="rework-count" style="background:#f85149">0</span>
+    </div>
+    <div class="panel-body" id="rework-body">
+      <div class="empty">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const DEPT_KEY = "{{DEPT_KEY}}";
+const DEPT_STAGE = "{{DEPT_STAGE}}";
+const DEPT_MONUMENT = {{DEPT_MONUMENT}};
+
+function updateClock(){
+  const now=new Date();
+  const h=now.getHours(),m=now.getMinutes(),s=now.getSeconds();
+  const ampm=h>=12?"PM":"AM";
+  const h12=h%12||12;
+  document.getElementById("clock").textContent=
+    h12+":"+(m<10?"0":"")+m+":"+(s<10?"0":"")+s+" "+ampm;
+}
+setInterval(updateClock,1000);
+updateClock();
+
+function getMonday(d){
+  const dt=new Date(d);
+  const day=dt.getDay();
+  const diff=dt.getDate()-day+(day===0?-6:1);
+  dt.setDate(diff);dt.setHours(0,0,0,0);
+  return dt;
+}
+function fmtDate(d){
+  return (d.getMonth()+1)+"/"+d.getDate();
+}
+function weekKey(d){
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,"0");
+  const day=String(d.getDate()).padStart(2,"0");
+  return y+"-"+m+"-"+day;
+}
+
+function matchesDept(item){
+  const st = item.stage_override || item.stage || "";
+  if(st !== DEPT_STAGE) return false;
+  if(DEPT_MONUMENT === null) return true;
+  return !!item.monument === DEPT_MONUMENT;
+}
+
+let refreshCountdown = 60;
+setInterval(()=>{
+  refreshCountdown--;
+  if(refreshCountdown<=0){refreshCountdown=60;loadData();}
+  document.getElementById("refresh-timer").textContent="Next refresh: "+refreshCountdown+"s";
+},1000);
+
+async function loadData(){
+  try{
+    const [wipRes,schedRes,qualRes]=await Promise.all([
+      fetch("/api/wip"),fetch("/api/schedule"),fetch("/api/quality/summary")
+    ]);
+    const wipData=await wipRes.json();
+    const schedData=await schedRes.json();
+    const qualData=await qualRes.json();
+
+    const items=(wipData.items||[]);
+    const stageOverrides=wipData.stage_overrides||{};
+    const assignments=schedData.assignments||{};
+
+    items.forEach(it=>{
+      if(stageOverrides[it.piece_id]){it.stage_override=stageOverrides[it.piece_id];}
+    });
+
+    const deptItems=items.filter(matchesDept);
+    const itemMap={};
+    deptItems.forEach(it=>{itemMap[it.piece_id]=it;});
+
+    const now=new Date();
+    const thisMon=getMonday(now);
+    const nextMon=new Date(thisMon);nextMon.setDate(nextMon.getDate()+7);
+
+    const thisWeek=[];
+    const nextWeek=[];
+    let doneCount=0;
+    let totalScheduled=0;
+
+    for(const [pid,asg] of Object.entries(assignments)){
+      const item=itemMap[pid];
+      if(!item) continue;
+      const w=asg.week;
+      if(!w) continue;
+      const entry={...item,assignment:asg};
+      const asgMon=getMonday(new Date(w+"T00:00:00"));
+      if(asgMon.getTime()===thisMon.getTime()){
+        thisWeek.push(entry);totalScheduled++;if(asg.done)doneCount++;
+      } else if(asgMon.getTime()===nextMon.getTime()){
+        nextWeek.push(entry);totalScheduled++;if(asg.done)doneCount++;
+      }
+    }
+
+    const scheduledIds=new Set(Object.keys(assignments));
+    const unscheduled=deptItems.filter(it=>!scheduledIds.has(String(it.piece_id)));
+
+    const schedBody=document.getElementById("sched-body");
+    const totalCount=thisWeek.length+nextWeek.length;
+    document.getElementById("sched-count").textContent=totalCount;
+
+    let html="";
+    if(thisWeek.length>0||nextWeek.length>0){
+      if(thisWeek.length>0){
+        const thisEnd=new Date(thisMon);thisEnd.setDate(thisEnd.getDate()+6);
+        html+='<div class="week-label">This Week ('+fmtDate(thisMon)+' - '+fmtDate(thisEnd)+')</div>';
+        thisWeek.sort((a,b)=>(a.assignment.done?1:0)-(b.assignment.done?1:0));
+        thisWeek.forEach(it=>{html+=renderCard(it);});
+      }
+      if(nextWeek.length>0){
+        const nextEnd=new Date(nextMon);nextEnd.setDate(nextEnd.getDate()+6);
+        html+='<div class="week-label" style="margin-top:16px">Next Week ('+fmtDate(nextMon)+' - '+fmtDate(nextEnd)+')</div>';
+        nextWeek.forEach(it=>{html+=renderCard(it);});
+      }
+    } else {
+      html='<div class="empty">No scheduled items for this department</div>';
+    }
+
+    if(unscheduled.length>0){
+      html+='<div class="week-label" style="margin-top:16px;background:#f8514915;color:#f85149">Unscheduled ('+unscheduled.length+')</div>';
+      unscheduled.forEach(it=>{
+        html+=renderCard({...it,assignment:null});
+      });
+    }
+    schedBody.innerHTML=html;
+
+    const progRow=document.getElementById("sched-progress");
+    if(thisWeek.length>0){
+      progRow.style.display="flex";
+      const pct=Math.round((thisWeek.filter(i=>i.assignment&&i.assignment.done).length/thisWeek.length)*100);
+      document.getElementById("sched-fill").style.width=pct+"%";
+      document.getElementById("sched-pct").textContent=pct+"% done this week";
+    } else {
+      progRow.style.display="none";
+    }
+
+    document.getElementById("stats-summary").textContent=
+      deptItems.length+" pieces in dept | "+totalCount+" scheduled | "+doneCount+" completed";
+
+    const reworkBody=document.getElementById("rework-body");
+    const openRework=(qualData.open_queue||[]).filter(r=>{
+      const rs=r.stage||"";
+      return rs===DEPT_STAGE;
+    });
+    document.getElementById("rework-count").textContent=openRework.length;
+
+    if(openRework.length>0){
+      let rhtml="";
+      openRework.forEach(r=>{
+        rhtml+='<div class="rework-card">';
+        rhtml+='<div class="rc-top">';
+        rhtml+='<span class="rc-id">#'+r.piece_id+'</span>';
+        rhtml+='<span class="rc-cause">'+(r.cause_label||r.cause||'Unknown')+'</span>';
+        rhtml+='</div>';
+        if(r.note) rhtml+='<div class="rc-desc">'+r.note+'</div>';
+        if(r.logged_at) rhtml+='<div class="rc-date">Logged: '+new Date(r.logged_at).toLocaleDateString()+'</div>';
+        rhtml+='</div>';
+      });
+      reworkBody.innerHTML=rhtml;
+    } else {
+      reworkBody.innerHTML='<div class="empty">No open rework items</div>';
+    }
+
+    refreshCountdown=60;
+  }catch(e){
+    console.error("TV refresh error:",e);
+  }
+}
+
+function renderCard(item){
+  const asg=item.assignment;
+  let badges="";
+  if(asg&&asg.done) badges='<span class="badge-done">Done</span>';
+  else if(asg&&asg.carryover) badges='<span class="badge-carry">Carryover</span>';
+  const val=item.value?("$"+Number(item.value).toLocaleString()):"";
+  const hrs=item.hWax||item.hWaxPull||item.hSprue||item.hMetal||item.hPatina||item.hours||"";
+  return '<div class="card">'
+    +'<div class="card-left">'
+    +'<div class="card-id">#'+(item.piece_id||'')+' '+badges+'</div>'
+    +'<div class="card-desc">'+(item.description||item.desc||'')+'</div>'
+    +'<div class="card-client">'+(item.client||'')+'</div>'
+    +'</div>'
+    +'<div class="card-right">'
+    +(val?'<div class="card-value">'+val+'</div>':'')
+    +(hrs?'<div class="card-hours">'+hrs+' hrs</div>':'')
+    +'</div>'
+    +'</div>';
+}
+
+loadData();
+</script>
+</body>
+</html>'''
+
+TV_INDEX_HTML = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TV Views - Pyrology</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0e17;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
+h1{font-size:48px;font-weight:800;margin-bottom:8px;color:#e0e0e0}
+.sub{font-size:18px;color:#6a7a8a;margin-bottom:40px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;max-width:900px;width:100%;padding:0 20px}
+.dept-link{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 16px;background:#111820;border:2px solid #1a2332;border-radius:12px;text-decoration:none;color:#e0e0e0;transition:all .2s;cursor:pointer}
+.dept-link:hover{transform:translateY(-4px);border-color:var(--c);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.dept-link .icon{font-size:32px;margin-bottom:8px}
+.dept-link .name{font-size:18px;font-weight:700}
+</style>
+</head>
+<body>
+<h1>Pyrology TV</h1>
+<p class="sub">Select a department to display on this screen</p>
+<div class="grid" id="grid"></div>
+<script>
+const depts=DEPT_JSON_DATA;
+const grid=document.getElementById("grid");
+depts.forEach(d=>{
+  const a=document.createElement("a");
+  a.href="/tv/"+d.k;
+  a.className="dept-link";
+  a.style.setProperty("--c",d.c);
+  a.innerHTML='<div class="icon">'+d.icon+'</div><div class="name">'+d.l+'</div>';
+  grid.appendChild(a);
+});
+</script>
+</body>
+</html>'''
+
+@app.route('/tv')
+def tv_index_page():
+    import json as _json
+    dept_list = []
+    icons = {
+        'molds': '&#127981;', 'creation': '&#9999;&#65039;', 'waxpull': '&#128293;',
+        'waxchase': '&#128295;', 'sprue_small': '&#127795;', 'sprue_mon': '&#127795;',
+        'shell': '&#129717;', 'metal_small': '&#9878;&#65039;', 'metal_mon': '&#9878;&#65039;',
+        'patina': '&#127912;', 'base': '&#129521;', 'ready': '&#9989;'
+    }
+    for k, v in TV_DEPTS.items():
+        dept_list.append({'k': k, 'l': v['l'], 'c': v['c'], 'icon': icons.get(k, '&#128308;')})
+    html = TV_INDEX_HTML.replace('DEPT_JSON_DATA', _json.dumps(dept_list))
+    return html
+
+@app.route('/tv/<dept>')
+def tv_dept_page(dept):
+    if dept not in TV_DEPTS:
+        valid = ', '.join(TV_DEPTS.keys())
+        return f'<h2>Unknown department: {dept}</h2><p>Valid: {valid}</p><p><a href="/tv">Back</a></p>', 404
+    info = TV_DEPTS[dept]
+    html = TV_DEPT_PAGE_HTML
+    html = html.replace('{{DEPT_KEY}}', dept)
+    html = html.replace('{{DEPT_LABEL}}', info['l'])
+    html = html.replace('{{DEPT_COLOR}}', info['c'])
+    html = html.replace('{{DEPT_STAGE}}', info['stage'])
+    mon = info.get('monument')
+    if mon is None:
+        html = html.replace('{{DEPT_MONUMENT}}', 'null')
+    elif mon:
+        html = html.replace('{{DEPT_MONUMENT}}', 'true')
+    else:
+        html = html.replace('{{DEPT_MONUMENT}}', 'false')
+    return html
+
 STAGES = [
     {'k': 'molds',    'l': 'Molds',          'c': '#4a6fa5'},
     {'k': 'creation', 'l': 'Creation',       'c': '#7b5ea7'},
