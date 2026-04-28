@@ -5365,12 +5365,12 @@ async function loadData(){
     const assignments=schedData.assignments||{};
 
     items.forEach(it=>{
-      if(stageOverrides[it.piece_id]){it.stage_override=stageOverrides[it.piece_id];}
+      if(stageOverrides[it.pieceId]){it.stage_override=stageOverrides[it.pieceId];}
     });
 
     const deptItems=items.filter(matchesDept);
     const itemMap={};
-    deptItems.forEach(it=>{itemMap[it.piece_id]=it;});
+    deptItems.forEach(it=>{itemMap[it.pieceId]=it;});
 
     const now=new Date();
     const thisMon=getMonday(now);
@@ -5396,7 +5396,7 @@ async function loadData(){
     }
 
     const scheduledIds=new Set(Object.keys(assignments));
-    const unscheduled=deptItems.filter(it=>!scheduledIds.has(String(it.piece_id)));
+    const unscheduled=deptItems.filter(it=>!scheduledIds.has(String(it.pieceId)));
 
     const schedBody=document.getElementById("sched-body");
     const totalCount=thisWeek.length+nextWeek.length;
@@ -5475,13 +5475,13 @@ function renderCard(item){
   let badges="";
   if(asg&&asg.done) badges='<span class="badge-done">Done</span>';
   else if(asg&&asg.carryover) badges='<span class="badge-carry">Carryover</span>';
-  const val=item.value?("$"+Number(item.value).toLocaleString()):"";
+  const val=item.price?("$"+Number(item.price).toLocaleString()):"";
   const hrs=item.hWax||item.hWaxPull||item.hSprue||item.hMetal||item.hPatina||item.hours||"";
   return '<div class="card">'
     +'<div class="card-left">'
-    +'<div class="card-id">#'+(item.piece_id||'')+' '+badges+'</div>'
-    +'<div class="card-desc">'+(item.description||item.desc||'')+'</div>'
-    +'<div class="card-client">'+(item.client||'')+'</div>'
+    +'<div class="card-id">#'+(item.pieceId||'')+' '+badges+'</div>'
+    +'<div class="card-desc">'+(item.name||'')+'</div>'
+    +'<div class="card-client">'+(item.customer||'')+'</div>'
     +'</div>'
     +'<div class="card-right">'
     +(val?'<div class="card-value">'+val+'</div>':'')
