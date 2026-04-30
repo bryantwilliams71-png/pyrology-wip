@@ -3684,6 +3684,7 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
           <select id="sdmovedest" style="background:#0f1117;border:1px solid #3a4a6a;color:#e8e8e8;padding:4px 8px;border-radius:4px;font-size:.82em;cursor:pointer"></select>
           <button id="sdmovebtn" style="background:#3a1e2a;border:1px solid #6a3a5a;color:#e05580;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;cursor:pointer">\u27A1 Move (0)</button>
         </span>
+        <button id="sdprint" onclick="printScheduleDrill()" style="background:#1e2a3a;border:1px solid #3a5a6a;color:#8bc4e8;padding:6px 16px;border-radius:5px;cursor:pointer;font-weight:700;font-size:.82em">🖨 Print</button>
         <a id="sdtvlink" href="/tv/molds" target="_blank" style="background:#1e2a3a;border:1px solid #3a5a6a;color:#4db8ff;padding:6px 16px;border-radius:5px;cursor:pointer;font-weight:700;text-decoration:none;font-size:.82em;display:inline-flex;align-items:center;gap:4px">TV View</a>
         <button id="sdback" style="background:#3a1e1e;border:1px solid #6a3a3a;color:#e05555;padding:6px 16px;border-radius:5px;cursor:pointer;font-weight:700">â Back</button>
       </div>
@@ -4270,6 +4271,37 @@ function closeDrill(){
   _sdAllSelect=false;
   document.getElementById('sdrillbg').style.display='none';
   render();
+}
+
+function printScheduleDrill(){
+  if(!_drillStage)return;
+  const stg=STAGE_MAP[_drillStage];
+  if(!stg)return;
+  const allItems=_items.filter(i=>i.stage===_drillStage);
+  let items=allItems;
+  if(_drillWeek==='unscheduled'){items=allItems.filter(i=>!_assignments[i.job]||!_assignments[i.job].week);}
+  else if(_drillWeek){items=allItems.filter(i=>_assignments[i.job]&&_assignments[i.job].week===_drillWeek);}
+  const sorted=sortDrillItems(items);
+  const totalHrs=sorted.reduce((a,i)=>a+itemHours(i),0);
+  const totalVal=sorted.reduce((a,i)=>a+(i.price||0),0);
+  const doneCount=sorted.filter(i=>_assignments[i.job]&&_assignments[i.job].done).length;
+  const doneVal=sorted.filter(i=>_assignments[i.job]&&_assignments[i.job].done).reduce((a,i)=>a+(i.price||0),0);
+  const doneHrs=sorted.filter(i=>_assignments[i.job]&&_assignments[i.job].done).reduce((a,i)=>a+itemHours(i),0);
+  const today=new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const weekStr=_drillWeek&&_drillWeek!=='unscheduled'?' \u2014 '+weekLabel(_drillWeek):_drillWeek==='unscheduled'?' \u2014 Unscheduled':'';
+  let rows='';
+  sorted.forEach((i,idx)=>{
+    const a=_assignments[i.job]||{};
+    const hrs=itemHours(i);
+    const isDone=a.done;
+    const due=i.due||'\u2014';
+    const wk=a.week?weekLabel(a.week):'Unscheduled';
+    rows+='<tr style="'+(isDone?'background:#f0faf0;':'')+(idx%2===0?'':'background:'+(isDone?'#e8f5e8':'#f8f8f8')+';')+'"><td style="text-align:center">'+(isDone?'\u2713':'')+'</td><td>#'+i.job+'</td><td>'+i.name+'</td><td>'+(i.customer||'\u2014')+'</td><td>'+(i.edition||'\u2014')+'</td><td>'+due+'</td><td style="text-align:right">'+(i.price?'$'+i.price.toLocaleString():'\u2014')+'</td><td style="text-align:right">'+(hrs?hrs.toFixed(1)+'h':'\u2014')+'</td><td>'+(i.monument?'MON':'')+'</td><td>'+wk+'</td></tr>';
+  });
+  const html='<!DOCTYPE html><html><head><title>'+stg.l+' \u2014 Production Schedule</title><style>@media print{@page{size:landscape;margin:.5in}}body{font-family:Arial,Helvetica,sans-serif;color:#222;padding:20px;max-width:1200px;margin:0 auto}h1{font-size:1.4em;margin:0 0 4px;border-bottom:3px solid #333;padding-bottom:6px}.meta{font-size:.82em;color:#555;margin-bottom:12px}.summary{display:flex;gap:24px;margin-bottom:14px;padding:8px 12px;background:#f0f4f8;border-radius:6px;font-size:.85em}.summary strong{font-size:1.1em}table{width:100%;border-collapse:collapse;font-size:.8em}th{background:#333;color:#fff;padding:6px 8px;text-align:left;font-size:.75em;text-transform:uppercase;letter-spacing:.3px}td{padding:5px 8px;border-bottom:1px solid #ddd}tr:hover{background:#e8f0ff!important}.print-btn{padding:8px 20px;background:#333;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:.9em;margin-bottom:12px}@media print{.no-print{display:none!important}}</style></head><body><div class="no-print" style="margin-bottom:12px"><button class="print-btn" onclick="window.print()">\ud83d\udda8 Print This Page</button><button class="print-btn" onclick="window.close()" style="background:#888;margin-left:8px">Close</button></div><h1>'+stg.l+weekStr+' \u2014 Production Schedule</h1><div class="meta">Printed '+today+' \u00b7 Pyrology WIP</div><div class="summary"><div>Items: <strong>'+doneCount+'/'+sorted.length+'</strong></div><div>Value: <strong>$'+doneVal.toLocaleString()+'</strong> of <strong>$'+totalVal.toLocaleString()+'</strong></div><div>Hours: <strong>'+doneHrs.toFixed(1)+'h</strong> of <strong>'+totalHrs.toFixed(1)+'h</strong></div></div><table><thead><tr><th style="width:30px">Done</th><th>Piece #</th><th>Description</th><th>Client</th><th>Ed.</th><th>Due Date</th><th style="text-align:right">Value</th><th style="text-align:right">Hours</th><th>Type</th><th>Week</th></tr></thead><tbody>'+rows+'</tbody><tfoot><tr style="font-weight:700;border-top:2px solid #333"><td>'+doneCount+'</td><td colspan="5">TOTALS</td><td style="text-align:right">$'+totalVal.toLocaleString()+'</td><td style="text-align:right">'+totalHrs.toFixed(1)+'h</td><td colspan="2"></td></tr></tfoot></table></body></html>';
+  const w=window.open('','_blank','width=1100,height=800');
+  w.document.write(html);
+  w.document.close();
 }
 
 // &#x2500;&#x2500; Schedule drill-down selection & actions &#x2500;&#x2500;
