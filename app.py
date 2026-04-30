@@ -5327,18 +5327,19 @@ body{background:#0a0e17;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
 .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px;overflow-y:auto;max-height:100%;padding-bottom:20px}
 .card{background:#1a2332;border:1px solid #252d3a;border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:10px;transition:border-color .2s}
 .card:hover{border-color:{{DEPT_COLOR}}60}
-.card.done-card{background:#1a2332;border-color:#3fb95040}
+.card.done-card{background:#1a233280;border-color:#3fb95040;opacity:.55}
+.card.done-card .card-info *{text-decoration:line-through;text-decoration-color:#3fb95080}
 .card .chk{width:22px;height:22px;border-radius:4px;border:2px solid #4a5568;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;font-size:14px;color:transparent}
 .card .chk:hover{border-color:{{DEPT_COLOR}}}
 .card .chk.checked{background:#3fb950;border-color:#3fb950;color:#fff}
 .card-info{flex:1;min-width:0}
-.card-id{font-size:16px;font-weight:700;color:#e0e0e0}
-.card-id .badge{font-size:11px;padding:1px 8px;border-radius:4px;margin-left:6px;font-weight:600}
+.card-name{font-size:16px;font-weight:700;color:#e0e0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-name .badge{font-size:11px;padding:1px 8px;border-radius:4px;margin-left:6px;font-weight:600}
 .badge-done{background:#3fb95030;color:#3fb950}
 .badge-carry{background:#d2992230;color:#d29922}
 .badge-mon{background:#c45c8a30;color:#c45c8a}
-.card-desc{font-size:13px;color:#8899aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.card-client{font-size:12px;color:#6a7a8a}
+.card-client{font-size:13px;color:#8899aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-pid{font-size:11px;color:#556;font-weight:600}
 .card-right{text-align:right;flex-shrink:0}
 .card-value{font-size:16px;font-weight:700;color:#3fb950}
 .card-hours{font-size:12px;color:#8899aa}
@@ -5469,27 +5470,25 @@ function renderView(){
   const thisWK=weekKey(thisMon);
   const nextWK=weekKey(nextMon);
 
-  // Categorize items
-  const scheduled=[];const unscheduled=[];
+  // All items are schedule-driven — enrich with assignment data
+  const enriched=[];
   deptItems.forEach(it=>{
-    const asg=assignments[it.piece_id];
-    if(asg&&asg.week){
+    const asg=assignments[it.piece_id]||{};
+    if(asg.week){
       const asgMon=getMonday(new Date(asg.week+"T00:00:00"));
       const wk=weekKey(asgMon);
-      scheduled.push({...it,asg,wk,isThis:wk===thisWK,isNext:wk===nextWK});
-    } else {
-      unscheduled.push({...it,asg:asg||null,wk:null,isThis:false,isNext:false});
+      enriched.push({...it,asg,wk,isThis:wk===thisWK,isNext:wk===nextWK});
     }
   });
 
   // Filter by week
   let visible=[];
   if(_weekFilter==="this"){
-    visible=scheduled.filter(i=>i.isThis);
+    visible=enriched.filter(i=>i.isThis);
   } else if(_weekFilter==="next"){
-    visible=scheduled.filter(i=>i.isNext);
+    visible=enriched.filter(i=>i.isNext);
   } else {
-    visible=[...scheduled,...unscheduled];
+    visible=[...enriched];
   }
 
   // Sort: done items last, then by value desc
@@ -5549,9 +5548,9 @@ function renderView(){
     deptItems.length+" pieces in dept | "+visible.length+" showing | "+doneItems.length+" completed";
 
   // Update week button counts
-  const thisCount=scheduled.filter(i=>i.isThis).length;
-  const nextCount=scheduled.filter(i=>i.isNext).length;
-  const allCount=scheduled.length+unscheduled.length;
+  const thisCount=enriched.filter(i=>i.isThis).length;
+  const nextCount=enriched.filter(i=>i.isNext).length;
+  const allCount=enriched.length;
   document.querySelector('[data-week="all"]').textContent="All ("+allCount+")";
   document.querySelector('[data-week="this"]').textContent="This Week ("+thisCount+")";
   document.querySelector('[data-week="next"]').textContent="Next Week ("+nextCount+")";
@@ -5582,16 +5581,12 @@ function renderView(){
     if(item.monument)badges+='<span class="badge badge-mon">MON</span>';
 
     html+='<div class="card'+(isDone?" done-card":"")+'">';
-    // Checkbox - only show for scheduled items
-    if(item.asg&&item.asg.week){
-      html+='<div class="chk'+(isDone?" checked":"")+'" onclick="markDone(\''+pid+'\','+(!isDone)+')">'+(isDone?"✓":"")+'</div>';
-    } else {
-      html+='<div style="width:22px"></div>';
-    }
+    // Checkbox on every card
+    html+='<div class="chk'+(isDone?" checked":"")+'" onclick="markDone(\''+pid+'\','+(!isDone)+')">'+(isDone?"✓":"")+'</div>';
     html+='<div class="card-info">';
-    html+='<div class="card-id">#'+pid+' '+badges+'</div>';
-    html+='<div class="card-desc">'+(item.description||item.desc||"")+'</div>';
+    html+='<div class="card-name">'+(item.description||item.desc||"")+' '+badges+'</div>';
     html+='<div class="card-client">'+(item.client||"")+'</div>';
+    html+='<div class="card-pid">#'+pid+'</div>';
     html+='</div>';
     html+='<div class="card-right">';
     if(val)html+='<div class="card-value">$'+Number(val).toLocaleString()+'</div>';
@@ -5612,10 +5607,20 @@ async function loadData(){
     const items=(wipData.items||[]);
     const stageOverrides=wipData.stage_overrides||{};
     const assignments=schedData.assignments||{};
+    // Build lookup of WIP items by piece_id
+    const wipMap={};
     items.forEach(it=>{
       if(stageOverrides[it.piece_id])it.stage_override=stageOverrides[it.piece_id];
+      wipMap[it.piece_id]=it;
     });
-    const deptItems=items.filter(matchesDept);
+    // Schedule-driven: only show items that are scheduled AND match this dept
+    const deptItems=[];
+    Object.keys(assignments).forEach(pid=>{
+      const wip=wipMap[pid];
+      if(wip && matchesDept(wip)){
+        deptItems.push(wip);
+      }
+    });
     _allData={deptItems,assignments};
     renderView();
     refreshCountdown=60;
