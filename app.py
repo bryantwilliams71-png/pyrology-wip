@@ -341,43 +341,34 @@ def _persist():
 
 # &#x2500;&#x2500; DithTracker Auto-Fetch &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 def _auto_fetch_wip():
-    """Fetch WIP items directly from DithTracker API (no auth needed)."""
-    log.info('Auto-fetching WIP data from DithTracker...')
+    """Fetch WIP items from DithTracker API by querying each status individually.
+    The unfiltered API caps at 200 items; per-status queries return all items."""
+    log.info('Auto-fetching WIP data from DithTracker (per-status)...')
     try:
         all_items = []
-        url = f'{DITH_API_BASE}?pageSize=500'
-        r = requests.get(url, headers={
-            'User-Agent': 'Mozilla/5.0',
-            'Accept': 'application/json',
-        }, timeout=30)
-        r.raise_for_status()
-        # Strip BOM if present and parse JSON
-        txt = r.text.lstrip('\ufeff').strip()
-        log.info(f'DithTracker response: status={r.status_code}, len={len(txt)}, first100={txt[:100]!r}')
-        body = json.loads(txt)
-        raw = body.get('items', body) if isinstance(body, dict) else body
-        all_items.extend(raw)
-        total = body.get('totalCount', len(raw)) if isinstance(body, dict) else len(raw)
-        total_pages = body.get('totalPages', 1) if isinstance(body, dict) else 1
-        # Fetch remaining pages if any
-        if total_pages > 1:
-            for page in range(1, total_pages):
-                url2 = f'{DITH_API_BASE}?activeFilter=Include&pageSize=500&pageIndex={page}'
-                r2 = requests.get(url2, headers={
-                    'User-Agent': 'Mozilla/5.0',
-                    'Accept': 'application/json',
-                }, timeout=30)
-                r2.raise_for_status()
-                b2 = json.loads(r2.text.lstrip('\ufeff').strip())
-                raw2 = b2.get('items', b2) if isinstance(b2, dict) else b2
-                all_items.extend(raw2)
+        hdrs = {'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json'}
+        for status_key in STATUS_MAP:
+            url = f'{DITH_API_BASE}?pageSize=200&page=1&status={requests.utils.quote(status_key)}'
+            try:
+                r = requests.get(url, headers=hdrs, timeout=30)
+                r.raise_for_status()
+                txt = r.text.lstrip('\ufeff').strip()
+                if not txt or not txt.startswith('{'):
+                    continue
+                data = json.loads(txt)
+                raw = data.get('items', [])
+                if raw:
+                    all_items.extend(raw)
+                    log.info(f'  {status_key}: {len(raw)} items')
+            except Exception as e2:
+                log.warning(f'  {status_key}: fetch failed: {e2}')
+                continue
         items = transform_rows(all_items)
-        log.info(f'&#10003; Auto-fetched {len(items)} WIP items from DithTracker (raw: {len(all_items)})')
+        log.info(f'\u2713 Auto-fetched {len(items)} WIP items from DithTracker (raw: {len(all_items)})')
         return items
     except Exception as e:
         log.warning(f'Auto-fetch from DithTracker failed: {e}')
         return None
-
 def _get_week_monday(dt=None):
     """Return the Monday of the week for a given date (or today)."""
     if dt is None:
