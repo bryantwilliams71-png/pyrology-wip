@@ -1106,6 +1106,7 @@ function openDrill(stageKey,stageName,stageColor){
   document.getElementById(hasTier?'wdsorttier':'wdsortdue').classList.add('active');
   document.getElementById('wdtitle').textContent=stageName.toUpperCase();
   document.getElementById('wdtitle').style.color=stageColor;
+  document.getElementById('wdtvlink').href='/tv/'+stageKey;
   document.getElementById('wdsearch').value='';
   renderDrill();
   document.getElementById('wdrillbg').style.display='flex';
