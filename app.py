@@ -3677,7 +3677,7 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
           <select id="sdmovedest" style="background:#0f1117;border:1px solid #3a4a6a;color:#e8e8e8;padding:4px 8px;border-radius:4px;font-size:.82em;cursor:pointer"></select>
           <button id="sdmovebtn" style="background:#3a1e2a;border:1px solid #6a3a5a;color:#e05580;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;cursor:pointer">\u27A1 Move (0)</button>
         </span>
-        <button id="sdback" style="background:#3a1e1e;border:1px solid #6a3a3a;color:#e05555;padding:6px 16px;border-radius:5px;cursor:pointer;font-weight:700">\u2190 Back</button>
+        <button id="sdback" style="background:#3a1e1e;border:1px solid #6a3a3a;color:#e05555;padding:6px 16px;border-radius:5px;cursor:pointer;font-weight:700">← Back</button>
       </div>
     </div>
     <div id="sdtable"></div>
