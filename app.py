@@ -5473,7 +5473,7 @@ function renderView(){
   // All items are schedule-driven — enrich with assignment data
   const enriched=[];
   deptItems.forEach(it=>{
-    const asg=assignments[it.piece_id]||{};
+    const asg=assignments[it.job]||{};
     if(asg.week){
       const asgMon=getMonday(new Date(asg.week+"T00:00:00"));
       const wk=weekKey(asgMon);
@@ -5564,7 +5564,7 @@ function renderView(){
   let html="";
   visible.forEach(item=>{
     const isDone=item.asg&&item.asg.done;
-    const pid=item.piece_id||item.job||"";
+    const pid=item.job||"";
     const hrs=getItemHours(item);
     const val=item.price||item.value||0;
     const due=item.due;
@@ -5584,8 +5584,8 @@ function renderView(){
     // Checkbox on every card
     html+='<div class="chk'+(isDone?" checked":"")+'" onclick="markDone(\''+pid+'\','+(!isDone)+')">'+(isDone?"✓":"")+'</div>';
     html+='<div class="card-info">';
-    html+='<div class="card-name">'+(item.description||item.desc||"")+' '+badges+'</div>';
-    html+='<div class="card-client">'+(item.client||"")+'</div>';
+    html+='<div class="card-name">'+(item.name||item.description||"")+' '+badges+'</div>';
+    html+='<div class="card-client">'+(item.customer||item.client||"")+'</div>';
     html+='<div class="card-pid">#'+pid+'</div>';
     html+='</div>';
     html+='<div class="card-right">';
@@ -5607,11 +5607,11 @@ async function loadData(){
     const items=(wipData.items||[]);
     const stageOverrides=wipData.stage_overrides||{};
     const assignments=schedData.assignments||{};
-    // Build lookup of WIP items by piece_id
+    // Build lookup of WIP items by job (piece number)
     const wipMap={};
     items.forEach(it=>{
-      if(stageOverrides[it.piece_id])it.stage_override=stageOverrides[it.piece_id];
-      wipMap[it.piece_id]=it;
+      if(stageOverrides[it.job])it.stage_override=stageOverrides[it.job];
+      wipMap[it.job]=it;
     });
     // Schedule-driven: only show items that are scheduled AND match this dept
     const deptItems=[];
