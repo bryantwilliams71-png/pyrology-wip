@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Pyrology WIP Production Dashboard &mdash; Cloud Version
+Pyrology WIP Production Dashboard \u2014 Cloud Version
 --------------------------------------------------
 Data arrives two ways:
   1. Server-pull: set SESSION_COOKIE env var.
@@ -241,13 +241,13 @@ def _load_state_from_github():
     global _gh_state_sha, _schedule_data, _stage_overrides, _priority_overrides
     global _metal_overrides, _kpi_data, _maint_data, _ship_data
     if not GH_TOKEN or not GH_REPO:
-        log.info('No GH_TOKEN/GH_REPO &mdash; skipping GitHub state load.')
+        log.info('No GH_TOKEN/GH_REPO \u2014 skipping GitHub state load.')
         return False
     try:
         url = f'https://api.github.com/repos/{GH_REPO}/contents/{GH_STATE_FILE}'
         r = requests.get(url, headers=_gh_headers(), timeout=15)
         if r.status_code == 404:
-            log.info('No state.json in repo yet &mdash; starting fresh.')
+            log.info('No state.json in repo yet \u2014 starting fresh.')
             return False
         r.raise_for_status()
         data = r.json()
@@ -385,7 +385,7 @@ def _auto_rollover():
         if not info.get('week'):
             continue
         if info['week'] < today_monday and not info.get('done'):
-            # This item's scheduled week has passed and it's not done &mdash; roll over
+            # This item's scheduled week has passed and it's not done \u2014 roll over
             if not info.get('carryover'):
                 info['original_week'] = info.get('original_week') or info['week']
             info['week'] = today_monday
@@ -518,7 +518,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Production Status Board &mdash; Pyrology</title>
+<title>Production Status Board \u2014 Pyrology</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'Segoe UI',Arial,sans-serif;overflow-x:hidden;overflow-y:auto}
@@ -639,7 +639,7 @@ table.wdt tr:hover td{background:#1e2130}
 <div id="wtop">
   <div style="display:flex;align-items:center;gap:10px">
     <div style="font-size:1.6em">&#x1F3ED;</div>
-    <h1>PRODUCTION STATUS BOARD<span>Work In Progress &mdash; Click any department to drill down</span></h1>
+    <h1>PRODUCTION STATUS BOARD<span>Work In Progress \u2014 Click any department to drill down</span></h1>
   </div>
   <div style="display:flex;align-items:center;gap:12px">
     <a href="/schedule" style="display:inline-flex;align-items:center;gap:5px;background:#1e2a3a;border:1px solid #3a4a6a;color:#5ae8a8;text-decoration:none;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;letter-spacing:.5px">&#x1F4C5; Schedule</a>
@@ -651,12 +651,12 @@ table.wdt tr:hover td{background:#1e2130}
 </div>
 <div id="werr"></div>
 <div id="wstats">
-  <div class="wstat">&#x25CF; TOTAL ITEMS <strong id="stotal">&mdash;</strong></div>
-  <div class="wstat teal">&#x25CF; TOTAL VALUE <strong id="svalue">&mdash;</strong></div>
-  <div class="wstat green">&#x25CF; READY <strong id="sready">&mdash;</strong></div>
-  <div class="wstat red">&#x25CF; OVERDUE <strong id="sover">&mdash;</strong></div>
-  <div class="wstat gold">&#x25CF; DUE THIS WEEK <strong id="sweek">&mdash;</strong></div>
-  <div class="wstat gold">&#x25CF; MONUMENTS <strong id="smon">&mdash;</strong></div>
+  <div class="wstat">&#x25CF; TOTAL ITEMS <strong id="stotal">\u2014</strong></div>
+  <div class="wstat teal">&#x25CF; TOTAL VALUE <strong id="svalue">\u2014</strong></div>
+  <div class="wstat green">&#x25CF; READY <strong id="sready">\u2014</strong></div>
+  <div class="wstat red">&#x25CF; OVERDUE <strong id="sover">\u2014</strong></div>
+  <div class="wstat gold">&#x25CF; DUE THIS WEEK <strong id="sweek">\u2014</strong></div>
+  <div class="wstat gold">&#x25CF; MONUMENTS <strong id="smon">\u2014</strong></div>
   <div class="pri-sort-legend"><span><span class="pri-dot p1"></span> Urgent</span><span><span class="pri-dot p2"></span> High</span><span style="color:#555">Right-click card to flag</span></div>
   <div id="wlive">Loading...</div>
 </div>
@@ -999,7 +999,7 @@ function renderBoard(){
             </div>
           </div>`;
         }).join('')}
-        ${extra>0?`<div class="wmore">+${extra} more &mdash; click to see all</div>`:''}
+        ${extra>0?`<div class="wmore">+${extra} more \u2014 click to see all</div>`:''}
       </div>
     </div>`;
   }).join('');
@@ -1068,7 +1068,7 @@ function moveItems(jobs, targetStage){
   }).then(r => r.json()).then(d => {
     let msg = jobs.length + ' item(s) moved';
     if(d.reassigned > 0) msg += ' &rarr; scheduled next week';
-    if(d.dtQueued) msg += ' &mdash; DT syncing';
+    if(d.dtQueued) msg += ' \u2014 DT syncing';
     showToast(msg);
   }).catch(e => console.error('move failed', e));
   _selectedJobs.clear();
@@ -1672,7 +1672,7 @@ KPI_HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>KPI Tracker &mdash; Pyrology</title>
+<title>KPI Tracker \u2014 Pyrology</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;min-height:100%;background:#0f1117;color:#e8e8e8;font-family:'Segoe UI',Arial,sans-serif}
@@ -1751,7 +1751,7 @@ table.ktbl tr:hover td{background:#1e2130}
 <div id="ktop">
   <div style="display:flex;align-items:center;gap:10px">
     <div style="font-size:1.6em">&#x1F4CA;</div>
-    <h1>KPI TRACKER<span>Weekly Production Value &mdash; Per Department</span></h1>
+    <h1>KPI TRACKER<span>Weekly Production Value \u2014 Per Department</span></h1>
   </div>
   <div class="nav-links" style="display:flex;gap:8px">
     <a href="/" class="nav-link">&#x1F3ED; Dashboard</a>
@@ -1767,7 +1767,7 @@ table.ktbl tr:hover td{background:#1e2130}
       <div class="week-sub" id="kweek-sub"></div>
     </div>
     <div style="display:flex;align-items:center;gap:14px">
-      <div style="font-size:.82em;color:#888">Total this week: <span id="ktotal-week" style="color:#4db8b8;font-weight:700;font-size:1.2em">&mdash;</span></div>
+      <div style="font-size:.82em;color:#888">Total this week: <span id="ktotal-week" style="color:#4db8b8;font-weight:700;font-size:1.2em">\u2014</span></div>
       <button class="btn-close-week" onclick="closeWeek()">&#x1F512; Close Week</button>
     </div>
   </div>
@@ -1807,7 +1807,7 @@ const DEPT_ORDER = ['waxpull','waxchase','small_sprue','monument_sprue','shell',
 function fmt(v){if(!v)return'$0';return'$'+Number(v).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});}
 
 function fmtDate(iso){
-  if(!iso)return'&mdash;';
+  if(!iso)return'\u2014';
   const d=new Date(iso);
   return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+'  '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
 }
@@ -1845,14 +1845,14 @@ function renderKPI(data){
       <div class="dc-count">${deptCounts[d]} completion${deptCounts[d]!==1?'s':''}</div>
     </div>`).join('');
 
-  // entries table (newest first) &mdash; track original index for API calls
+  // entries table (newest first) \u2014 track original index for API calls
   const indexed=entries.map((e,i)=>({...e,_idx:i}));
   const sorted=indexed.sort((a,b)=>b.completed_at.localeCompare(a.completed_at));
   document.getElementById('kentries-body').innerHTML = sorted.length
     ? sorted.map(e=>`<tr data-idx="${e._idx}">
         <td style="color:#888">#${e.job}</td>
-        <td><strong>${e.name||'&mdash;'}</strong></td>
-        <td>${e.customer||'&mdash;'}</td>
+        <td><strong>${e.name||'\u2014'}</strong></td>
+        <td>${e.customer||'\u2014'}</td>
         <td><span class="ktdept kd-${e.dept}">${DEPT_LABELS[e.dept]||e.dept}</span></td>
         <td class="ktval" id="kval-${e._idx}">${fmt(e.value)}</td>
         <td style="color:#888;font-size:.85em" id="knote-${e._idx}">${e.note||''}</td>
@@ -2114,7 +2114,7 @@ body{background:#0f1117;color:#e8e8e8;font-family:-apple-system,BlinkMacSystemFo
       <div class="form-group">
         <label>Department</label>
         <select id="mf-dept">
-          <option value="">&mdash; Select &mdash;</option>
+          <option value="">\u2014 Select \u2014</option>
           <option value="Wax Pull">Wax Pull</option>
           <option value="Wax Chase">Wax Chase</option>
           <option value="Sprue">Sprue</option>
@@ -2129,10 +2129,10 @@ body{background:#0f1117;color:#e8e8e8;font-family:-apple-system,BlinkMacSystemFo
       <div class="form-group">
         <label>Priority *</label>
         <select id="mf-priority">
-          <option value="low">Low &mdash; Can wait</option>
-          <option value="medium" selected>Medium &mdash; Needs attention soon</option>
-          <option value="high">High &mdash; Affecting production</option>
-          <option value="critical">Critical &mdash; Production stopped</option>
+          <option value="low">Low \u2014 Can wait</option>
+          <option value="medium" selected>Medium \u2014 Needs attention soon</option>
+          <option value="high">High \u2014 Affecting production</option>
+          <option value="critical">Critical \u2014 Production stopped</option>
         </select>
       </div>
       <div class="form-group">
@@ -2312,7 +2312,7 @@ SHIPPING_HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Shipping Requests &mdash; Pyrology</title>
+<title>Shipping Requests \u2014 Pyrology</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:#0f1419;color:#ccc;font-family:'Segoe UI',sans-serif;font-size:14px;}
@@ -2419,7 +2419,7 @@ a:hover{text-decoration:underline;}
     </div>
     <div class="form-group" style="grid-column:1/-1">
       <label>Items Requested to Ship *</label>
-      <textarea id="sf-items" placeholder="List what the client wants shipped &mdash; e.g. 2x Bronze plaques, 1x Granite base, 3x Engraved panels..."></textarea>
+      <textarea id="sf-items" placeholder="List what the client wants shipped \u2014 e.g. 2x Bronze plaques, 1x Granite base, 3x Engraved panels..."></textarea>
     </div>
     <div class="form-group" style="grid-column:1/-1">
       <label>Ship To Address *</label>
@@ -2432,7 +2432,7 @@ a:hover{text-decoration:underline;}
     <div class="form-group">
       <label>Carrier / Method</label>
       <select id="sf-carrier">
-        <option value="">&mdash; Select &mdash;</option>
+        <option value="">\u2014 Select \u2014</option>
         <option value="FedEx">FedEx</option>
         <option value="UPS">UPS</option>
         <option value="USPS">USPS</option>
@@ -2541,11 +2541,11 @@ function deleteRequest(id){
 function openEdit(id){
   const s=_shipments.find(x=>x.id===id);
   if(!s)return;
-  const carrierOpts=CARRIERS.map(c=>`<option value="${c}"${c===s.carrier?' selected':''}>${c||'&mdash; Select &mdash;'}</option>`).join('');
+  const carrierOpts=CARRIERS.map(c=>`<option value="${c}"${c===s.carrier?' selected':''}>${c||'\u2014 Select \u2014'}</option>`).join('');
   document.getElementById('editRoot').innerHTML=`
   <div class="edit-overlay" onclick="if(event.target===this)closeEdit()">
     <div class="edit-panel">
-      <h3>&#x270F;&#xEF;&#xB8;&#x8F; Edit Shipment &mdash; ${s.job}</h3>
+      <h3>&#x270F;&#xEF;&#xB8;&#x8F; Edit Shipment \u2014 ${s.job}</h3>
       <div class="form-grid">
         <div><label>Job / Order #</label><input id="ef-job" value="${s.job||''}"></div>
         <div><label>Client</label><input id="ef-client" value="${s.client||''}"></div>
@@ -2606,14 +2606,14 @@ function renderBoard(){
       <div class="col-body">`;
     if(cards.length){
       cards.forEach(s=>{
-        const items=s.items_requested||s.instructions||'&mdash;';
+        const items=s.items_requested||s.instructions||'\u2014';
         html+=`<div class="req-card">
           <div class="c-job">${s.job}</div>
           <div class="c-client">${s.client}</div>
           ${s.client_email?`<div class="c-row" style="margin-bottom:6px"><span>&#x1F4E7;</span><b style="color:#7aa8e8">${s.client_email}</b></div>`:''}
           <div class="c-items">${items}</div>
-          <div class="c-row"><span>Ship To:</span><b>${s.ship_to||'&mdash;'}</b></div>
-          <div class="c-row"><span>Date:</span><b>${s.ship_date||'&mdash;'}</b></div>
+          <div class="c-row"><span>Ship To:</span><b>${s.ship_to||'\u2014'}</b></div>
+          <div class="c-row"><span>Date:</span><b>${s.ship_date||'\u2014'}</b></div>
           ${s.carrier?`<div class="c-row"><span>Carrier:</span><b>${s.carrier}</b></div>`:''}
           ${s.tracking?`<div class="c-row"><span>Tracking:</span><b>${s.tracking}</b></div>`:''}
           ${s.packages&&s.packages>1?`<div class="c-row"><span>Pkgs:</span><b>${s.packages}</b></div>`:''}
@@ -2759,7 +2759,7 @@ def move_items():
                 _save_schedule()
                 log.info(f'Auto-assigned {len(reassigned)} moved items to next week ({next_monday})')
 
-        # Sync to DithTracker &mdash; always queue for browser worker (server-side cookies are IP-bound)
+        # Sync to DithTracker \u2014 always queue for browser worker (server-side cookies are IP-bound)
         queued = False
         if piece_ids and dt_status_id:
             int_pieces = [int(p) for p in piece_ids if p]
@@ -2990,7 +2990,7 @@ def dt_sync_worker_js():
 
   window._dtSyncInterval=setInterval(tick,POLL_MS);
   tick();
-  log('Sync worker started (v4 &mdash; auto session, 10s interval)');
+  log('Sync worker started (v4 \u2014 auto session, 10s interval)');
   var badge=document.createElement('div');
   badge.style.cssText='position:fixed;top:8px;right:8px;z-index:99999;background:#1b5e20;color:#4caf50;padding:6px 14px;border-radius:20px;font:bold 13px system-ui;cursor:pointer;border:1px solid #4caf50';
   badge.textContent='\\u{1f504} DT Sync Active';
@@ -3180,7 +3180,7 @@ def kpi_reopen_week():
             _kpi_data['week_start'] = week.get('week_start', _kpi_data.get('week_start', ''))
             _kpi_data['entries'] = week.get('entries', []) + _kpi_data.get('entries', [])
         _save_kpi()
-        log.info(f'Week reopened: {week.get("week_start")} &mdash; {len(week.get("entries",[]))} entries restored.')
+        log.info(f'Week reopened: {week.get("week_start")} \u2014 {len(week.get("entries",[]))} entries restored.')
         return jsonify({'ok': True, 'restored_entries': len(week.get('entries', []))})
     except Exception as e:
         log.error(f'Reopen week failed: {e}')
@@ -3200,7 +3200,7 @@ def kpi_delete_week():
                 return jsonify({'error': 'invalid history index'}), 400
             removed = history.pop(idx)
         _save_kpi()
-        log.info(f'Week deleted: {removed.get("week_start")} &mdash; {len(removed.get("entries",[]))} entries permanently removed.')
+        log.info(f'Week deleted: {removed.get("week_start")} \u2014 {len(removed.get("entries",[]))} entries permanently removed.')
         return jsonify({'ok': True, 'deleted_week': removed.get('week_start', ''),
                         'deleted_entries': len(removed.get('entries', []))})
     except Exception as e:
@@ -3447,7 +3447,7 @@ SCHEDULE_HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Production Schedule &mdash; Pyrology</title>
+<title>Production Schedule \u2014 Pyrology</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'Segoe UI',Arial,sans-serif;overflow-x:hidden;overflow-y:auto}
@@ -3715,8 +3715,8 @@ const STAGES=[
 const STAGE_MAP=Object.fromEntries(STAGES.map(s=>[s.k,s]));
 STAGE_MAP['metal']={k:'metal',c:'#8b9dc3',l:'Metal Work',hKey:['hMetal']}; // alias for drill-down
 STAGE_MAP['sprue']={k:'sprue',c:'#c97a3b',l:'Sprue',hKey:['hSprue']}; // alias for drill-down
-const fmt=v=>v?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(v):'&mdash;';
-const fmtHrs=h=>h?h.toFixed(1)+'h':'&mdash;';
+const fmt=v=>v?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(v):'\u2014';
+const fmtHrs=h=>h?h.toFixed(1)+'h':'\u2014';
 
 let _items=[], _assignments={}, _priorities={};
 let _metalOverrides={}, _stageOverrides={}; // from /api/wip
@@ -3744,7 +3744,7 @@ const DT_STATUS_MAP={
 
 // ========== DRILL-DOWN HELPERS ==========
 function dueLabel(d){
-  if(!d)return{t:'&mdash;',c:''};
+  if(!d)return{t:'\u2014',c:''};
   const diff=daysDiff(d);
   if(diff<0)return{t:'OD '+Math.abs(diff)+'d',c:'tdover'};
   if(diff<=7)return{t:d.slice(5),c:'tdwarn'};
@@ -3780,7 +3780,7 @@ function metalPct(item){
 function stagePct(item){
   const o=_stageOverrides[item.job];
   if(o!==undefined)return o;
-  // Default: 0% &mdash; completion is only tracked via explicit overrides
+  // Default: 0% \u2014 completion is only tracked via explicit overrides
   return 0;
 }
 function setPct(job,pct){
@@ -3810,7 +3810,7 @@ function stgPctBar(item){
   return'<div class="prog-wrap"><div class="prog-bar-bg"><div class="prog-bar-fill" style="width:'+pct+'%"></div><span class="prog-text">'+pct+'%</span></div></div>';
 }
 function stgSummaryBar(items,color){
-  if(!items.length)return'&mdash;';
+  if(!items.length)return'\u2014';
   const done=items.filter(i=>_assignments[i.job]&&_assignments[i.job].done).length;
   const pct=Math.round((done/items.length)*100);
   return'<div class="prog-wrap"><div class="prog-bar-bg"><div class="prog-bar-fill" style="width:'+pct+'%;background:'+color+'"></div><span class="prog-text">'+done+'/'+items.length+'</span></div></div>';
@@ -4032,7 +4032,7 @@ function renderDrillGantt(sorted,stg){
 
     html+='<div class="gantt-row'+(isSel?' selected':'')+'">';
 
-    // Label cell &mdash; draggable
+    // Label cell \u2014 draggable
     html+='<div class="gr-label" draggable="true" ondragstart="event.dataTransfer.setData(\'text/plain\',\''+i.job+'\')" onclick="toggleSdSelect(\''+i.job+'\')">';
     html+='<span class="gr-sel sd-cb" data-job="'+i.job+'" style="color:'+(isSel?'#5ae8a8':'#555')+'">'+(isSel?'\u2611':'\u2610')+'</span>';
     html+='<span class="gr-job">#'+i.job+'</span>';
@@ -4057,7 +4057,7 @@ function renderDrillGantt(sorted,stg){
       html+='<div class="pct-bar" style="width:'+pct+'%"></div>';
       if(hrs)html+='<span class="gb-hrs" style="position:relative;z-index:1">'+fmtHrs(hrs)+'</span>';
       if(i.price)html+='<span class="gb-val" style="position:relative;z-index:1">'+fmt(i.price)+'</span>';
-      if(due.t!=='&mdash;')html+='<span class="gb-due '+due.c+'" style="position:relative;z-index:1">'+due.t+'</span>';
+      if(due.t!=='\u2014')html+='<span class="gb-due '+due.c+'" style="position:relative;z-index:1">'+due.t+'</span>';
       // Pct buttons
       html+='<span style="position:relative;z-index:1;margin-left:auto;display:flex;gap:2px">';
       [0,25,50,75,100].forEach(p=>{
@@ -4080,7 +4080,7 @@ function renderDrillGantt(sorted,stg){
           html+='<div class="pct-bar" style="width:'+pct+'%"></div>';
           if(hrs)html+='<span class="gb-hrs">'+fmtHrs(hrs)+'</span>';
           if(i.price)html+='<span class="gb-val">'+fmt(i.price)+'</span>';
-          if(due.t!=='&mdash;')html+='<span class="gb-due '+due.c+'">'+due.t+'</span>';
+          if(due.t!=='\u2014')html+='<span class="gb-due '+due.c+'">'+due.t+'</span>';
           // Pct + Move
           html+='<span class="gb-actions" style="margin-left:auto;display:flex;gap:2px;align-items:center">';
           [0,25,50,75,100].forEach(p=>{
@@ -4374,7 +4374,7 @@ function sdMoveDept(jobs,targetStage){
     const deptLabel=(MOVE_DEPTS.find(s=>s.k===targetStage)||{l:targetStage}).l;
     let tmsg=jobs.length+' item(s) moved to '+deptLabel;
     if(d.reassigned>0)tmsg+=' &rarr; next week';
-    if(d.dtQueued)tmsg+=' &mdash; DT syncing';
+    if(d.dtQueued)tmsg+=' \u2014 DT syncing';
     showToast(tmsg);
   }).catch(e=>console.error('move failed',e));
   _sdSelected.clear();
@@ -4576,7 +4576,7 @@ function requestLock(dept,week){
   const rd=realDeptKey(dept);
   _pendingAction={type:'lock',dept:rd,week,jobs:[]};
   document.getElementById('modal-title').textContent='Close Week';
-  document.getElementById('modal-desc').textContent='Lock '+(STAGE_MAP[dept]||{l:dept}).l+' &mdash; '+weekLabel(week);
+  document.getElementById('modal-desc').textContent='Lock '+(STAGE_MAP[dept]||{l:dept}).l+' \u2014 '+weekLabel(week);
   document.getElementById('move-target-wrap').style.display='none';
   document.getElementById('pin-input').value='';
   document.getElementById('pin-input').classList.remove('error');
@@ -4587,7 +4587,7 @@ function requestUnlock(dept,week){
   const rd=realDeptKey(dept);
   _pendingAction={type:'unlock',dept:rd,week,jobs:[]};
   document.getElementById('modal-title').textContent='Reopen Week';
-  document.getElementById('modal-desc').textContent='Unlock '+(STAGE_MAP[dept]||{l:dept}).l+' &mdash; '+weekLabel(week);
+  document.getElementById('modal-desc').textContent='Unlock '+(STAGE_MAP[dept]||{l:dept}).l+' \u2014 '+weekLabel(week);
   document.getElementById('move-target-wrap').style.display='none';
   document.getElementById('pin-input').value='';
   document.getElementById('pin-input').classList.remove('error');
@@ -4605,7 +4605,7 @@ function submitPin(){
   const {type,dept,week,jobs}=_pendingAction;
 
   if(type==='quickmove'){
-    // Open-week batch move &mdash; no PIN needed, just reassign locally + server
+    // Open-week batch move \u2014 no PIN needed, just reassign locally + server
     const targetWeek=document.getElementById('move-target').value;
     if(!targetWeek){showToast('Select a target week');return;}
     jobs.forEach(j=>{
@@ -4744,7 +4744,7 @@ function onDrop(e,dept,week){
   if(!job||!week){_dragJob=null;return;}
   if(isLocked(dept,week)){
     const pri=_priorities[job]||0;
-    if(pri!==1){showToast('Week is locked &mdash; only urgent items allowed');_dragJob=null;return;}}
+    if(pri!==1){showToast('Week is locked \u2014 only urgent items allowed');_dragJob=null;return;}}
   assignWeek(job,week);_dragJob=null;
 }
 
@@ -5087,7 +5087,7 @@ def schedule_batch_assign():
 
 # &#x2500;&#x2500; Startup &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 if SESSION_COOKIE:
-    log.info('SESSION_COOKIE set &mdash; running initial server-side fetch...')
+    log.info('SESSION_COOKIE set \u2014 running initial server-side fetch...')
     items, err = fetch()
     with _lock:
         if items is not None:
@@ -5101,7 +5101,7 @@ if SESSION_COOKIE:
     t.start()
 else:
     # Auto-fetch WIP from DithTracker on startup (no auth required)
-    log.info('No SESSION_COOKIE &mdash; auto-fetching WIP from DithTracker...')
+    log.info('No SESSION_COOKIE \u2014 auto-fetching WIP from DithTracker...')
     _startup_items = _auto_fetch_wip()
     if _startup_items:
         with _lock:
@@ -5109,11 +5109,11 @@ else:
             _cache['updated'] = datetime.utcnow().isoformat() + 'Z'
         log.info(f'&#10003;  {len(_startup_items)} items auto-loaded from DithTracker on startup.')
     else:
-        log.info('Auto-fetch returned nothing &mdash; waiting for browser push to /api/push-wip')
+        log.info('Auto-fetch returned nothing \u2014 waiting for browser push to /api/push-wip')
 
 # Mark GitHub persistence as ready (prevents saves during init)
 _gh_ready = True
-log.info('&#10003; GitHub persistence armed &mdash; state changes will auto-save.')
+log.info('&#10003; GitHub persistence armed \u2014 state changes will auto-save.')
 
 
 # ============================================================
@@ -5373,7 +5373,7 @@ body{background:#0a0e17;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
   <div class="health-section" id="health-section"></div>
 </div>
 <div class="status-bar">
-  <span><span class="dot"></span>Live &mdash; refreshes every 60s</span>
+  <span><span class="dot"></span>Live \u2014 refreshes every 60s</span>
   <span id="stats-summary"></span>
   <span style="margin-left:auto" id="refresh-timer"></span>
 </div>
