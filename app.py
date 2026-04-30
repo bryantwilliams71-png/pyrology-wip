@@ -409,13 +409,17 @@ if not _gh_loaded:
 # &#x2500;&#x2500; Transform raw API rows &rarr; internal format &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 def transform_rows(raw):
     items = []
-    for idx, row in enumerate(raw):
+    seen_jobs = set()
+    for row in raw:
         status = row.get('status', '')
         stage  = STATUS_MAP.get(status)
         if not stage:
             continue
-        piece_no = str(row.get('dithPieceNo', ''))
-        job_id = f'{piece_no}-{idx}'
+        raw_piece = str(row.get('dithPieceNo', ''))
+        job_id = raw_piece.split('-')[0] if '-' in raw_piece else raw_piece
+        if job_id in seen_jobs:
+            continue
+        seen_jobs.add(job_id)
         due_raw = row.get('dueDate') or row.get('shipDate') or ''
         first = (row.get('firstName') or '').strip()
         last  = (row.get('lastName')  or '').strip()
@@ -725,7 +729,7 @@ const STAGE_HRS={
 
 const fmt=v=>v?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(v):'&mdash;';
 const fmtH=h=>h>0?h.toLocaleString('en-US',{maximumFractionDigits:1})+' hrs bid':'';
-const fmtHrs=h=>h?h.toFixed(1)+'h':'—';
+const fmtHrs=h=>h?h.toFixed(1)+'h':'â';
 let _items=[], _drillStage=null, _drillSort='due', _metalOverrides={}, _stageOverrides={}, _priorityOverrides={}, _scheduleData={};
 function getMonday(d){const dt=new Date(d);const day=dt.getDay();const diff=dt.getDate()-day+(day===0?-6:1);dt.setDate(diff);return dt.toISOString().slice(0,10);}
 function schedBadge(job){
@@ -1637,7 +1641,7 @@ function loadData(){
   fetch('/api/wip').then(r=>r.json()).then(d=>{
     if(d.error){
       document.getElementById('werr').style.display='block';
-      document.getElementById('werr').textContent='Ã¢ÂÂ  '+d.error;
+      document.getElementById('werr').textContent='ÃÂ¢ÃÂÃÂ  '+d.error;
     } else {
       document.getElementById('werr').style.display='none';
     }
@@ -1649,11 +1653,11 @@ function loadData(){
       _items=d.items;
       renderBoard();
       if(_drillStage)renderDrill();
-      document.getElementById('wlive').textContent='Ã¢ÂÂ Live \u00B7 Updated '+new Date(d.updated).toLocaleTimeString();
+      document.getElementById('wlive').textContent='ÃÂ¢ÃÂÃÂ Live \u00B7 Updated '+new Date(d.updated).toLocaleTimeString();
     }
   }).catch(()=>{
     document.getElementById('werr').style.display='block';
-    document.getElementById('werr').textContent='Ã¢ÂÂ  Cannot reach server.';
+    document.getElementById('werr').textContent='ÃÂ¢ÃÂÃÂ  Cannot reach server.';
   });
 }
 loadData();
@@ -1662,7 +1666,7 @@ setInterval(loadData,60000);
 </body>
 </html>"""
 
-# Ã¢ÂÂÃ¢ÂÂ KPI Page HTML Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
+# ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ KPI Page HTML ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 KPI_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1996,7 +2000,7 @@ setInterval(loadKPI,30000);
 </body>
 </html>"""
 
-# Ã¢ÂÂÃ¢ÂÂ Maintenance Request HTML Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
+# ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ Maintenance Request HTML ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 MAINTENANCE_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3684,9 +3688,9 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
           <select id="sdmovedest" style="background:#0f1117;border:1px solid #3a4a6a;color:#e8e8e8;padding:4px 8px;border-radius:4px;font-size:.82em;cursor:pointer"></select>
           <button id="sdmovebtn" style="background:#3a1e2a;border:1px solid #6a3a5a;color:#e05580;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;cursor:pointer">\u27A1 Move (0)</button>
         </span>
-        <button id="sdprint" onclick="printScheduleDrill()" style="background:#1e2a3a;border:1px solid #3a5a6a;color:#8bc4e8;padding:6px 16px;border-radius:5px;cursor:pointer;font-weight:700;font-size:.82em">🖨 Print</button>
+        <button id="sdprint" onclick="printScheduleDrill()" style="background:#1e2a3a;border:1px solid #3a5a6a;color:#8bc4e8;padding:6px 16px;border-radius:5px;cursor:pointer;font-weight:700;font-size:.82em">ð¨ Print</button>
         <a id="sdtvlink" href="/tv/molds" target="_blank" style="background:#1e2a3a;border:1px solid #3a5a6a;color:#4db8ff;padding:6px 16px;border-radius:5px;cursor:pointer;font-weight:700;text-decoration:none;font-size:.82em;display:inline-flex;align-items:center;gap:4px">TV View</a>
-        <button id="sdback" style="background:#3a1e1e;border:1px solid #6a3a3a;color:#e05555;padding:6px 16px;border-radius:5px;cursor:pointer;font-weight:700">â Back</button>
+        <button id="sdback" style="background:#3a1e1e;border:1px solid #6a3a3a;color:#e05555;padding:6px 16px;border-radius:5px;cursor:pointer;font-weight:700">Ã¢ÂÂ Back</button>
       </div>
     </div>
     <div id="sdtable"></div>
@@ -5272,7 +5276,7 @@ def api_log_history():
 
 # Production stages (mirrors JS STAGES const)
 
-# ── TV Department Views ────────────────────────────────────────────────────────
+# ââ TV Department Views ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 TV_DEPTS = {
     'molds':       {'l': 'Molds',           'stage': 'molds',    'c': '#4a6fa5', 'monument': None},
     'creation':    {'l': 'Creation',        'stage': 'creation', 'c': '#7b5ea7', 'monument': None},
@@ -5418,8 +5422,8 @@ function weekKey(d){
   return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
 }
 function fmtDate(d){return(d.getMonth()+1)+"/"+d.getDate();}
-function fmtMoney(v){return v?new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(v):"—";}
-function fmtHrs(h){return h?h.toFixed(1)+"h":"—";}
+function fmtMoney(v){return v?new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(v):"â";}
+function fmtHrs(h){return h?h.toFixed(1)+"h":"â";}
 function matchesDept(item){
   const st=item.stage_override||item.stage||"";
   if(st!==DEPT_STAGE)return false;
@@ -5470,7 +5474,7 @@ function renderView(){
   const thisWK=weekKey(thisMon);
   const nextWK=weekKey(nextMon);
 
-  // All items are schedule-driven — enrich with assignment data
+  // All items are schedule-driven â enrich with assignment data
   const enriched=[];
   deptItems.forEach(it=>{
     const asg=assignments[it.job]||{};
@@ -5582,7 +5586,7 @@ function renderView(){
 
     html+='<div class="card'+(isDone?" done-card":"")+'">';
     // Checkbox on every card
-    html+='<div class="chk'+(isDone?" checked":"")+'" onclick="markDone(\''+pid+'\','+(!isDone)+')">'+(isDone?"✓":"")+'</div>';
+    html+='<div class="chk'+(isDone?" checked":"")+'" onclick="markDone(\''+pid+'\','+(!isDone)+')">'+(isDone?"â":"")+'</div>';
     html+='<div class="card-info">';
     html+='<div class="card-name">'+(item.name||item.description||"")+' '+badges+'</div>';
     html+='<div class="card-client">'+(item.customer||item.client||"")+'</div>';
@@ -6083,9 +6087,9 @@ def api_search():
     return jsonify(results[:50])
 
 
-# Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+# ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ
 # NEW FEATURE PAGES - Auto-generated
-# Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+# ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ
 
 _PAGE_CSS = "*{margin:0;padding:0;box-sizing:border-box}\nbody{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f1923;color:#e0e0e0;min-height:100vh}\n.container{max-width:1400px;margin:0 auto;padding:80px 20px 20px}\n.card{background:#1a2634;border:1px solid #2a3a4a;border-radius:12px;padding:20px;margin-bottom:16px}\n.card-header{font-size:18px;font-weight:700;color:#4fd1c5;margin-bottom:12px}\n.btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-size:13px;transition:all 0.2s}\n.btn-primary{background:#4fd1c5;color:#0f1923}\n.btn-primary:hover{background:#38b2ac}\n.btn-danger{background:#e53e3e;color:white}\n.btn-sm{padding:4px 10px;font-size:12px}\ninput,select,textarea{background:#0f1923;border:1px solid #2a3a4a;color:#e0e0e0;padding:8px 12px;border-radius:8px;font-size:14px;width:100%}\ninput:focus,select:focus,textarea:focus{outline:none;border-color:#4fd1c5}\ntable{width:100%;border-collapse:collapse}\nth{text-align:left;padding:10px 12px;border-bottom:2px solid #2a3a4a;color:#4fd1c5;font-size:12px;text-transform:uppercase;letter-spacing:1px}\ntd{padding:10px 12px;border-bottom:1px solid #1a2634}\ntr:hover{background:rgba(79,209,197,0.05)}\n.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}\n.stat-card{text-align:center;padding:20px}\n.stat-value{font-size:28px;font-weight:800;color:#4fd1c5}\n.stat-label{font-size:12px;color:#8a9bb0;text-transform:uppercase;letter-spacing:1px;margin-top:4px}\n.search-box{position:relative;margin-bottom:20px}\n.search-box input{padding:12px 16px;font-size:16px;border-radius:12px}\nh1{font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:2px;margin-bottom:4px}\nh2{font-size:18px;font-weight:700;color:#4fd1c5;margin-bottom:12px}\n.subtitle{font-size:14px;color:#8a9bb0}\n.grid{display:grid;gap:16px}\n.grid-2{grid-template-columns:repeat(2,1fr)}\n.grid-3{grid-template-columns:repeat(3,1fr)}\n.grid-4{grid-template-columns:repeat(4,1fr)}\n.grid-5{grid-template-columns:repeat(5,1fr)}\n@media(max-width:1024px){.grid-4,.grid-5{grid-template-columns:repeat(2,1fr)}}\n@media(max-width:768px){.grid-2,.grid-3,.grid-4,.grid-5{grid-template-columns:1fr}.container{padding:70px 10px 10px}}\n.overdue-severe{background:rgba(229,62,62,0.15)}\n.overdue-high{background:rgba(237,137,54,0.12)}\n.overdue-medium{background:rgba(236,201,75,0.1)}\n.text-red{color:#fc8181}\n.text-orange{color:#f6ad55}\n.text-yellow{color:#ecc94b}\n.text-green{color:#68d391}\n.text-teal{color:#4fd1c5}\na{color:#4fd1c5;text-decoration:none}\na:hover{text-decoration:underline}\n"
 _PAGE_NAV = "<div style=\"position:fixed;top:0;right:0;z-index:1000;display:flex;gap:8px;padding:12px 18px;flex-wrap:wrap;align-items:center;background:rgba(15,25,35,0.95);backdrop-filter:blur(8px);border-bottom-left-radius:12px\">\n<a href=\"/\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(79,209,197,0.15);color:#4fd1c5;border:1px solid rgba(79,209,197,0.3)\">&#127981; Dashboard</a>\n<a href=\"/schedule\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(79,209,197,0.15);color:#4fd1c5;border:1px solid rgba(79,209,197,0.3)\">&#128197; Schedule</a>\n<a href=\"/kpi\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(79,209,197,0.15);color:#4fd1c5;border:1px solid rgba(79,209,197,0.3)\">&#128202; KPI</a>\n<a href=\"/maintenance\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(79,209,197,0.15);color:#4fd1c5;border:1px solid rgba(79,209,197,0.3)\">&#128295; Maintenance</a>\n<a href=\"/shipping\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(79,209,197,0.15);color:#4fd1c5;border:1px solid rgba(79,209,197,0.3)\">&#128230; Shipping</a>\n<span style=\"width:1px;height:20px;background:#2a3a4a;margin:0 4px\"></span>\n<a href=\"/clients\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(255,183,77,0.12);color:#ffb74d;border:1px solid rgba(255,183,77,0.3)\">&#128101; Clients</a>\n<a href=\"/reports\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(255,183,77,0.12);color:#ffb74d;border:1px solid rgba(255,183,77,0.3)\">&#128200; Reports</a>\n<a href=\"/bottlenecks\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(255,183,77,0.12);color:#ffb74d;border:1px solid rgba(255,183,77,0.3)\">&#9888; Bottlenecks</a>\n<a href=\"/due-dates\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(255,183,77,0.12);color:#ffb74d;border:1px solid rgba(255,183,77,0.3)\">&#128197; Due Dates</a>\n<a href=\"/team\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(255,183,77,0.12);color:#ffb74d;border:1px solid rgba(255,183,77,0.3)\">&#128119; Team</a>\n<a href=\"/quality\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(255,183,77,0.12);color:#ffb74d;border:1px solid rgba(255,183,77,0.3)\">&#9989; Quality</a>\n</div>"
