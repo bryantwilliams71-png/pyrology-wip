@@ -678,6 +678,7 @@ table.wdt tr:hover td{background:#1e2130}
           <select id="wdmovedest" style="background:#0f1117;border:1px solid #3a4a6a;color:#e8e8e8;padding:4px 8px;border-radius:4px;font-size:.82em;cursor:pointer"></select>
           <button id="wdmovebtn" style="background:#3a1e2a;border:1px solid #6a3a5a;color:#e05580;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;cursor:pointer">Move (0)</button>
         </span>
+        <a id="wdtvlink" href="/tv/molds" target="_blank" style="background:#1e2a3a;border:1px solid #3a5a6a;color:#4db8ff;padding:6px 16px;border-radius:5px;cursor:pointer;font-weight:700;text-decoration:none;font-size:.82em;display:inline-flex;align-items:center;gap:4px">TV View</a>
         <button id="wdback">&#x2190; Back to All</button>
       </div>
     </div>
@@ -3666,6 +3667,7 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
           <select id="sdmovedest" style="background:#0f1117;border:1px solid #3a4a6a;color:#e8e8e8;padding:4px 8px;border-radius:4px;font-size:.82em;cursor:pointer"></select>
           <button id="sdmovebtn" style="background:#3a1e2a;border:1px solid #6a3a5a;color:#e05580;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;cursor:pointer">\u27A1 Move (0)</button>
         </span>
+        <a id="sdtvlink" href="/tv/molds" target="_blank" style="background:#1e2a3a;border:1px solid #3a5a6a;color:#4db8ff;padding:6px 16px;border-radius:5px;cursor:pointer;font-weight:700;text-decoration:none;font-size:.82em;display:inline-flex;align-items:center;gap:4px">TV View</a>
         <button id="sdback" style="background:#3a1e1e;border:1px solid #6a3a3a;color:#e05555;padding:6px 16px;border-radius:5px;cursor:pointer;font-weight:700">â Back</button>
       </div>
     </div>
@@ -4164,6 +4166,7 @@ function openDrill(stgKey,stgLabel,stgColor,week){
   document.getElementById('sdschedbtn').style.display='none';
   document.getElementById('sdmovewrap').style.display='none';
   document.getElementById('sdselall').textContent='\u2610 Select All';
+  document.getElementById('sdtvlink').href='/tv/'+stgKey;
   renderDrill();
   document.getElementById('sdrillbg').style.display='block';
   // Wire up event handlers
