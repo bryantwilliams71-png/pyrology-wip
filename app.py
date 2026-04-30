@@ -725,6 +725,7 @@ const STAGE_HRS={
 
 const fmt=v=>v?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(v):'&mdash;';
 const fmtH=h=>h>0?h.toLocaleString('en-US',{maximumFractionDigits:1})+' hrs bid':'';
+const fmtHrs=h=>h?h.toFixed(1)+'h':'—';
 let _items=[], _drillStage=null, _drillSort='due', _metalOverrides={}, _stageOverrides={}, _priorityOverrides={}, _scheduleData={};
 function getMonday(d){const dt=new Date(d);const day=dt.getDay();const diff=dt.getDate()-day+(day===0?-6:1);dt.setDate(diff);return dt.toISOString().slice(0,10);}
 function schedBadge(job){
@@ -892,32 +893,51 @@ function stgPctBar(item){
 function stgSummaryBar(items,stageColor){
   if(!items.length)return'';
   const totalVal=items.reduce((a,i)=>a+(i.price||0),0);
-  const doneVal=items.reduce((a,i)=>a+(i.price||0)*(stagePct(i)/100),0);
+  const doneItems=items.filter(i=>stagePct(i)>=100);
+  const doneVal=doneItems.reduce((a,i)=>a+(i.price||0),0);
   const remVal=totalVal-doneVal;
-  const avgPct=items.length?Math.round(items.reduce((a,i)=>a+stagePct(i),0)/items.length):0;
-  const donePct=Math.round(doneVal/Math.max(totalVal,1)*100);
-  return`<div style="background:#12151f;border:1px solid #2a2d3a;border-radius:6px;padding:10px 14px;margin-bottom:10px;display:flex;gap:28px;align-items:center;flex-wrap:wrap">
-    <div>
-      <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.5px">Avg Completion</div>
-      <div style="font-size:1.4em;font-weight:700;color:${stageColor};margin-top:2px">${avgPct}%</div>
-      <div style="width:120px;height:8px;background:#2a2d3a;border-radius:4px;margin-top:4px;overflow:hidden"><div style="width:${avgPct}%;height:100%;background:${stageColor};border-radius:4px"></div></div>
+  const valPct=Math.round(doneVal/Math.max(totalVal,1)*100);
+  const totalHrs=STAGE_HRS[_drillStage]?items.reduce((a,i)=>a+STAGE_HRS[_drillStage](i),0):0;
+  const doneHrs=STAGE_HRS[_drillStage]?doneItems.reduce((a,i)=>a+STAGE_HRS[_drillStage](i),0):0;
+  const remHrs=totalHrs-doneHrs;
+  const hrsPct=Math.round(doneHrs/Math.max(totalHrs,1)*100);
+  const valColor=valPct>=80?'#5a9e5a':valPct>=50?'#e8a838':stageColor;
+  const hrsColor=hrsPct>=80?'#5a9e5a':hrsPct>=50?'#e8a838':'#ffd580';
+  return`<div style="background:#12151f;border:1px solid #2a2d3a;border-radius:8px;padding:12px 16px;margin-bottom:10px;display:flex;gap:24px;align-items:stretch;flex-wrap:wrap">
+    <div style="text-align:center;min-width:80px">
+      <div style="font-size:.62em;color:#888;text-transform:uppercase;letter-spacing:.5px">Completed</div>
+      <div style="font-size:1.6em;font-weight:700;color:${stageColor};margin-top:2px">${doneItems.length}<span style="font-size:.55em;color:#667">/${items.length}</span></div>
     </div>
-    <div>
-      <div style="font-size:.65em;color:#5a9e5a;text-transform:uppercase;letter-spacing:.5px">Value Completed</div>
-      <div style="font-size:1.1em;font-weight:700;color:#5a9e5a;margin-top:2px">${fmt(doneVal)}</div>
-    </div>
-    <div>
-      <div style="font-size:.65em;color:#e8a838;text-transform:uppercase;letter-spacing:.5px">Value Remaining</div>
-      <div style="font-size:1.1em;font-weight:700;color:#e8a838;margin-top:2px">${fmt(remVal)}</div>
-    </div>
-    <div style="flex:1;min-width:160px">
-      <div style="font-size:.65em;color:#888;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">Total Value Progress</div>
-      <div style="height:12px;background:#2a2d3a;border-radius:6px;overflow:hidden"><div style="width:${donePct}%;height:100%;background:linear-gradient(90deg,#5a9e5a,#4db8b8);border-radius:6px"></div></div>
-      <div style="display:flex;justify-content:space-between;margin-top:3px">
-        <span style="font-size:.65em;color:#5a9e5a">${fmt(doneVal)} done</span>
-        <span style="font-size:.65em;color:#e8a838">${fmt(remVal)} left</span>
+    <div style="flex:1;min-width:220px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <span style="font-size:.68em;color:${valColor};font-weight:700;text-transform:uppercase;letter-spacing:.5px;min-width:52px">Value</span>
+        <span style="font-size:.72em;color:#5a9e5a;font-weight:600">${fmt(doneVal)}</span>
+        <span style="font-size:.62em;color:#667">of ${fmt(totalVal)}</span>
+      </div>
+      <div style="height:14px;background:#2a2d3a;border-radius:7px;overflow:hidden;position:relative;cursor:default" title="${fmt(doneVal)} completed / ${fmt(remVal)} remaining">
+        <div style="width:${valPct}%;height:100%;background:linear-gradient(90deg,${valColor},${valColor}aa);border-radius:7px;transition:width .4s"></div>
+        <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:.6em;font-weight:700;color:#fff;text-shadow:0 1px 3px #000">${valPct}%</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:2px">
+        <span style="font-size:.6em;color:#5a9e5a">${fmt(doneVal)} done</span>
+        <span style="font-size:.6em;color:#e8a838">${fmt(remVal)} left</span>
       </div>
     </div>
+    ${totalHrs>0?`<div style="flex:1;min-width:220px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <span style="font-size:.68em;color:${hrsColor};font-weight:700;text-transform:uppercase;letter-spacing:.5px;min-width:52px">Hours</span>
+        <span style="font-size:.72em;color:#5a9e5a;font-weight:600">${doneHrs.toFixed(1)}h</span>
+        <span style="font-size:.62em;color:#667">of ${totalHrs.toFixed(1)}h</span>
+      </div>
+      <div style="height:14px;background:#2a2d3a;border-radius:7px;overflow:hidden;position:relative;cursor:default" title="${doneHrs.toFixed(1)}h completed / ${remHrs.toFixed(1)}h remaining">
+        <div style="width:${hrsPct}%;height:100%;background:linear-gradient(90deg,${hrsColor},${hrsColor}aa);border-radius:7px;transition:width .4s"></div>
+        <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:.6em;font-weight:700;color:#fff;text-shadow:0 1px 3px #000">${hrsPct}%</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:2px">
+        <span style="font-size:.6em;color:#5a9e5a">${doneHrs.toFixed(1)}h done</span>
+        <span style="font-size:.6em;color:#e8a838">${remHrs.toFixed(1)}h left</span>
+      </div>
+    </div>`:''}
   </div>`;
 }
 
@@ -1389,13 +1409,10 @@ function renderDrill(){
   if(q)items=items.filter(i=>(i.name+' '+i.customer+' '+i.job).toLowerCase().includes(q));
   sortItems(items);
 
-  const val=items.reduce((a,i)=>a+(i.price||0),0);
-  const hrs=STAGE_HRS[_drillStage]?items.reduce((a,i)=>a+STAGE_HRS[_drillStage](i),0):0;
+  const doneItems=items.filter(i=>stagePct(i)>=100);
   const over=items.filter(i=>{const d=daysDiff(i.due);return d!==null&&d<0;}).length;
   document.getElementById('wdstats').innerHTML=
-    `<span>Items: <strong>${items.length}</strong></span>`+
-    `<span>Total Value: <strong style="color:#4db8b8">${fmt(val)}</strong></span>`+
-    (hrs>0?`<span>Hrs Bid: <strong style="color:#ffd580">${fmtH(hrs)}</strong></span>`:'')+
+    `<span>Items: <strong>${doneItems.length}/${items.length}</strong></span>`+
     `<span>Overdue: <strong style="color:#ff6b6b">${over}</strong></span>`+
     `<span>Monuments: <strong style="color:#7b5ea7">${items.filter(i=>i.monument).length}</strong></span>`;
   const stageColor=STAGES.find(s=>s.k===_drillStage)?.c||'#4db8b8';
@@ -3895,40 +3912,64 @@ function renderDrill(){
   const doneCount=sorted.filter(i=>_assignments[i.job]&&_assignments[i.job].done).length;
   const totalHrs=sorted.reduce((a,i)=>a+itemHours(i),0);
   const doneHrs=sorted.filter(i=>_assignments[i.job]&&_assignments[i.job].done).reduce((a,i)=>a+itemHours(i),0);
+  const remHrs=totalHrs-doneHrs;
   const totalVal=sorted.reduce((a,i)=>a+(i.price||0),0);
   const doneVal=sorted.filter(i=>_assignments[i.job]&&_assignments[i.job].done).reduce((a,i)=>a+(i.price||0),0);
+  const remVal=totalVal-doneVal;
+  const valPct=Math.round(doneVal/Math.max(totalVal,1)*100);
+  const hrsPct=Math.round(doneHrs/Math.max(totalHrs,1)*100);
+  const valColor=valPct>=80?'#5a9e5a':valPct>=50?'#e8a838':stg.c;
+  const hrsColor=hrsPct>=80?'#5a9e5a':hrsPct>=50?'#e8a838':'#ffd580';
 
-  document.getElementById('sdtitle').textContent=stg.l+(_drillWeek&&_drillWeek!=='unscheduled'?' &mdash; '+weekLabel(_drillWeek):_drillWeek==='unscheduled'?' &mdash; Unscheduled':'');
+  document.getElementById('sdtitle').textContent=stg.l+(_drillWeek&&_drillWeek!=='unscheduled'?' \u2014 '+weekLabel(_drillWeek):_drillWeek==='unscheduled'?' \u2014 Unscheduled':'');
 
   // Split items into monument and small groups
   const monItems=sorted.filter(i=>i.monument);
   const smallItems=sorted.filter(i=>!i.monument);
   const hasMonAndSmall=monItems.length>0&&smallItems.length>0;
 
-  // Build health bar section &mdash; separate bars for monument/small when both exist
-  let healthHtml='';
+  // Build health bar section with hours and value bars
+  let healthHtml='<div style="display:flex;gap:16px;align-items:stretch;flex-wrap:wrap;width:100%;margin-top:6px">';
+  healthHtml+='<div style="text-align:center;min-width:70px">'+
+    '<div style="font-size:.6em;color:#888;text-transform:uppercase;letter-spacing:.5px">Completed</div>'+
+    '<div style="font-size:1.5em;font-weight:700;color:'+stg.c+';margin-top:2px">'+doneCount+'<span style="font-size:.55em;color:#667">/'+sorted.length+'</span></div></div>';
+  healthHtml+='<div style="flex:1;min-width:180px">'+
+    '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">'+
+      '<span style="font-size:.65em;color:'+valColor+';font-weight:700;text-transform:uppercase;letter-spacing:.5px;min-width:48px">Value</span>'+
+      '<span style="font-size:.7em;color:#5a9e5a;font-weight:600">'+fmt(doneVal)+'</span>'+
+      '<span style="font-size:.6em;color:#667">of '+fmt(totalVal)+'</span></div>'+
+    '<div style="height:13px;background:#2a2d3a;border-radius:7px;overflow:hidden;position:relative" title="'+fmt(doneVal)+' completed / '+fmt(remVal)+' remaining">'+
+      '<div style="width:'+valPct+'%;height:100%;background:linear-gradient(90deg,'+valColor+','+valColor+'aa);border-radius:7px;transition:width .4s"></div>'+
+      '<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:.58em;font-weight:700;color:#fff;text-shadow:0 1px 3px #000">'+valPct+'%</span></div>'+
+    '<div style="display:flex;justify-content:space-between;margin-top:2px">'+
+      '<span style="font-size:.58em;color:#5a9e5a">'+fmt(doneVal)+' done</span>'+
+      '<span style="font-size:.58em;color:#e8a838">'+fmt(remVal)+' left</span></div></div>';
+  if(totalHrs>0){
+    healthHtml+='<div style="flex:1;min-width:180px">'+
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">'+
+        '<span style="font-size:.65em;color:'+hrsColor+';font-weight:700;text-transform:uppercase;letter-spacing:.5px;min-width:48px">Hours</span>'+
+        '<span style="font-size:.7em;color:#5a9e5a;font-weight:600">'+fmtHrs(doneHrs)+'</span>'+
+        '<span style="font-size:.6em;color:#667">of '+fmtHrs(totalHrs)+'</span></div>'+
+      '<div style="height:13px;background:#2a2d3a;border-radius:7px;overflow:hidden;position:relative" title="'+fmtHrs(doneHrs)+' completed / '+fmtHrs(remHrs)+' remaining">'+
+        '<div style="width:'+hrsPct+'%;height:100%;background:linear-gradient(90deg,'+hrsColor+','+hrsColor+'aa);border-radius:7px;transition:width .4s"></div>'+
+        '<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:.58em;font-weight:700;color:#fff;text-shadow:0 1px 3px #000">'+hrsPct+'%</span></div>'+
+      '<div style="display:flex;justify-content:space-between;margin-top:2px">'+
+        '<span style="font-size:.58em;color:#5a9e5a">'+fmtHrs(doneHrs)+' done</span>'+
+        '<span style="font-size:.58em;color:#e8a838">'+fmtHrs(remHrs)+' left</span></div></div>';
+  }
   if(hasMonAndSmall){
     const monStats=deptPctCalc(monItems);
     const smallStats=deptPctCalc(smallItems);
-    healthHtml=
-      '<div class="sdstat" style="min-width:200px">'+
-        '<div style="font-size:.68em;color:#c45c8a;font-weight:700;letter-spacing:.5px;margin-bottom:2px">MONUMENTS ('+monItems.length+')</div>'+
-        healthBarHtml(monStats,'#c45c8a',false)+
-      '</div>'+
-      '<div class="sdstat" style="min-width:200px">'+
-        '<div style="font-size:.68em;color:'+stg.c+';font-weight:700;letter-spacing:.5px;margin-bottom:2px">SMALLS ('+smallItems.length+')</div>'+
-        healthBarHtml(smallStats,stg.c,false)+
-      '</div>';
-  } else {
-    const drillStats=deptPctCalc(sorted);
-    healthHtml='<div class="sdstat" style="min-width:180px">'+healthBarHtml(drillStats,stg.c,false)+'</div>';
+    healthHtml+='<div style="min-width:140px">'+
+      '<div style="font-size:.62em;color:#c45c8a;font-weight:700;letter-spacing:.5px;margin-bottom:2px">MONUMENTS ('+monItems.length+')</div>'+
+      healthBarHtml(monStats,'#c45c8a',true)+'</div>'+
+      '<div style="min-width:140px">'+
+      '<div style="font-size:.62em;color:'+stg.c+';font-weight:700;letter-spacing:.5px;margin-bottom:2px">SMALLS ('+smallItems.length+')</div>'+
+      healthBarHtml(smallStats,stg.c,true)+'</div>';
   }
+  healthHtml+='</div>';
 
-  document.getElementById('sdstats').innerHTML=
-    '<div class="sdstat">Items: <strong>'+doneCount+'/'+sorted.length+'</strong></div>'+
-    '<div class="sdstat">Hours: <strong>'+fmtHrs(doneHrs)+'/'+fmtHrs(totalHrs)+'</strong></div>'+
-    '<div class="sdstat">Value: <strong>'+fmt(doneVal)+'/'+fmt(totalVal)+'</strong></div>'+
-    healthHtml;
+  document.getElementById('sdstats').innerHTML=healthHtml;
 
   // Update sort buttons
   document.querySelectorAll('#sdtools .wdbtn').forEach(b=>{
