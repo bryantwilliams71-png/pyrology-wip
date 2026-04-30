@@ -5272,7 +5272,7 @@ def api_log_history():
 
 # Production stages (mirrors JS STAGES const)
 
-# âââ TV Department Views ââââââââââââââââââââââââââââââââââââââââââ
+# ── TV Department Views ────────────────────────────────────────────────────────
 TV_DEPTS = {
     'molds':       {'l': 'Molds',           'stage': 'molds',    'c': '#4a6fa5', 'monument': None},
     'creation':    {'l': 'Creation',        'stage': 'creation', 'c': '#7b5ea7', 'monument': None},
@@ -5288,7 +5288,7 @@ TV_DEPTS = {
     'ready':       {'l': 'Ready',           'stage': 'ready',    'c': '#5a9e5a', 'monument': None},
 }
 
-TV_DEPT_PAGE_HTML = '''<!DOCTYPE html>
+TV_DEPT_PAGE_HTML = r'''<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -5296,42 +5296,58 @@ TV_DEPT_PAGE_HTML = '''<!DOCTYPE html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#0a0e17;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overflow:hidden;height:100vh}
-.header{display:flex;align-items:center;justify-content:space-between;padding:18px 32px;background:linear-gradient(135deg,{{DEPT_COLOR}}22,#0d1117);border-bottom:3px solid {{DEPT_COLOR}}}
-.dept-name{font-size:42px;font-weight:800;color:{{DEPT_COLOR}};text-transform:uppercase;letter-spacing:2px}
-.clock{font-size:32px;font-weight:600;color:#8899aa;font-variant-numeric:tabular-nums}
-.status-bar{display:flex;gap:24px;padding:12px 32px;background:#0d1117;border-bottom:1px solid #1a2332;font-size:16px;color:#6a7a8a}
-.status-bar .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;background:#3fb950;animation:pulse 2s infinite}
+body{background:#0a0e17;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+.header{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:linear-gradient(135deg,{{DEPT_COLOR}}22,#0d1117);border-bottom:3px solid {{DEPT_COLOR}}}
+.dept-name{font-size:38px;font-weight:800;color:{{DEPT_COLOR}};text-transform:uppercase;letter-spacing:2px}
+.clock{font-size:28px;font-weight:600;color:#8899aa;font-variant-numeric:tabular-nums}
+.controls{display:flex;gap:16px;padding:10px 32px;background:#0d1117;border-bottom:1px solid #1a2332;align-items:center;flex-wrap:wrap}
+.week-btns{display:flex;gap:6px}
+.week-btn{background:#1a2332;border:1px solid #2a3a4a;color:#8899aa;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:14px;font-weight:600;transition:all .2s}
+.week-btn:hover{border-color:{{DEPT_COLOR}}80}
+.week-btn.active{background:{{DEPT_COLOR}};color:#fff;border-color:{{DEPT_COLOR}}}
+.health-section{display:flex;gap:16px;align-items:stretch;flex:1;min-width:0}
+.health-box{flex:1;min-width:120px}
+.health-label{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+.health-label .hl-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;min-width:44px}
+.health-label .hl-done{font-size:12px;font-weight:600;color:#5a9e5a}
+.health-label .hl-total{font-size:11px;color:#667}
+.health-track{height:14px;background:#2a2d3a;border-radius:7px;overflow:hidden;position:relative}
+.health-fill{height:100%;border-radius:7px;transition:width .4s}
+.health-pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;text-shadow:0 1px 3px #000}
+.health-sub{display:flex;justify-content:space-between;margin-top:2px}
+.health-sub span{font-size:10px}
+.completed-box{text-align:center;min-width:60px}
+.completed-box .cb-label{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.5px}
+.completed-box .cb-count{font-size:22px;font-weight:700;color:{{DEPT_COLOR}};margin-top:1px}
+.completed-box .cb-count span{font-size:12px;color:#667}
+.status-bar{display:flex;gap:16px;padding:6px 32px;background:#080c14;font-size:13px;color:#6a7a8a;align-items:center}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;background:#3fb950;animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-.content{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:20px 32px;height:calc(100vh - 160px);overflow:hidden}
-.panel{background:#111820;border:1px solid #1a2332;border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
-.panel-header{padding:16px 20px;font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1a2332}
-.panel-header .count{background:{{DEPT_COLOR}};color:#fff;padding:2px 12px;border-radius:12px;font-size:16px;font-weight:600}
-.panel-body{padding:12px;overflow-y:auto;flex:1}
-.week-label{font-size:16px;color:{{DEPT_COLOR}};font-weight:700;margin:8px 0 6px;padding:4px 12px;background:{{DEPT_COLOR}}15;border-radius:6px;display:inline-block}
-.card{background:#1a2332;border:1px solid #252d3a;border-radius:8px;padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;transition:border-color .2s}
+.content{flex:1;overflow:hidden;padding:12px 32px 12px}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px;overflow-y:auto;max-height:100%;padding-bottom:20px}
+.card{background:#1a2332;border:1px solid #252d3a;border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:10px;transition:border-color .2s}
 .card:hover{border-color:{{DEPT_COLOR}}60}
-.card-left{flex:1}
-.card-id{font-size:20px;font-weight:700;color:#e0e0e0}
-.card-desc{font-size:15px;color:#8899aa;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:400px}
-.card-client{font-size:13px;color:#6a7a8a;margin-top:2px}
-.card-right{text-align:right}
-.card-value{font-size:18px;font-weight:700;color:#3fb950}
-.card-hours{font-size:13px;color:#8899aa}
-.badge-done{background:#3fb95030;color:#3fb950;padding:2px 10px;border-radius:6px;font-size:13px;font-weight:600}
-.badge-carry{background:#d2992230;color:#d29922;padding:2px 10px;border-radius:6px;font-size:13px;font-weight:600}
-.rework-card{background:#1a2332;border-left:4px solid #f85149;border-radius:8px;padding:14px 16px;margin-bottom:8px}
-.rework-card .rc-top{display:flex;justify-content:space-between;align-items:center}
-.rework-card .rc-id{font-size:18px;font-weight:700;color:#f85149}
-.rework-card .rc-cause{font-size:14px;color:#8899aa;background:#f8514915;padding:2px 10px;border-radius:6px}
-.rework-card .rc-desc{font-size:14px;color:#8899aa;margin-top:4px}
-.rework-card .rc-date{font-size:12px;color:#6a7a8a;margin-top:4px}
-.empty{text-align:center;color:#4a5568;font-size:18px;padding:40px 20px}
-.progress-row{display:flex;align-items:center;gap:12px;padding:8px 20px;background:#0d111a}
-.progress-bar{flex:1;height:8px;background:#1a2332;border-radius:4px;overflow:hidden}
-.progress-fill{height:100%;background:{{DEPT_COLOR}};border-radius:4px;transition:width .5s}
-.progress-text{font-size:14px;color:#8899aa;min-width:80px;text-align:right}
-.refresh-indicator{font-size:12px;color:#4a5568}
+.card.done-card{background:#1a2332;border-color:#3fb95040}
+.card .chk{width:22px;height:22px;border-radius:4px;border:2px solid #4a5568;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;font-size:14px;color:transparent}
+.card .chk:hover{border-color:{{DEPT_COLOR}}}
+.card .chk.checked{background:#3fb950;border-color:#3fb950;color:#fff}
+.card-info{flex:1;min-width:0}
+.card-id{font-size:16px;font-weight:700;color:#e0e0e0}
+.card-id .badge{font-size:11px;padding:1px 8px;border-radius:4px;margin-left:6px;font-weight:600}
+.badge-done{background:#3fb95030;color:#3fb950}
+.badge-carry{background:#d2992230;color:#d29922}
+.badge-mon{background:#c45c8a30;color:#c45c8a}
+.card-desc{font-size:13px;color:#8899aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-client{font-size:12px;color:#6a7a8a}
+.card-right{text-align:right;flex-shrink:0}
+.card-value{font-size:16px;font-weight:700;color:#3fb950}
+.card-hours{font-size:12px;color:#8899aa}
+.card-due{font-size:11px;margin-top:2px}
+.due-over{color:#f85149;font-weight:600}
+.due-warn{color:#d29922}
+.due-ok{color:#6a7a8a}
+.section-label{font-size:14px;font-weight:700;margin:12px 0 6px;padding:4px 12px;border-radius:6px;display:inline-block}
+.empty{text-align:center;color:#4a5568;font-size:16px;padding:40px 20px}
 </style>
 </head>
 <body>
@@ -5339,40 +5355,48 @@ body{background:#0a0e17;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFo
   <div class="dept-name">{{DEPT_LABEL}}</div>
   <div class="clock" id="clock"></div>
 </div>
+<div class="controls">
+  <div class="week-btns" id="week-btns">
+    <button class="week-btn" data-week="all" onclick="setWeek('all')">All</button>
+    <button class="week-btn active" data-week="this" onclick="setWeek('this')">This Week</button>
+    <button class="week-btn" data-week="next" onclick="setWeek('next')">Next Week</button>
+  </div>
+  <div class="completed-box" id="completed-box">
+    <div class="cb-label">Completed</div>
+    <div class="cb-count">0<span>/0</span></div>
+  </div>
+  <div class="health-section" id="health-section"></div>
+</div>
 <div class="status-bar">
   <span><span class="dot"></span>Live &mdash; refreshes every 60s</span>
   <span id="stats-summary"></span>
-  <span style="margin-left:auto" class="refresh-indicator" id="refresh-timer"></span>
+  <span style="margin-left:auto" id="refresh-timer"></span>
 </div>
 <div class="content">
-  <div class="panel">
-    <div class="panel-header">
-      <span>Schedule</span>
-      <span class="count" id="sched-count">0</span>
-    </div>
-    <div id="sched-progress" class="progress-row" style="display:none">
-      <div class="progress-bar"><div class="progress-fill" id="sched-fill"></div></div>
-      <div class="progress-text" id="sched-pct">0%</div>
-    </div>
-    <div class="panel-body" id="sched-body">
-      <div class="empty">Loading...</div>
-    </div>
-  </div>
-  <div class="panel">
-    <div class="panel-header">
-      <span>Open Rework / NCRs</span>
-      <span class="count" id="rework-count" style="background:#f85149">0</span>
-    </div>
-    <div class="panel-body" id="rework-body">
-      <div class="empty">Loading...</div>
-    </div>
+  <div class="card-grid" id="card-grid">
+    <div class="empty">Loading...</div>
   </div>
 </div>
 
 <script>
-const DEPT_KEY = "{{DEPT_KEY}}";
-const DEPT_STAGE = "{{DEPT_STAGE}}";
-const DEPT_MONUMENT = {{DEPT_MONUMENT}};
+const DEPT_KEY="{{DEPT_KEY}}";
+const DEPT_STAGE="{{DEPT_STAGE}}";
+const DEPT_MONUMENT={{DEPT_MONUMENT}};
+const DEPT_COLOR="{{DEPT_COLOR}}";
+const STAGE_HRS_MAP={
+  molds:i=>i.hWax||0, creation:i=>i.hWax||0,
+  waxpull:i=>i.hWaxPull||0, waxchase:i=>i.hWax||0,
+  sprue:i=>i.hSprue||0, shell:i=>0,
+  metal:i=>(i.hMetal||0)+(i.hPolish||0),
+  patina:i=>i.hPatina||0, base:i=>i.hBasing||0, ready:i=>0
+};
+function getItemHours(item){
+  const fn=STAGE_HRS_MAP[DEPT_STAGE];
+  return fn?fn(item):0;
+}
+
+let _weekFilter="this";
+let _allData=null;
 
 function updateClock(){
   const now=new Date();
@@ -5382,177 +5406,220 @@ function updateClock(){
   document.getElementById("clock").textContent=
     h12+":"+(m<10?"0":"")+m+":"+(s<10?"0":"")+s+" "+ampm;
 }
-setInterval(updateClock,1000);
-updateClock();
+setInterval(updateClock,1000);updateClock();
 
 function getMonday(d){
-  const dt=new Date(d);
-  const day=dt.getDay();
+  const dt=new Date(d);const day=dt.getDay();
   const diff=dt.getDate()-day+(day===0?-6:1);
-  dt.setDate(diff);dt.setHours(0,0,0,0);
-  return dt;
-}
-function fmtDate(d){
-  return (d.getMonth()+1)+"/"+d.getDate();
+  dt.setDate(diff);dt.setHours(0,0,0,0);return dt;
 }
 function weekKey(d){
-  const y=d.getFullYear();
-  const m=String(d.getMonth()+1).padStart(2,"0");
-  const day=String(d.getDate()).padStart(2,"0");
-  return y+"-"+m+"-"+day;
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
 }
-
+function fmtDate(d){return(d.getMonth()+1)+"/"+d.getDate();}
+function fmtMoney(v){return v?new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(v):"—";}
+function fmtHrs(h){return h?h.toFixed(1)+"h":"—";}
 function matchesDept(item){
-  const st = item.stage_override || item.stage || "";
-  if(st !== DEPT_STAGE) return false;
-  if(DEPT_MONUMENT === null) return true;
-  return !!item.monument === DEPT_MONUMENT;
+  const st=item.stage_override||item.stage||"";
+  if(st!==DEPT_STAGE)return false;
+  if(DEPT_MONUMENT===null)return true;
+  return !!item.monument===DEPT_MONUMENT;
+}
+function daysDiff(due){
+  if(!due)return null;
+  const d=new Date(due+"T00:00:00");const now=new Date();now.setHours(0,0,0,0);
+  return Math.round((d-now)/(86400000));
 }
 
-let refreshCountdown = 60;
+function setWeek(w){
+  _weekFilter=w;
+  document.querySelectorAll(".week-btn").forEach(b=>{
+    b.classList.toggle("active",b.dataset.week===w);
+  });
+  renderView();
+}
+
+let refreshCountdown=60;
 setInterval(()=>{
   refreshCountdown--;
   if(refreshCountdown<=0){refreshCountdown=60;loadData();}
   document.getElementById("refresh-timer").textContent="Next refresh: "+refreshCountdown+"s";
 },1000);
 
+async function markDone(job,done){
+  try{
+    await fetch("/api/schedule/mark-done",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({job:String(job),done:done})
+    });
+    // Update local data
+    if(_allData&&_allData.assignments[job]){
+      _allData.assignments[job].done=done;
+    }
+    renderView();
+  }catch(e){console.error("Mark done failed:",e);}
+}
+
+function renderView(){
+  if(!_allData)return;
+  const {deptItems,assignments}=_allData;
+  const now=new Date();
+  const thisMon=getMonday(now);
+  const nextMon=new Date(thisMon);nextMon.setDate(nextMon.getDate()+7);
+  const thisWK=weekKey(thisMon);
+  const nextWK=weekKey(nextMon);
+
+  // Categorize items
+  const scheduled=[];const unscheduled=[];
+  deptItems.forEach(it=>{
+    const asg=assignments[it.piece_id];
+    if(asg&&asg.week){
+      const asgMon=getMonday(new Date(asg.week+"T00:00:00"));
+      const wk=weekKey(asgMon);
+      scheduled.push({...it,asg,wk,isThis:wk===thisWK,isNext:wk===nextWK});
+    } else {
+      unscheduled.push({...it,asg:asg||null,wk:null,isThis:false,isNext:false});
+    }
+  });
+
+  // Filter by week
+  let visible=[];
+  if(_weekFilter==="this"){
+    visible=scheduled.filter(i=>i.isThis);
+  } else if(_weekFilter==="next"){
+    visible=scheduled.filter(i=>i.isNext);
+  } else {
+    visible=[...scheduled,...unscheduled];
+  }
+
+  // Sort: done items last, then by value desc
+  visible.sort((a,b)=>{
+    const aDone=a.asg&&a.asg.done?1:0;
+    const bDone=b.asg&&b.asg.done?1:0;
+    if(aDone!==bDone)return aDone-bDone;
+    return(b.price||0)-(a.price||0);
+  });
+
+  // Compute health stats for visible items
+  const totalVal=visible.reduce((a,i)=>a+(i.price||0),0);
+  const totalHrs=visible.reduce((a,i)=>a+getItemHours(i),0);
+  const doneItems=visible.filter(i=>i.asg&&i.asg.done);
+  const doneVal=doneItems.reduce((a,i)=>a+(i.price||0),0);
+  const doneHrs=doneItems.reduce((a,i)=>a+getItemHours(i),0);
+  const valPct=Math.round(doneVal/Math.max(totalVal,1)*100);
+  const hrsPct=Math.round(doneHrs/Math.max(totalHrs,1)*100);
+  const valColor=valPct>=80?"#5a9e5a":valPct>=50?"#e8a838":DEPT_COLOR;
+  const hrsColor=hrsPct>=80?"#5a9e5a":hrsPct>=50?"#e8a838":"#ffd580";
+
+  // Update completed counter
+  document.getElementById("completed-box").innerHTML=
+    '<div class="cb-label">Completed</div>'+
+    '<div class="cb-count">'+doneItems.length+'<span>/'+visible.length+'</span></div>';
+
+  // Update health bars
+  let hh='';
+  hh+='<div class="health-box">'+
+    '<div class="health-label">'+
+      '<span class="hl-title" style="color:'+valColor+'">Value</span>'+
+      '<span class="hl-done">'+fmtMoney(doneVal)+'</span>'+
+      '<span class="hl-total">of '+fmtMoney(totalVal)+'</span></div>'+
+    '<div class="health-track">'+
+      '<div class="health-fill" style="width:'+valPct+'%;background:linear-gradient(90deg,'+valColor+','+valColor+'aa)"></div>'+
+      '<span class="health-pct">'+valPct+'%</span></div>'+
+    '<div class="health-sub">'+
+      '<span style="color:#5a9e5a">'+fmtMoney(doneVal)+' done</span>'+
+      '<span style="color:#e8a838">'+fmtMoney(totalVal-doneVal)+' left</span></div></div>';
+  if(totalHrs>0){
+    hh+='<div class="health-box">'+
+      '<div class="health-label">'+
+        '<span class="hl-title" style="color:'+hrsColor+'">Hours</span>'+
+        '<span class="hl-done">'+fmtHrs(doneHrs)+'</span>'+
+        '<span class="hl-total">of '+fmtHrs(totalHrs)+'</span></div>'+
+      '<div class="health-track">'+
+        '<div class="health-fill" style="width:'+hrsPct+'%;background:linear-gradient(90deg,'+hrsColor+','+hrsColor+'aa)"></div>'+
+        '<span class="health-pct">'+hrsPct+'%</span></div>'+
+      '<div class="health-sub">'+
+        '<span style="color:#5a9e5a">'+fmtHrs(doneHrs)+' done</span>'+
+        '<span style="color:#e8a838">'+fmtHrs(totalHrs-doneHrs)+' left</span></div></div>';
+  }
+  document.getElementById("health-section").innerHTML=hh;
+
+  // Stats summary
+  document.getElementById("stats-summary").textContent=
+    deptItems.length+" pieces in dept | "+visible.length+" showing | "+doneItems.length+" completed";
+
+  // Update week button counts
+  const thisCount=scheduled.filter(i=>i.isThis).length;
+  const nextCount=scheduled.filter(i=>i.isNext).length;
+  const allCount=scheduled.length+unscheduled.length;
+  document.querySelector('[data-week="all"]').textContent="All ("+allCount+")";
+  document.querySelector('[data-week="this"]').textContent="This Week ("+thisCount+")";
+  document.querySelector('[data-week="next"]').textContent="Next Week ("+nextCount+")";
+
+  // Render cards
+  const grid=document.getElementById("card-grid");
+  if(visible.length===0){
+    grid.innerHTML='<div class="empty">No items for selected week</div>';
+    return;
+  }
+  let html="";
+  visible.forEach(item=>{
+    const isDone=item.asg&&item.asg.done;
+    const pid=item.piece_id||item.job||"";
+    const hrs=getItemHours(item);
+    const val=item.price||item.value||0;
+    const due=item.due;
+    const dd=daysDiff(due);
+    let dueHtml="";
+    if(dd!==null){
+      if(dd<0)dueHtml='<div class="card-due due-over">OD '+Math.abs(dd)+'d</div>';
+      else if(dd<=7)dueHtml='<div class="card-due due-warn">'+(due||"").slice(5)+'</div>';
+      else dueHtml='<div class="card-due due-ok">'+(due||"").slice(5)+'</div>';
+    }
+    let badges="";
+    if(isDone)badges+='<span class="badge badge-done">Done</span>';
+    if(item.asg&&item.asg.carryover&&!isDone)badges+='<span class="badge badge-carry">Carry</span>';
+    if(item.monument)badges+='<span class="badge badge-mon">MON</span>';
+
+    html+='<div class="card'+(isDone?" done-card":"")+'">';
+    // Checkbox - only show for scheduled items
+    if(item.asg&&item.asg.week){
+      html+='<div class="chk'+(isDone?" checked":"")+'" onclick="markDone(\''+pid+'\','+(!isDone)+')">'+(isDone?"✓":"")+'</div>';
+    } else {
+      html+='<div style="width:22px"></div>';
+    }
+    html+='<div class="card-info">';
+    html+='<div class="card-id">#'+pid+' '+badges+'</div>';
+    html+='<div class="card-desc">'+(item.description||item.desc||"")+'</div>';
+    html+='<div class="card-client">'+(item.client||"")+'</div>';
+    html+='</div>';
+    html+='<div class="card-right">';
+    if(val)html+='<div class="card-value">$'+Number(val).toLocaleString()+'</div>';
+    if(hrs)html+='<div class="card-hours">'+hrs.toFixed(1)+'h</div>';
+    html+=dueHtml;
+    html+='</div></div>';
+  });
+  grid.innerHTML=html;
+}
+
 async function loadData(){
   try{
-    const [wipRes,schedRes,qualRes]=await Promise.all([
-      fetch("/api/wip"),fetch("/api/schedule"),fetch("/api/quality/summary")
+    const [wipRes,schedRes]=await Promise.all([
+      fetch("/api/wip"),fetch("/api/schedule")
     ]);
     const wipData=await wipRes.json();
     const schedData=await schedRes.json();
-    const qualData=await qualRes.json();
-
     const items=(wipData.items||[]);
     const stageOverrides=wipData.stage_overrides||{};
     const assignments=schedData.assignments||{};
-
     items.forEach(it=>{
-      if(stageOverrides[it.pieceId]){it.stage_override=stageOverrides[it.pieceId];}
+      if(stageOverrides[it.piece_id])it.stage_override=stageOverrides[it.piece_id];
     });
-
     const deptItems=items.filter(matchesDept);
-    const itemMap={};
-    deptItems.forEach(it=>{itemMap[it.pieceId]=it;});
-
-    const now=new Date();
-    const thisMon=getMonday(now);
-    const nextMon=new Date(thisMon);nextMon.setDate(nextMon.getDate()+7);
-
-    const thisWeek=[];
-    const nextWeek=[];
-    let doneCount=0;
-    let totalScheduled=0;
-
-    for(const [pid,asg] of Object.entries(assignments)){
-      const item=itemMap[pid];
-      if(!item) continue;
-      const w=asg.week;
-      if(!w) continue;
-      const entry={...item,assignment:asg};
-      const asgMon=getMonday(new Date(w+"T00:00:00"));
-      if(asgMon.getTime()===thisMon.getTime()){
-        thisWeek.push(entry);totalScheduled++;if(asg.done)doneCount++;
-      } else if(asgMon.getTime()===nextMon.getTime()){
-        nextWeek.push(entry);totalScheduled++;if(asg.done)doneCount++;
-      }
-    }
-
-    const scheduledIds=new Set(Object.keys(assignments));
-    const unscheduled=deptItems.filter(it=>!scheduledIds.has(String(it.pieceId)));
-
-    const schedBody=document.getElementById("sched-body");
-    const totalCount=thisWeek.length+nextWeek.length;
-    document.getElementById("sched-count").textContent=totalCount;
-
-    let html="";
-    if(thisWeek.length>0||nextWeek.length>0){
-      if(thisWeek.length>0){
-        const thisEnd=new Date(thisMon);thisEnd.setDate(thisEnd.getDate()+6);
-        html+='<div class="week-label">This Week ('+fmtDate(thisMon)+' - '+fmtDate(thisEnd)+')</div>';
-        thisWeek.sort((a,b)=>(a.assignment.done?1:0)-(b.assignment.done?1:0));
-        thisWeek.forEach(it=>{html+=renderCard(it);});
-      }
-      if(nextWeek.length>0){
-        const nextEnd=new Date(nextMon);nextEnd.setDate(nextEnd.getDate()+6);
-        html+='<div class="week-label" style="margin-top:16px">Next Week ('+fmtDate(nextMon)+' - '+fmtDate(nextEnd)+')</div>';
-        nextWeek.forEach(it=>{html+=renderCard(it);});
-      }
-    } else {
-      html='<div class="empty">No scheduled items for this department</div>';
-    }
-
-    if(unscheduled.length>0){
-      html+='<div class="week-label" style="margin-top:16px;background:#f8514915;color:#f85149">Unscheduled ('+unscheduled.length+')</div>';
-      unscheduled.forEach(it=>{
-        html+=renderCard({...it,assignment:null});
-      });
-    }
-    schedBody.innerHTML=html;
-
-    const progRow=document.getElementById("sched-progress");
-    if(thisWeek.length>0){
-      progRow.style.display="flex";
-      const pct=Math.round((thisWeek.filter(i=>i.assignment&&i.assignment.done).length/thisWeek.length)*100);
-      document.getElementById("sched-fill").style.width=pct+"%";
-      document.getElementById("sched-pct").textContent=pct+"% done this week";
-    } else {
-      progRow.style.display="none";
-    }
-
-    document.getElementById("stats-summary").textContent=
-      deptItems.length+" pieces in dept | "+totalCount+" scheduled | "+doneCount+" completed";
-
-    const reworkBody=document.getElementById("rework-body");
-    const openRework=(qualData.open_queue||[]).filter(r=>{
-      const rs=r.stage||"";
-      return rs===DEPT_STAGE;
-    });
-    document.getElementById("rework-count").textContent=openRework.length;
-
-    if(openRework.length>0){
-      let rhtml="";
-      openRework.forEach(r=>{
-        rhtml+='<div class="rework-card">';
-        rhtml+='<div class="rc-top">';
-        rhtml+='<span class="rc-id">#'+r.piece_id+'</span>';
-        rhtml+='<span class="rc-cause">'+(r.cause_label||r.cause||'Unknown')+'</span>';
-        rhtml+='</div>';
-        if(r.note) rhtml+='<div class="rc-desc">'+r.note+'</div>';
-        if(r.logged_at) rhtml+='<div class="rc-date">Logged: '+new Date(r.logged_at).toLocaleDateString()+'</div>';
-        rhtml+='</div>';
-      });
-      reworkBody.innerHTML=rhtml;
-    } else {
-      reworkBody.innerHTML='<div class="empty">No open rework items</div>';
-    }
-
+    _allData={deptItems,assignments};
+    renderView();
     refreshCountdown=60;
-  }catch(e){
-    console.error("TV refresh error:",e);
-  }
-}
-
-function renderCard(item){
-  const asg=item.assignment;
-  let badges="";
-  if(asg&&asg.done) badges='<span class="badge-done">Done</span>';
-  else if(asg&&asg.carryover) badges='<span class="badge-carry">Carryover</span>';
-  const val=item.price?("$"+Number(item.price).toLocaleString()):"";
-  const hrs=item.hWax||item.hWaxPull||item.hSprue||item.hMetal||item.hPatina||item.hours||"";
-  return '<div class="card">'
-    +'<div class="card-left">'
-    +'<div class="card-id">#'+(item.pieceId||'')+' '+badges+'</div>'
-    +'<div class="card-desc">'+(item.name||'')+'</div>'
-    +'<div class="card-client">'+(item.customer||'')+'</div>'
-    +'</div>'
-    +'<div class="card-right">'
-    +(val?'<div class="card-value">'+val+'</div>':'')
-    +(hrs?'<div class="card-hours">'+hrs+' hrs</div>':'')
-    +'</div>'
-    +'</div>';
+  }catch(e){console.error("TV refresh error:",e);}
 }
 
 loadData();
@@ -5560,7 +5627,7 @@ loadData();
 </body>
 </html>'''
 
-TV_INDEX_HTML = '''<!DOCTYPE html>
+TV_INDEX_HTML = r'''<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -5615,7 +5682,7 @@ def tv_index_page():
 def tv_dept_page(dept):
     if dept not in TV_DEPTS:
         valid = ', '.join(TV_DEPTS.keys())
-        return f'<h2>Unknown department: {dept}</h2><p>Valid: {valid}</p><p><a href="/tv">Back</a></p>', 404
+        return f'<h2>Unknown department: {dept}</h2><p>Valid departments: {valid}</p><p><a href="/tv">Back to TV index</a></p>', 404
     info = TV_DEPTS[dept]
     html = TV_DEPT_PAGE_HTML
     html = html.replace('{{DEPT_KEY}}', dept)
@@ -5630,6 +5697,7 @@ def tv_dept_page(dept):
     else:
         html = html.replace('{{DEPT_MONUMENT}}', 'false')
     return html
+
 
 STAGES = [
     {'k': 'molds',    'l': 'Molds',          'c': '#4a6fa5'},
