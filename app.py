@@ -531,18 +531,32 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
 .wstat{font-size:.78em;color:#aaa}.wstat strong{color:#fff;font-size:1.1em}
 .wstat.green strong{color:#5a9e5a}.wstat.red strong{color:#e05555}
 .wstat.gold strong{color:#e8a838}.wstat.teal strong{color:#4db8b8}
-#wgrid{display:flex;gap:4px;padding:6px;overflow-x:auto;overflow-y:hidden;height:calc(100vh - 96px)}
-.wcol{flex:1;min-width:0;background:#1a1d27;border-radius:6px;display:flex;flex-direction:column;border:1px solid #2a2d3a;cursor:pointer;transition:border-color .2s,box-shadow .2s}
-.wcol:hover{border-color:#3a4a5a;box-shadow:0 2px 8px rgba(0,0,0,.3)}
-.wcol:hover{border-color:#4db8b8}
-.wchdr{padding:7px 8px 5px;text-align:center;border-radius:6px 6px 0 0;flex-shrink:0}
-.wclabel{font-size:.72em;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
-.wcsub{font-size:.58em;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.4px}
-.wccount{font-size:1.15em;font-weight:700;color:#fff;margin-top:2px}
-.wcval{font-size:.78em;color:rgba(255,255,255,.85);margin-top:1px}
-.wchrs{font-size:.72em;color:#ffd580;margin-top:2px;font-weight:600}
-.wcbody{flex:1;overflow-y:auto;padding:4px;display:flex;flex-direction:column;gap:3px}
-.wcard{background:#0f1117;border-radius:5px;padding:6px 7px;border-left:3px solid #333;font-size:.7em;flex-shrink:0;transition:background .15s}
+#wgrid{display:flex;flex-direction:column;gap:2px;padding:6px 10px;overflow-y:auto;height:calc(100vh - 96px)}
+.wacc{background:#1a1d27;border-radius:6px;border:1px solid #2a2d3a;overflow:hidden;transition:border-color .2s}
+.wacc.open{border-color:#3a4a5a}
+.wacc-hdr{display:flex;align-items:center;gap:12px;padding:10px 14px;cursor:pointer;transition:background .15s;user-select:none}
+.wacc-hdr:hover{background:#1e2230}
+.wacc-chev{font-size:.7em;color:#556;transition:transform .2s;flex-shrink:0;width:16px;text-align:center}
+.wacc.open .wacc-chev{transform:rotate(90deg)}
+.wacc-color{width:4px;height:32px;border-radius:2px;flex-shrink:0}
+.wacc-label{font-size:.88em;font-weight:700;letter-spacing:.5px;text-transform:uppercase;min-width:110px}
+.wacc-stats{display:flex;gap:16px;align-items:center;flex:1;flex-wrap:wrap}
+.wacc-stat{font-size:.78em;color:#8899aa}
+.wacc-stat strong{color:#fff;font-weight:700;margin-right:2px}
+.wacc-stat.val strong{color:#4db8b8}
+.wacc-stat.hrs strong{color:#ffd580}
+.wacc-stat.over strong{color:#ff6b6b}
+.wacc-stat.warn strong{color:#e8a838}
+.wacc-stat.ready strong{color:#5a9e5a}
+.wacc-btns{display:flex;gap:6px;flex-shrink:0;align-items:center}
+.wacc-drill{background:#1e2a3a;border:1px solid #2a3a5a;color:#4db8b8;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:.72em;font-weight:700;letter-spacing:.3px;transition:all .15s;white-space:nowrap}
+.wacc-drill:hover{background:#2a3a4a;color:#fff;border-color:#4db8b8}
+.wacc-tv{background:#1e2a3a;border:1px solid #2a3a5a;color:#c45c8a;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:.72em;font-weight:700;letter-spacing:.3px;transition:all .15s;white-space:nowrap;text-decoration:none}
+.wacc-tv:hover{background:#2a3a4a;color:#fff;border-color:#c45c8a}
+.wacc-body{display:none;padding:4px 14px 10px;border-top:1px solid #2a2d3a}
+.wacc.open .wacc-body{display:block}
+.wacc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px}
+.wcard{background:#0f1117;border-radius:5px;padding:8px 10px;border-left:3px solid #333;font-size:.78em;transition:background .15s}
 .wcard:hover{background:#151820}
 .wctitle{font-weight:600;color:#e8e8e8;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wclient{color:#777;font-size:.85em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -621,7 +635,7 @@ table.wdt tr:hover td{background:#1e2130}
 .pri-dot.p1{background:#ff4444}
 .pri-dot.p2{background:#e8a838}
 .wcard.dragging{opacity:.4;transform:scale(.95)}
-.wcol.drag-over .wcbody{background:rgba(77,184,184,.08);outline:2px dashed #4db8b8;outline-offset:-4px;border-radius:6px}
+.wacc.drag-over{background:rgba(77,184,184,.08);outline:2px dashed #4db8b8;outline-offset:-2px}
 .wcard{cursor:grab}
 .wcard:active{cursor:grabbing}
 .wcard.selected-for-move{outline:2px solid #4db8b8;outline-offset:-2px;background:rgba(77,184,184,.08)!important}
@@ -729,7 +743,7 @@ const STAGE_HRS={
 
 const fmt=v=>v?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(v):'$0';
 const fmtH=h=>h>0?h.toLocaleString('en-US',{maximumFractionDigits:1})+' hrs bid':'';
-const fmtHrs=h=>h?h.toFixed(1)+'h':'Ã¢ÂÂ';
+const fmtHrs=h=>h?h.toFixed(1)+'h':'ÃÂ¢ÃÂÃÂ';
 let _items=[], _drillStage=null, _drillSort='due', _metalOverrides={}, _stageOverrides={}, _priorityOverrides={}, _scheduleData={};
 function getMonday(d){const dt=new Date(d);const day=dt.getDay();const diff=dt.getDate()-day+(day===0?-6:1);dt.setDate(diff);return dt.toISOString().slice(0,10);}
 function schedBadge(job){
@@ -962,49 +976,72 @@ function renderBoard(){
   document.getElementById('smon').textContent=_items.filter(i=>i.monument).length;
 
   const grid=document.getElementById('wgrid');
+  // Preserve open state
+  if(!window._accOpen)window._accOpen={};
   grid.innerHTML=STAGES.map(s=>{
     const sd=sm[s.k];
-    // Sort items by priority before slicing for display
     priSort(sd.items);
-    const MAX=50, shown=sd.items.slice(0,MAX), extra=sd.items.length-MAX;
-    return `<div class="wcol" data-stage="${s.k}" onclick="openDrill('${s.k}','${s.l}','${s.c}')">
-      <div class="wchdr" style="background:${s.c}22;border-bottom:3px solid ${s.c}">
-        <div class="wclabel" style="color:${s.c}">${s.l}</div>
-        ${s.sub?`<div class="wcsub">${s.sub}</div>`:''}
-        <div class="wccount">${sd.items.length} ITEMS</div>
-        <div class="wcval">${fmt(sd.val)}</div>
-        ${sd.hrs>0?`<div class="wchrs">&#x23F1; ${fmtH(sd.hrs)}</div>`:''}
+    const isOpen=window._accOpen[s.k]?'open':'';
+    const overdue=sd.items.filter(i=>{const d=daysDiff(i.due);return d!==null&&d<0;}).length;
+    const dueWk=sd.items.filter(i=>{const d=daysDiff(i.due);return d!==null&&d>=0&&d<=7;}).length;
+    const deptRemHrs=sd.hrs;
+    const tvSlug=s.k;
+    return `<div class="wacc ${isOpen}" data-stage="${s.k}" id="wacc-${s.k}">
+      <div class="wacc-hdr" onclick="toggleAcc('${s.k}')">
+        <span class="wacc-chev">&#9654;</span>
+        <div class="wacc-color" style="background:${s.c}"></div>
+        <div class="wacc-label" style="color:${s.c}">${s.l}</div>
+        <div class="wacc-stats">
+          <span class="wacc-stat"><strong>${sd.items.length}</strong> items</span>
+          <span class="wacc-stat val"><strong>${fmt(sd.val)}</strong></span>
+          ${deptRemHrs>0?\`<span class="wacc-stat hrs"><strong>${fmtHrs(deptRemHrs)}</strong></span>\`:''}
+          ${overdue>0?\`<span class="wacc-stat over"><strong>${overdue}</strong> overdue</span>\`:''}
+          ${dueWk>0?\`<span class="wacc-stat warn"><strong>${dueWk}</strong> due this wk</span>\`:''}
+        </div>
+        <div class="wacc-btns" onclick="event.stopPropagation()">
+          <a class="wacc-tv" href="/tv/${tvSlug}" target="_blank">&#128250; TV</a>
+          <button class="wacc-drill" onclick="openDrill('${s.k}','${s.l}','${s.c}')">Details &rarr;</button>
+        </div>
       </div>
-      <div class="wcbody">
-        ${shown.map(item=>{
-          const dl=dueLabel(item.due);
-          const pri=getPri(item.job);
-          const priCls=pri===1?' pri-1':pri===2?' pri-2':'';
-          const pct=stagePct(item);const pctColor=pct>=100?'#5a9e5a':pct>=50?'#e8a838':'#8b9dc3';
-          const isScheduled=_scheduleData[item.job]&&_scheduleData[item.job].week;
-          return `<div class="wcard${priCls}" data-job="${item.job}" style="border-left-color:${pri?'':s.c}" oncontextmenu="cyclePri('${item.job}',event)">
-            ${priLabel(item.job)}
-            <div class="wctitle">#${item.job} ${item.name}${item.monument?'<span class="wcmon">MON</span>':''}</div>
-            <div class="wclient">${item.customer||''}</div>
-            <div class="wcmeta">
-              ${item.edition?`<span style="color:#555;font-size:.82em">Ed.${item.edition}</span>`:''}
-              ${dl?`<span class="wcdue ${dl.c}">${dl.t}</span>`:''}
-              ${item.price?`<span class="wcprice">${fmt(item.price)}</span>`:''}
-              ${schedBadge(item.job)}
-            </div>
-            <div style="display:flex;align-items:center;gap:4px;margin-top:3px">
-              <div style="flex:1;height:3px;background:#1a1d27;border-radius:2px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${pctColor};border-radius:2px;transition:width .3s"></div></div>
-              ${pct>0?'<span style="font-size:.7em;color:'+pctColor+';font-weight:700;min-width:22px;text-align:right">'+pct+'%</span>':''}
-              ${isScheduled?'':'<button onclick="addOneToWeek(\''+item.job+'\',event)" style="padding:1px 5px;background:#1e2a3a;border:1px solid #2a3a5a;color:#4db8b8;border-radius:3px;cursor:pointer;font-size:.6em;white-space:nowrap;font-weight:600;letter-spacing:.3px;opacity:.7;transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.7">SCHED</button>'}
-            </div>
-          </div>`;
-        }).join('')}
-        ${extra>0?`<div class="wmore">+${extra} more &mdash; click to see all</div>`:''}
+      <div class="wacc-body">
+        <div class="wacc-grid">
+          ${sd.items.map(item=>{
+            const dl=dueLabel(item.due);
+            const pri=getPri(item.job);
+            const priCls=pri===1?' pri-1':pri===2?' pri-2':'';
+            const pct=stagePct(item);const pctColor=pct>=100?'#5a9e5a':pct>=50?'#e8a838':'#8b9dc3';
+            const isScheduled=_scheduleData[item.job]&&_scheduleData[item.job].week;
+            return \`<div class="wcard${priCls}" data-job="${item.job}" style="border-left-color:${pri?'':s.c}" oncontextmenu="cyclePri('${item.job}',event)">
+              ${priLabel(item.job)}
+              <div class="wctitle">#${item.job} ${item.name}${item.monument?'<span class="wcmon">MON</span>':''}</div>
+              <div class="wclient">${item.customer||''}</div>
+              <div class="wcmeta">
+                ${item.edition?\\\`<span style="color:#555;font-size:.82em">Ed.${item.edition}</span>\\\`:''}
+                ${dl?\\\`<span class="wcdue ${dl.c}">${dl.t}</span>\\\`:''}
+                ${item.price?\\\`<span class="wcprice">${fmt(item.price)}</span>\\\`:''}
+                ${schedBadge(item.job)}
+              </div>
+              <div style="display:flex;align-items:center;gap:4px;margin-top:3px">
+                <div style="flex:1;height:3px;background:#1a1d27;border-radius:2px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${pctColor};border-radius:2px;transition:width .3s"></div></div>
+                ${pct>0?'<span style="font-size:.7em;color:'+pctColor+';font-weight:700;min-width:22px;text-align:right">'+pct+'%</span>':''}
+                ${isScheduled?'':'<button onclick="addOneToWeek(\\''+item.job+'\\',event)" style="padding:1px 5px;background:#1e2a3a;border:1px solid #2a3a5a;color:#4db8b8;border-radius:3px;cursor:pointer;font-size:.6em;white-space:nowrap;font-weight:600;letter-spacing:.3px;opacity:.7;transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.7">SCHED</button>'}
+              </div>
+            </div>\`;
+          }).join('')}
+        </div>
       </div>
     </div>`;
   }).join('');
   initDragDrop();
 }
+
+function toggleAcc(k){
+  if(!window._accOpen)window._accOpen={};
+  window._accOpen[k]=!window._accOpen[k];
+  const el=document.getElementById('wacc-'+k);
+  if(el)el.classList.toggle('open');
+}
+
 
 // &#x2500;&#x2500; Drag & Drop + Batch Move &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 let _selectedJobs = new Set();
@@ -1037,13 +1074,13 @@ function initDragDrop(){
       }
     });
   });
-  document.querySelectorAll('.wcol').forEach(col => {
-    const stageKey = col.dataset.stage;
-    col.addEventListener('dragover', e => {e.preventDefault();e.dataTransfer.dropEffect='move';col.classList.add('drag-over');});
-    col.addEventListener('dragleave', e => {if(!col.contains(e.relatedTarget))col.classList.remove('drag-over');});
-    col.addEventListener('drop', e => {
+  document.querySelectorAll('.wacc').forEach(acc => {
+    const stageKey = acc.dataset.stage;
+    acc.addEventListener('dragover', e => {e.preventDefault();e.dataTransfer.dropEffect='move';acc.classList.add('drag-over');});
+    acc.addEventListener('dragleave', e => {if(!acc.contains(e.relatedTarget))acc.classList.remove('drag-over');});
+    acc.addEventListener('drop', e => {
       e.preventDefault();
-      col.classList.remove('drag-over');
+      acc.classList.remove('drag-over');
       const job = e.dataTransfer.getData('text/plain');
       if(job && stageKey) moveItems([job], stageKey);
     });
@@ -1641,7 +1678,7 @@ function loadData(){
   fetch('/api/wip').then(r=>r.json()).then(d=>{
     if(d.error){
       document.getElementById('werr').style.display='block';
-      document.getElementById('werr').textContent='ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ  '+d.error;
+      document.getElementById('werr').textContent='ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ  '+d.error;
     } else {
       document.getElementById('werr').style.display='none';
     }
@@ -1653,11 +1690,11 @@ function loadData(){
       _items=d.items;
       renderBoard();
       if(_drillStage)renderDrill();
-      document.getElementById('wlive').textContent='ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ Live \u00B7 Updated '+new Date(d.updated).toLocaleTimeString();
+      document.getElementById('wlive').textContent='ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ Live \u00B7 Updated '+new Date(d.updated).toLocaleTimeString();
     }
   }).catch(()=>{
     document.getElementById('werr').style.display='block';
-    document.getElementById('werr').textContent='ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ  Cannot reach server.';
+    document.getElementById('werr').textContent='ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ  Cannot reach server.';
   });
 }
 loadData();
@@ -1666,7 +1703,7 @@ setInterval(loadData,60000);
 </body>
 </html>"""
 
-# ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ KPI Page HTML ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
+# ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ KPI Page HTML ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 KPI_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2000,7 +2037,7 @@ setInterval(loadKPI,30000);
 </body>
 </html>"""
 
-# ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ Maintenance Request HTML ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
+# ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ Maintenance Request HTML ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 MAINTENANCE_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3688,9 +3725,9 @@ html,body{width:100%;height:100%;background:#0f1117;color:#e8e8e8;font-family:'S
           <select id="sdmovedest" style="background:#0f1117;border:1px solid #3a4a6a;color:#e8e8e8;padding:4px 8px;border-radius:4px;font-size:.82em;cursor:pointer"></select>
           <button id="sdmovebtn" style="background:#3a1e2a;border:1px solid #6a3a5a;color:#e05580;padding:5px 13px;border-radius:5px;font-size:.82em;font-weight:700;cursor:pointer">\u27A1 Move (0)</button>
         </span>
-        <button id="sdprint" onclick="printScheduleDrill()" style="background:#1e2a3a;border:1px solid #3a5a6a;color:#8bc4e8;padding:6px 16px;border-radius:5px;cursor:pointer;font-weight:700;font-size:.82em">Ã°ÂÂÂ¨ Print</button>
+        <button id="sdprint" onclick="printScheduleDrill()" style="background:#1e2a3a;border:1px solid #3a5a6a;color:#8bc4e8;padding:6px 16px;border-radius:5px;cursor:pointer;font-weight:700;font-size:.82em">ÃÂ°ÃÂÃÂÃÂ¨ Print</button>
         <a id="sdtvlink" href="/tv/molds" target="_blank" style="background:#1e2a3a;border:1px solid #3a5a6a;color:#4db8ff;padding:6px 16px;border-radius:5px;cursor:pointer;font-weight:700;text-decoration:none;font-size:.82em;display:inline-flex;align-items:center;gap:4px">TV View</a>
-        <button id="sdback" style="background:#3a1e1e;border:1px solid #6a3a3a;color:#e05555;padding:6px 16px;border-radius:5px;cursor:pointer;font-weight:700">ÃÂ¢ÃÂÃÂ Back</button>
+        <button id="sdback" style="background:#3a1e1e;border:1px solid #6a3a3a;color:#e05555;padding:6px 16px;border-radius:5px;cursor:pointer;font-weight:700">ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ Back</button>
       </div>
     </div>
     <div id="sdtable"></div>
@@ -5276,7 +5313,7 @@ def api_log_history():
 
 # Production stages (mirrors JS STAGES const)
 
-# Ã¢ÂÂÃ¢ÂÂ TV Department Views Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+# ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ TV Department Views ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ
 TV_DEPTS = {
     'molds':       {'l': 'Molds',           'stage': 'molds',    'c': '#4a6fa5', 'monument': None},
     'creation':    {'l': 'Creation',        'stage': 'creation', 'c': '#7b5ea7', 'monument': None},
@@ -5476,7 +5513,7 @@ function renderView(){
   const thisWK=weekKey(thisMon);
   const nextWK=weekKey(nextMon);
 
-  // All items are schedule-driven Ã¢ÂÂ enrich with assignment data
+  // All items are schedule-driven ÃÂ¢ÃÂÃÂ enrich with assignment data
   const enriched=[];
   deptItems.forEach(it=>{
     const asg=assignments[it.job]||{};
@@ -5588,7 +5625,7 @@ function renderView(){
 
     html+='<div class="card'+(isDone?" done-card":"")+'">';
     // Checkbox on every card
-    html+='<div class="chk'+(isDone?" checked":"")+'" onclick="markDone(\''+pid+'\','+(!isDone)+')">'+(isDone?"Ã¢ÂÂ":"")+'</div>';
+    html+='<div class="chk'+(isDone?" checked":"")+'" onclick="markDone(\''+pid+'\','+(!isDone)+')">'+(isDone?"ÃÂ¢ÃÂÃÂ":"")+'</div>';
     html+='<div class="card-info">';
     html+='<div class="card-name">'+(item.name||item.description||"")+' '+badges+'</div>';
     html+='<div class="card-client">'+(item.customer||item.client||"")+'</div>';
@@ -6089,9 +6126,9 @@ def api_search():
     return jsonify(results[:50])
 
 
-# ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ
+# ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ
 # NEW FEATURE PAGES - Auto-generated
-# ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ
+# ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ
 
 _PAGE_CSS = "*{margin:0;padding:0;box-sizing:border-box}\nbody{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f1923;color:#e0e0e0;min-height:100vh}\n.container{max-width:1400px;margin:0 auto;padding:80px 20px 20px}\n.card{background:#1a2634;border:1px solid #2a3a4a;border-radius:12px;padding:20px;margin-bottom:16px}\n.card-header{font-size:18px;font-weight:700;color:#4fd1c5;margin-bottom:12px}\n.btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-size:13px;transition:all 0.2s}\n.btn-primary{background:#4fd1c5;color:#0f1923}\n.btn-primary:hover{background:#38b2ac}\n.btn-danger{background:#e53e3e;color:white}\n.btn-sm{padding:4px 10px;font-size:12px}\ninput,select,textarea{background:#0f1923;border:1px solid #2a3a4a;color:#e0e0e0;padding:8px 12px;border-radius:8px;font-size:14px;width:100%}\ninput:focus,select:focus,textarea:focus{outline:none;border-color:#4fd1c5}\ntable{width:100%;border-collapse:collapse}\nth{text-align:left;padding:10px 12px;border-bottom:2px solid #2a3a4a;color:#4fd1c5;font-size:12px;text-transform:uppercase;letter-spacing:1px}\ntd{padding:10px 12px;border-bottom:1px solid #1a2634}\ntr:hover{background:rgba(79,209,197,0.05)}\n.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}\n.stat-card{text-align:center;padding:20px}\n.stat-value{font-size:28px;font-weight:800;color:#4fd1c5}\n.stat-label{font-size:12px;color:#8a9bb0;text-transform:uppercase;letter-spacing:1px;margin-top:4px}\n.search-box{position:relative;margin-bottom:20px}\n.search-box input{padding:12px 16px;font-size:16px;border-radius:12px}\nh1{font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:2px;margin-bottom:4px}\nh2{font-size:18px;font-weight:700;color:#4fd1c5;margin-bottom:12px}\n.subtitle{font-size:14px;color:#8a9bb0}\n.grid{display:grid;gap:16px}\n.grid-2{grid-template-columns:repeat(2,1fr)}\n.grid-3{grid-template-columns:repeat(3,1fr)}\n.grid-4{grid-template-columns:repeat(4,1fr)}\n.grid-5{grid-template-columns:repeat(5,1fr)}\n@media(max-width:1024px){.grid-4,.grid-5{grid-template-columns:repeat(2,1fr)}}\n@media(max-width:768px){.grid-2,.grid-3,.grid-4,.grid-5{grid-template-columns:1fr}.container{padding:70px 10px 10px}}\n.overdue-severe{background:rgba(229,62,62,0.15)}\n.overdue-high{background:rgba(237,137,54,0.12)}\n.overdue-medium{background:rgba(236,201,75,0.1)}\n.text-red{color:#fc8181}\n.text-orange{color:#f6ad55}\n.text-yellow{color:#ecc94b}\n.text-green{color:#68d391}\n.text-teal{color:#4fd1c5}\na{color:#4fd1c5;text-decoration:none}\na:hover{text-decoration:underline}\n"
 _PAGE_NAV = "<div style=\"position:fixed;top:0;right:0;z-index:1000;display:flex;gap:8px;padding:12px 18px;flex-wrap:wrap;align-items:center;background:rgba(15,25,35,0.95);backdrop-filter:blur(8px);border-bottom-left-radius:12px\">\n<a href=\"/\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(79,209,197,0.15);color:#4fd1c5;border:1px solid rgba(79,209,197,0.3)\">&#127981; Dashboard</a>\n<a href=\"/schedule\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(79,209,197,0.15);color:#4fd1c5;border:1px solid rgba(79,209,197,0.3)\">&#128197; Schedule</a>\n<a href=\"/kpi\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(79,209,197,0.15);color:#4fd1c5;border:1px solid rgba(79,209,197,0.3)\">&#128202; KPI</a>\n<a href=\"/maintenance\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(79,209,197,0.15);color:#4fd1c5;border:1px solid rgba(79,209,197,0.3)\">&#128295; Maintenance</a>\n<a href=\"/shipping\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(79,209,197,0.15);color:#4fd1c5;border:1px solid rgba(79,209,197,0.3)\">&#128230; Shipping</a>\n<span style=\"width:1px;height:20px;background:#2a3a4a;margin:0 4px\"></span>\n<a href=\"/clients\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(255,183,77,0.12);color:#ffb74d;border:1px solid rgba(255,183,77,0.3)\">&#128101; Clients</a>\n<a href=\"/reports\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(255,183,77,0.12);color:#ffb74d;border:1px solid rgba(255,183,77,0.3)\">&#128200; Reports</a>\n<a href=\"/bottlenecks\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(255,183,77,0.12);color:#ffb74d;border:1px solid rgba(255,183,77,0.3)\">&#9888; Bottlenecks</a>\n<a href=\"/due-dates\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(255,183,77,0.12);color:#ffb74d;border:1px solid rgba(255,183,77,0.3)\">&#128197; Due Dates</a>\n<a href=\"/team\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(255,183,77,0.12);color:#ffb74d;border:1px solid rgba(255,183,77,0.3)\">&#128119; Team</a>\n<a href=\"/quality\" style=\"text-decoration:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;background:rgba(255,183,77,0.12);color:#ffb74d;border:1px solid rgba(255,183,77,0.3)\">&#9989; Quality</a>\n</div>"
