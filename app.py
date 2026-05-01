@@ -985,6 +985,7 @@ function renderBoard(){
     const overdue=sd.items.filter(i=>{const d=daysDiff(i.due);return d!==null&&d<0;}).length;
     const dueWk=sd.items.filter(i=>{const d=daysDiff(i.due);return d!==null&&d>=0&&d<=7;}).length;
     const deptRemHrs=sd.hrs;
+    // TV link slug
     const tvSlug=s.k;
     return `<div class="wacc ${isOpen}" data-stage="${s.k}" id="wacc-${s.k}">
       <div class="wacc-hdr" onclick="toggleAcc('${s.k}')">
@@ -994,9 +995,9 @@ function renderBoard(){
         <div class="wacc-stats">
           <span class="wacc-stat"><strong>${sd.items.length}</strong> items</span>
           <span class="wacc-stat val"><strong>${fmt(sd.val)}</strong></span>
-          ${deptRemHrs>0?\`<span class="wacc-stat hrs"><strong>${fmtHrs(deptRemHrs)}</strong></span>\`:''}
-          ${overdue>0?\`<span class="wacc-stat over"><strong>${overdue}</strong> overdue</span>\`:''}
-          ${dueWk>0?\`<span class="wacc-stat warn"><strong>${dueWk}</strong> due this wk</span>\`:''}
+          ${deptRemHrs>0?`<span class="wacc-stat hrs"><strong>${fmtHrs(deptRemHrs)}</strong></span>`:''}
+          ${overdue>0?`<span class="wacc-stat over"><strong>${overdue}</strong> overdue</span>`:''}
+          ${dueWk>0?`<span class="wacc-stat warn"><strong>${dueWk}</strong> due this wk</span>`:''}
         </div>
         <div class="wacc-btns" onclick="event.stopPropagation()">
           <a class="wacc-tv" href="/tv/${tvSlug}" target="_blank">&#128250; TV</a>
@@ -1011,22 +1012,22 @@ function renderBoard(){
             const priCls=pri===1?' pri-1':pri===2?' pri-2':'';
             const pct=stagePct(item);const pctColor=pct>=100?'#5a9e5a':pct>=50?'#e8a838':'#8b9dc3';
             const isScheduled=_scheduleData[item.job]&&_scheduleData[item.job].week;
-            return \`<div class="wcard${priCls}" data-job="${item.job}" style="border-left-color:${pri?'':s.c}" oncontextmenu="cyclePri('${item.job}',event)">
+            return `<div class="wcard${priCls}" data-job="${item.job}" style="border-left-color:${pri?'':s.c}" oncontextmenu="cyclePri('${item.job}',event)">
               ${priLabel(item.job)}
               <div class="wctitle">#${item.job} ${item.name}${item.monument?'<span class="wcmon">MON</span>':''}</div>
               <div class="wclient">${item.customer||''}</div>
               <div class="wcmeta">
-                ${item.edition?\\\`<span style="color:#555;font-size:.82em">Ed.${item.edition}</span>\\\`:''}
-                ${dl?\\\`<span class="wcdue ${dl.c}">${dl.t}</span>\\\`:''}
-                ${item.price?\\\`<span class="wcprice">${fmt(item.price)}</span>\\\`:''}
+                ${item.edition?`<span style="color:#555;font-size:.82em">Ed.${item.edition}</span>`:''}
+                ${dl?`<span class="wcdue ${dl.c}">${dl.t}</span>`:''}
+                ${item.price?`<span class="wcprice">${fmt(item.price)}</span>`:''}
                 ${schedBadge(item.job)}
               </div>
               <div style="display:flex;align-items:center;gap:4px;margin-top:3px">
                 <div style="flex:1;height:3px;background:#1a1d27;border-radius:2px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${pctColor};border-radius:2px;transition:width .3s"></div></div>
                 ${pct>0?'<span style="font-size:.7em;color:'+pctColor+';font-weight:700;min-width:22px;text-align:right">'+pct+'%</span>':''}
-                ${isScheduled?'':'<button onclick="addOneToWeek(\\''+item.job+'\\',event)" style="padding:1px 5px;background:#1e2a3a;border:1px solid #2a3a5a;color:#4db8b8;border-radius:3px;cursor:pointer;font-size:.6em;white-space:nowrap;font-weight:600;letter-spacing:.3px;opacity:.7;transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.7">SCHED</button>'}
+                ${isScheduled?'':'<button onclick="addOneToWeek(\''+item.job+'\',event)" style="padding:1px 5px;background:#1e2a3a;border:1px solid #2a3a5a;color:#4db8b8;border-radius:3px;cursor:pointer;font-size:.6em;white-space:nowrap;font-weight:600;letter-spacing:.3px;opacity:.7;transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.7">SCHED</button>'}
               </div>
-            </div>\`;
+            </div>`;
           }).join('')}
         </div>
       </div>
@@ -1042,8 +1043,7 @@ function toggleAcc(k){
   if(el)el.classList.toggle('open');
 }
 
-
-// &#x2500;&#x2500; Drag & Drop + Batch Move &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
+// ── Drag & Drop + Batch Move ──────────────────────────────────────────────
 let _selectedJobs = new Set();
 let _moveToolbarEl = null;
 
