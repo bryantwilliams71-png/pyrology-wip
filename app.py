@@ -2135,12 +2135,12 @@ MAINTENANCE_HTML = r"""<!DOCTYPE html>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#f5f5f7;color:#1d1d1f;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh}
-#mtop{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:#161822;border-bottom:1px solid rgba(0,0,0,.06)}
+#mtop{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:#fff;border-bottom:1px solid #d2d2d7}
 #mtop h1{font-size:.95em;font-weight:700;letter-spacing:.5px;color:#1d1d1f}
 #mtop h1 span{display:block;font-size:.78em;font-weight:400;color:#86868b;margin-top:2px}
 .nav-links{display:flex;gap:8px}
 .nav-link{display:inline-flex;align-items:center;gap:5px;background:rgba(0,0,0,.04);border:none;color:#1d1d1f;text-decoration:none;padding:6px 14px;border-radius:980px;font-size:.82em;font-weight:500;transition:background .15s}
-.nav-link:hover{background:#2a3a5a}
+.nav-link:hover{background:rgba(0,0,0,.08)}
 #mbody{padding:16px 18px;max-width:1400px;margin:0 auto}
 
 /* Form */
@@ -2155,7 +2155,7 @@ body{background:#f5f5f7;color:#1d1d1f;font-family:-apple-system,BlinkMacSystemFo
 .form-group textarea{resize:vertical;min-height:70px}
 .form-group select{cursor:pointer}
 .form-actions{display:flex;gap:10px;margin-top:14px;align-items:center}
-.btn-submit{background:#ff9500;border:none;color:#000;padding:9px 24px;border-radius:6px;cursor:pointer;font-size:.88em;font-weight:700;letter-spacing:.5px;transition:background .15s}
+.btn-submit{background:#ff9500;border:none;color:#fff;padding:9px 24px;border-radius:6px;cursor:pointer;font-size:.88em;font-weight:700;letter-spacing:.5px;transition:background .15s}
 .btn-submit:hover{background:#ffbb44}
 .btn-submit:disabled{opacity:.5;cursor:not-allowed}
 .form-msg{font-size:.82em;color:#34c759;min-height:1.2em}
@@ -2171,12 +2171,12 @@ body{background:#f5f5f7;color:#1d1d1f;font-family:-apple-system,BlinkMacSystemFo
 .filter-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
 .filter-btn{background:#fff;border:1px solid rgba(0,0,0,.06);color:#86868b;padding:6px 14px;border-radius:5px;cursor:pointer;font-size:.78em;font-weight:700;letter-spacing:.5px;transition:all .15s}
 .filter-btn:hover{background:#f5f5f7;color:#1d1d1f}
-.filter-btn.active{background:#2a3a5a;color:#007aff;border-color:#3a5a8a}
+.filter-btn.active{background:#007aff;color:#fff;border-color:#007aff}
 .filter-count{font-size:.78em;color:#86868b;margin-left:auto}
 
 /* Request cards */
 .req-card{background:#fff;border:1px solid rgba(0,0,0,.06);border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06);padding:14px 16px;margin-bottom:10px;transition:border-color .15s}
-.req-card:hover{border-color:#3a4a5a}
+.req-card:hover{border-color:#007aff}
 .req-card.status-open{border-left:3px solid #e8a838}
 .req-card.status-in_progress{border-left:3px solid #4db8b8}
 .req-card.status-resolved{border-left:3px solid #5a9e5a}
@@ -2186,12 +2186,12 @@ body{background:#f5f5f7;color:#1d1d1f;font-family:-apple-system,BlinkMacSystemFo
 .req-meta{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px}
 .req-tag{font-size:.72em;font-weight:700;padding:2px 8px;border-radius:3px;text-transform:uppercase;letter-spacing:.4px}
 .tag-priority-low{background:rgba(52,199,89,.06);color:#34c759;border:1px solid rgba(52,199,89,.2)}
-.tag-priority-medium{background:#2a2a1a;color:#ff9500;border:1px solid #6a5a1a}
-.tag-priority-high{background:rgba(255,59,48,.06);color:#ff3b30;border:1px solid #6a2a2a}
-.tag-priority-critical{background:#3a0a0a;color:#ff6a6a;border:1px solid #8a2a2a;animation:pulse 2s infinite}
+.tag-priority-medium{background:rgba(255,149,0,.08);color:#bf6d00;border:1px solid rgba(255,149,0,.2)}
+.tag-priority-high{background:rgba(255,59,48,.06);color:#ff3b30;border:1px solid rgba(255,59,48,.2)}
+.tag-priority-critical{background:rgba(255,59,48,.1);color:#ff3b30;border:1px solid rgba(255,59,48,.3);animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
 .tag-status{font-size:.72em;font-weight:700;padding:2px 8px;border-radius:3px;letter-spacing:.4px}
-.tag-open{background:#2a2a1a;color:#ff9500;border:1px solid #6a5a1a}
+.tag-open{background:rgba(255,149,0,.08);color:#bf6d00;border:1px solid rgba(255,149,0,.2)}
 .tag-in_progress{background:rgba(0,122,255,.06);color:#007aff;border:1px solid rgba(0,122,255,.2)}
 .tag-resolved{background:rgba(52,199,89,.06);color:#34c759;border:1px solid rgba(52,199,89,.2)}
 .req-dept{font-size:.72em;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(0,122,255,.06);color:#007aff;border:1px solid rgba(0,122,255,.2);text-transform:uppercase;letter-spacing:.4px}
@@ -2224,7 +2224,7 @@ body{background:#f5f5f7;color:#1d1d1f;font-family:-apple-system,BlinkMacSystemFo
     <a href="/" class="nav-link">&#x1F3ED; Dashboard</a>
     <a href="/schedule" class="nav-link" style="color:#1d1d1f">&#x1F4C5; Schedule</a>
     <a href="/kpi" class="nav-link">&#x1F4CA; KPI</a>
-    <a href="/shipping" class="nav-link" style="color:#7aa8e8;border-color:#3a5a8a">&#x1F4E6; Shipping</a>
+    <a href="/shipping" class="nav-link">&#x1F4E6; Shipping</a>
   </div>
 </div>
 <div id="mbody">
