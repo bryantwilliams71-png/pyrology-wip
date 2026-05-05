@@ -1766,7 +1766,7 @@ function loadData(){
   fetch('/api/wip').then(r=>r.json()).then(d=>{
     if(d.error){
       document.getElementById('werr').style.display='block';
-      document.getElementById('werr').textContent='&#9888; '+d.error;
+      document.getElementById('werr').innerHTML='&#9888; '+d.error;
     } else {
       document.getElementById('werr').style.display='none';
     }
@@ -1778,11 +1778,11 @@ function loadData(){
       _items=d.items;
       renderBoard();
       if(_drillStage)renderDrill();
-      document.getElementById('wlive').textContent='&#9679; Live &middot; Updated '+new Date(d.updated).toLocaleTimeString();
+      document.getElementById('wlive').innerHTML='&#9679; Live &middot; Updated '+new Date(d.updated).toLocaleTimeString();
     }
   }).catch(()=>{
     document.getElementById('werr').style.display='block';
-    document.getElementById('werr').textContent='&#9888; Cannot reach server.';
+    document.getElementById('werr').innerHTML='&#9888; Cannot reach server.';
   });
 }
 loadData();
@@ -1949,7 +1949,7 @@ function renderKPI(data){
   const entries = data.entries || [];
   const weekStart = data.week_start || '';
 
-  document.getElementById('kweek-label').textContent = 'Week of ' + weekRange(weekStart);
+  document.getElementById('kweek-label').innerHTML = 'Week of ' + weekRange(weekStart);
   document.getElementById('kweek-sub').textContent = weekStart ? 'Mon ' + weekStart + ' through Sun' : '';
 
   // dept totals
@@ -4029,7 +4029,7 @@ function renderDrill(){
   const valColor=valPct>=80?'#5a9e5a':valPct>=50?'#e8a838':stg.c;
   const hrsColor=hrsPct>=80?'#5a9e5a':hrsPct>=50?'#e8a838':'#ffd580';
 
-  document.getElementById('sdtitle').textContent=stg.l+(_drillWeek&&_drillWeek!=='unscheduled'?' &mdash; '+weekLabel(_drillWeek):_drillWeek==='unscheduled'?' &mdash; Unscheduled':'');
+  document.getElementById('sdtitle').innerHTML=stg.l+(_drillWeek&&_drillWeek!=='unscheduled'?' &mdash; '+weekLabel(_drillWeek):_drillWeek==='unscheduled'?' &mdash; Unscheduled':'');
 
   // Split items into monument and small groups
   const monItems=sorted.filter(i=>i.monument);
@@ -4609,7 +4609,7 @@ function requestLock(dept,week){
   const rd=realDeptKey(dept);
   _pendingAction={type:'lock',dept:rd,week,jobs:[]};
   document.getElementById('modal-title').textContent='Close Week';
-  document.getElementById('modal-desc').textContent='Lock '+(STAGE_MAP[dept]||{l:dept}).l+' &mdash; '+weekLabel(week);
+  document.getElementById('modal-desc').innerHTML='Lock '+(STAGE_MAP[dept]||{l:dept}).l+' &mdash; '+weekLabel(week);
   document.getElementById('move-target-wrap').style.display='none';
   document.getElementById('pin-input').value='';
   document.getElementById('pin-input').classList.remove('error');
@@ -4620,7 +4620,7 @@ function requestUnlock(dept,week){
   const rd=realDeptKey(dept);
   _pendingAction={type:'unlock',dept:rd,week,jobs:[]};
   document.getElementById('modal-title').textContent='Reopen Week';
-  document.getElementById('modal-desc').textContent='Unlock '+(STAGE_MAP[dept]||{l:dept}).l+' &mdash; '+weekLabel(week);
+  document.getElementById('modal-desc').innerHTML='Unlock '+(STAGE_MAP[dept]||{l:dept}).l+' &mdash; '+weekLabel(week);
   document.getElementById('move-target-wrap').style.display='none';
   document.getElementById('pin-input').value='';
   document.getElementById('pin-input').classList.remove('error');
